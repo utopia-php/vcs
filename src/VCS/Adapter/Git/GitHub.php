@@ -8,19 +8,14 @@ use Utopia\VCS\Adapter\Git;
 class GitHub extends Git
 {
     /**
-     * @var HttpClient
+     * @var string
      */
-    protected $httpClient;
+    protected $endpoint = 'https://api.github.com';
 
     /**
      * @var string
      */
-    protected $apiUrl = 'https://api.github.com/';
-
-    /**
-     * @var array
-     */
-    protected $user = [];
+    protected $user;
 
     /**
      * @var string
@@ -68,69 +63,31 @@ class GitHub extends Git
     }
 
     /**
-     * Get HTTP client
+     * Get user
      *
-     * @return HttpClient
-     */
-    public function getHttpClient(): HttpClient
-    {
-        return $this->httpClient;
-    }
-
-    /**
-     * Set HTTP client
-     *
-     * @param HttpClient $httpClient
-     */
-    public function setHttpClient(HttpClient $httpClient)
-    {
-        $this->httpClient = $httpClient;
-    }
-
-    /**
-     * Send a request to the GitHub API
-     *
-     * @param string $method
-     * @param string $url
-     * @param array $headers
-     * @param array|null $body
-     * @return HttpClientResponse
+     * @param string $owner
+     * @return array
      * @throws Exception
      */
-    public function request(string $method, string $url, array $headers = [], ?array $body = null): HttpClientResponse
+    public function getUser(string $owner): array
     {
-        if (!$this->accessToken) {
-            throw new Exception('Access token not set');
-        }
-
-        $headers['Authorization'] = 'token ' . $this->accessToken;
-
-        try {
-            $request = new HttpClientRequest($method, $url, $headers, $body);
-            $response = $this->httpClient->send($request);
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage(), $e->getCode(), $e);
-        }
-
-        if ($response->getStatusCode() >= 400) {
-            throw new Exception($response->getBody(), $response->getStatusCode());
-        }
+        $response = $this->call(self::METHOD_GET, '/users/' . urlencode($owner), ['content-type' => 'application/json']);
 
         return $response;
     }
 
-
     /**
      * List repositories
      *
+     * @param string $owner
      * @return array
      * @throws Exception
      */
-    public function listRepositories(): array
+    public function listRepositories(string $owner): array
     {
-        $response = $this->request('GET', 'https://api.github.com/user/repos');
+        $response = $this->call(self::METHOD_GET, '/users/'. urlencode($owner) .'/repos', ['content-type' => 'application/json']);
 
-        return json_decode($response->getBody(), true);
+        return $response;
     }
 
     /**
@@ -143,8 +100,8 @@ class GitHub extends Git
      */
     public function getRepository(string $owner, string $repo): array
     {
-        $response = $this->request('GET', 'https://api.github.com/repos/' . urlencode($owner) . '/' . urlencode($repo));
+        $response = $this->call(self::METHOD_GET, '/repos/' . urlencode($owner) . '/' . urlencode($repo), ['content-type' => 'application/json']);
 
-        return json_decode($response->getBody(), true);
+        return $response;
     }
 }

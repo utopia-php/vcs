@@ -14,7 +14,7 @@ class GitHubTest extends TestCase
     {
         $privateKey = App::getEnv("GITHUB_PRIVATE_KEY");
         $githubAppId = App::getEnv("GITHUB_APP_IDENTIFIER");
-        $installationId = "1234";
+        $installationId = "1234"; //your GitHub App Installation ID here
         $this->github = new GitHub("vermakhushboo", $installationId, $privateKey, $githubAppId);
     }
 
@@ -25,7 +25,7 @@ class GitHubTest extends TestCase
 
     public function testListRepositoriesForGitHubApp(): void
     {
-        $this->github->listRepositoriesForGitHubApp();
+        $repos = $this->github->listRepositoriesForGitHubApp();
     }
 
     public function testGetRepository(): void

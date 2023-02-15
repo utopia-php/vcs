@@ -1,0 +1,14 @@
+version: '3.9'
+
+services:
+  tests:
+    build:
+      context: .
+    volumes:
+      - ./src:/usr/local/src/src
+      - ./tests:/usr/local/src/tests
+      - ./phpunit.xml:/usr/local/src/phpunit.xml
+    environment:
+      - GITHUB_PRIVATE_KEY
+      - GITHUB_APP_IDENTIFIER
+      - GITHUB_WEBHOOK_SECRET

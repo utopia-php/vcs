@@ -38,9 +38,6 @@ class GitHub extends Git
     /**
      * GitHub constructor.
      *
-     * @param user
-     * @param string $userName The username of account which has installed GitHub app
-     * @param string $installationId Installation ID of the GitHub App
      */
     public function __construct(string $userName, string $installationId, string $privateKey, string $githubAppId)
     {
@@ -115,7 +112,7 @@ class GitHub extends Git
     }
 
     /**
-     * List repositories
+     * List repositories for GitHub App
      *
      * @return array
      * @throws Exception

@@ -3,6 +3,7 @@
 namespace Utopia\VCS\Adapter\Git;
 
 use Exception;
+use Ahc\Jwt\JWT;
 use Utopia\VCS\Adapter\Git;
 
 class GitHub extends Git
@@ -21,6 +22,65 @@ class GitHub extends Git
      * @var string
      */
     protected $accessToken;
+
+    /**
+     * @var string
+     */
+    protected $installationId;
+
+    /**
+     * Global Headers
+     *
+     * @var array
+     */
+    protected $headers = ['content-type' => 'application/json'];
+
+    /**
+     * GitHub constructor.
+     *
+     * @param user
+     * @param string $userName The username of account which has installed GitHub app
+     * @param string $installationId Installation ID of the GitHub App
+     */
+    public function __construct(string $userName, string $installationId, string $privateKey, string $githubAppId)
+    {
+        // Set user name
+        $this->user = $userName;
+
+        // Set installation id
+        $this->installationId = $installationId;
+
+        $this->generateAccessToken($privateKey, $githubAppId);
+    }
+
+    /**
+     * Generate Access Token
+     *
+     * @param string $userName The username of account which has installed GitHub app
+     * @param string $installationId Installation ID of the GitHub App
+     */
+    protected function generateAccessToken(string $privateKey, string $githubAppId)
+    {
+        // fetch env variables from .env file
+        $privateKeyString = $privateKey;
+        $privateKey = openssl_pkey_get_private($privateKeyString);
+        $appIdentifier = $githubAppId;
+
+        $iat = time();
+        $exp = $iat + 10 * 60;
+        $payload = [
+            'iat' => $iat,
+            'exp' => $exp,
+            'iss' => $appIdentifier,
+        ];
+
+        // generate access token
+        $jwt = new JWT($privateKey, 'RS256');
+        $token = $jwt->encode($payload);
+        $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
+        $this->accessToken = $res['body']['token'];
+        var_dump($this->accessToken);
+    }
 
     /**
      * Get Adapter Name
@@ -43,65 +103,51 @@ class GitHub extends Git
     }
 
     /**
-     * Set access token
-     *
-     * @param string $accessToken
-     */
-    public function setAccessToken(string $accessToken)
-    {
-        $this->accessToken = $accessToken;
-    }
-
-    /**
-     * Get access token
-     *
-     * @return string
-     */
-    public function getAccessToken(): string
-    {
-        return $this->accessToken;
-    }
-
-    /**
      * Get user
      *
-     * @param string $owner
      * @return array
      * @throws Exception
      */
-    public function getUser(string $owner): array
+    public function getUser(): array
     {
-        $response = $this->call(self::METHOD_GET, '/users/' . urlencode($owner), ['content-type' => 'application/json']);
-
+        $response = $this->call(self::METHOD_GET, '/users/' . $this->user);
         return $response;
     }
 
     /**
      * List repositories
      *
-     * @param string $owner
      * @return array
      * @throws Exception
      */
-    public function listRepositories(string $owner): array
+    public function listRepositoriesForGitHubApp(): array
     {
-        $response = $this->call(self::METHOD_GET, '/users/'. urlencode($owner) .'/repos', ['content-type' => 'application/json']);
+        $response = $this->call(self::METHOD_GET, '/installation/repositories', ["Authorization" => "Bearer $this->accessToken"]);
 
-        return $response;
+        return $response['body']['repositories'];
     }
 
     /**
-     * Get repository
+     * Add Comment to Pull Request
      *
-     * @param string $owner
-     * @param string $repo
      * @return array
      * @throws Exception
      */
-    public function getRepository(string $owner, string $repo): array
+    public function addComment($repoName, $pullRequestNumber)
     {
-        $response = $this->call(self::METHOD_GET, '/repos/' . urlencode($owner) . '/' . urlencode($repo), ['content-type' => 'application/json']);
+        $this->call(self::METHOD_POST, '/repos/' . $this->user . '/' . $repoName . '/issues/' . $pullRequestNumber . '/comments', ["Authorization" => "Bearer $this->accessToken"], ["body" => "hello from Utopia!"]);
+        return;
+    }
 
-        return $response;
+    /**
+     * Update Pull Request Comment
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function updateComment($repoName, $commentId)
+    {
+        $this->call(self::METHOD_PATCH, '/repos/' . $this->user . '/' . $repoName . '/issues/comments/' . $commentId, ["Authorization" => "Bearer $this->accessToken"], ["body" => "update from Utopia!"]);
+        return;
     }
 }

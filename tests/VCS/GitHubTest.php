@@ -3,26 +3,43 @@
 namespace Utopia\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Utopia\App;
 use Utopia\VCS\Adapter\Git\GitHub;
 
-class GitHubTest extends TestCase 
+class GitHubTest extends TestCase
 {
-    public function testGetUser(): void
+    protected $github;
+
+    public function setUp(): void
     {
-        $github = new GitHub();
-        $userDetails = $github->getUser("vermakhushboo");
+        $privateKey = App::getEnv("GITHUB_PRIVATE_KEY");
+        $githubAppId = App::getEnv("GITHUB_APP_IDENTIFIER");
+        $installationId = "1234";
+        $this->github = new GitHub("vermakhushboo", $installationId, $privateKey, $githubAppId);
     }
 
-    public function testListRepositories(): void
+    public function testGetUser(): void
     {
-        $github = new GitHub();
-        $repos = $github->listRepositories("vermakhushboo");
+        $this->github->getUser();
+    }
+
+    public function testListRepositoriesForGitHubApp(): void
+    {
+        $this->github->listRepositoriesForGitHubApp();
     }
 
     public function testGetRepository(): void
     {
-        $github = new GitHub();
-        $repoDetails = $github->getRepository("vermakhushboo", "TodoApp");
-        var_dump($repoDetails);
+        $this->github->getRepository("TodoApp");
+    }
+
+    public function testAddComment(): void
+    {
+        $this->github->addComment("basic-js-crud", 1);
+    }
+
+    public function testUpdateComment(): void
+    {
+        $this->github->updateComment("basic-js-crud", 1431560395);
     }
 }

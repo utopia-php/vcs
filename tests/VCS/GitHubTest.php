@@ -28,11 +28,6 @@ class GitHubTest extends TestCase
         $repos = $this->github->listRepositoriesForGitHubApp();
     }
 
-    public function testGetRepository(): void
-    {
-        $this->github->getRepository("TodoApp");
-    }
-
     public function testAddComment(): void
     {
         $this->github->addComment("basic-js-crud", 1);
@@ -41,5 +36,14 @@ class GitHubTest extends TestCase
     public function testUpdateComment(): void
     {
         $this->github->updateComment("basic-js-crud", 1431560395);
+    }
+
+    public function testDownloadRepositoryZip(): void
+    {
+        // download the zip archive of the repo
+        $zipContents = $this->github->downloadRepositoryZip("gatsby-ecommerce-theme", "main");
+
+        // Save the ZIP archive to a file
+        file_put_contents('hello-world.zip', $zipContents);
     }
 }

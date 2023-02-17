@@ -119,7 +119,9 @@ class GitHub extends Git
      */
     public function listRepositoriesForGitHubApp(): array
     {
-        $response = $this->call(self::METHOD_GET, '/installation/repositories', ["Authorization" => "Bearer $this->accessToken"]);
+        $url = '/installation/repositories';
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
 
         return $response['body']['repositories'];
     }
@@ -132,7 +134,10 @@ class GitHub extends Git
      */
     public function addComment($repoName, $pullRequestNumber)
     {
-        $this->call(self::METHOD_POST, '/repos/' . $this->user . '/' . $repoName . '/issues/' . $pullRequestNumber . '/comments', ["Authorization" => "Bearer $this->accessToken"], ["body" => "hello from Utopia!"]);
+        $url = '/repos/' . $this->user . '/' . $repoName . '/issues/' . $pullRequestNumber . '/comments';
+
+        $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => "hello from Utopia!"]);
+
         return;
     }
 
@@ -144,7 +149,34 @@ class GitHub extends Git
      */
     public function updateComment($repoName, $commentId)
     {
-        $this->call(self::METHOD_PATCH, '/repos/' . $this->user . '/' . $repoName . '/issues/comments/' . $commentId, ["Authorization" => "Bearer $this->accessToken"], ["body" => "update from Utopia!"]);
+        $url = '/repos/' . $this->user . '/' . $repoName . '/issues/comments/' . $commentId;
+
+        $this->call(self::METHOD_PATCH, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => "update from Utopia!"]);
+
         return;
+    }
+
+    /**
+     * Downloads a ZIP archive of a repository.
+     *
+     * @param string $repo The name of the repository.
+     * @param string $ref The name of the commit, branch, or tag to download.
+     * @param string $path The path of the file or directory to download. Optional.
+     * @return string The contents of the ZIP archive as a string.
+     */
+    public function downloadRepositoryZip(string $repoName, string $ref, string $path = ''): string
+    {
+        // Build the URL for the API request
+        $url = "/repos/" . $this->user . "/{$repoName}/zipball/{$ref}";
+
+        // Add the path parameter to the URL query parameters, if specified
+        if (!empty($path)) {
+            $url .= "?path={$path}";
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        // Return the contents of the ZIP archive
+        return $response['body'];
     }
 }

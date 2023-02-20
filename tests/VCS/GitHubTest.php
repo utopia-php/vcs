@@ -44,6 +44,12 @@ class GitHubTest extends TestCase
         $zipContents = $this->github->downloadRepositoryZip("gatsby-ecommerce-theme", "main");
 
         // Save the ZIP archive to a file
-        file_put_contents('hello-world.zip', $zipContents);
+        file_put_contents('./desktop/hello-world.zip', $zipContents);
+    }
+
+    public function testForkRepository(): void
+    {
+        // Fork a repository into authenticated user's account with custom name
+        $response = $this->github->forkRepository("appwrite", "demos-for-astro", name: "fork-api-test-clone");
     }
 }

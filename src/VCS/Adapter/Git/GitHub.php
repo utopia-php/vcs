@@ -179,4 +179,31 @@ class GitHub extends Git
         // Return the contents of the ZIP archive
         return $response['body'];
     }
+
+    /**
+     * Forks a repository on GitHub.
+     *
+     * @param string $owner The owner of the repository to fork.
+     * @param string $repo The name of the repository to fork.
+     * @param string|null $organization The name of the organization to fork the repository into. If not provided, the repository will be forked into the authenticated user's account.
+     * @param string|null $name The name of the new forked repository. If not provided, the name will be the same as the original repository.
+     * @param bool $defaultBranchOnly Whether to include only the default branch in the forked repository. Defaults to false.
+     *
+     * @return array|null The data of the newly forked repository, or null if the fork operation failed.
+     */
+    public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?array
+    {
+        $url = "/repos/$owner/$repo/forks";
+        
+        // Create the payload data for the API request
+        $data = [
+            'organization' => $organization,
+            'name' => $name,
+            'default_branch_only' => $defaultBranchOnly,
+        ];
+        
+        // Send the API request to fork the repository
+        $response = $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], $data);
+        return $response['body'];
+    }
 }

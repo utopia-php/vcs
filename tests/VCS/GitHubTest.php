@@ -47,6 +47,15 @@ class GitHubTest extends TestCase
         file_put_contents('./desktop/hello-world.zip', $zipContents);
     }
 
+    public function testDownloadRepositoryTar():void
+    {
+        // download the tar archive of the repo
+        $tarContents = $this->github->downloadRepositoryTar("gatsby-ecommerce-theme", "main");
+
+        // Save the ZIP archive to a file
+        file_put_contents('./desktop/hello-world1.tar', $tarContents);
+    }
+
     public function testForkRepository(): void
     {
         // Fork a repository into authenticated user's account with custom name

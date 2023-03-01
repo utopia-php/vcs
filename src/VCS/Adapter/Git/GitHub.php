@@ -181,6 +181,24 @@ class GitHub extends Git
     }
 
     /**
+     * Downloads a tar archive of a repository.
+     *
+     * @param string $repo The name of the repository.
+     * @param string $ref The name of the commit, branch, or tag to download.
+     * @return string The contents of the tar archive as a string.
+     */
+    public function downloadRepositoryTar(string $repoName, string $ref): string
+    {
+        // Build the URL for the API request
+        $url = "/repos/" . $this->user . "/{$repoName}/tarball/{$ref}";
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        // Return the contents of the tar archive
+        return $response['body'];
+    }
+
+    /**
      * Forks a repository on GitHub.
      *
      * @param string $owner The owner of the repository to fork.

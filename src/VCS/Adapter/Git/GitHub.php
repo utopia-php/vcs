@@ -1,0 +1,250 @@
+<?php
+
+namespace Utopia\VCS\Adapter\Git;
+
+use Exception;
+use Ahc\Jwt\JWT;
+use Utopia\VCS\Adapter\Git;
+
+class GitHub extends Git
+{
+    /**
+     * @var string
+     */
+    protected $endpoint = 'https://api.github.com';
+
+    /**
+     * @var string
+     */
+    protected $user;
+
+    /**
+     * @var string
+     */
+    protected $accessToken;
+
+    /**
+     * @var string
+     */
+    protected $installationId;
+
+    /**
+     * Global Headers
+     *
+     * @var array
+     */
+    protected $headers = ['content-type' => 'application/json'];
+
+    /**
+     * GitHub constructor.
+     *
+     */
+    public function __construct(string $installationId, string $privateKey, string $githubAppId, string $userName = "")
+    {
+        // Set user name
+        $this->user = $userName;
+
+        // Set installation id
+        $this->installationId = $installationId;
+
+        $this->generateAccessToken($privateKey, $githubAppId);
+    }
+
+    /**
+     * Generate Access Token
+     *
+     * @param string $userName The username of account which has installed GitHub app
+     * @param string $installationId Installation ID of the GitHub App
+     */
+    protected function generateAccessToken(string $privateKey, string $githubAppId)
+    {
+        // fetch env variables from .env file
+        $privateKeyString = $privateKey;
+        $privateKey = openssl_pkey_get_private($privateKeyString);
+        $appIdentifier = $githubAppId;
+
+        $iat = time();
+        $exp = $iat + 10 * 60;
+        $payload = [
+            'iat' => $iat,
+            'exp' => $exp,
+            'iss' => $appIdentifier,
+        ];
+
+        // generate access token
+        $jwt = new JWT($privateKey, 'RS256');
+        $token = $jwt->encode($payload);
+        $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
+        $this->accessToken = $res['body']['token'];
+        var_dump($this->accessToken);
+    }
+
+    /**
+     * Get Adapter Name
+     * 
+     * @return string
+     */
+    public function getName(): string
+    {
+        return "github";
+    }
+
+    /**
+     * Is Git Flow
+     * 
+     * @return bool
+     */
+    public function isGitFlow(): bool
+    {
+        return true; // false for manual adapter - flow is way simpler. No auth, no branch selecting, ...
+    }
+
+    /**
+     * Get user
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function getUser(): array
+    {
+        $response = $this->call(self::METHOD_GET, '/users/' . $this->user);
+        return $response;
+    }
+
+    /**
+     * List repositories for GitHub App
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function listRepositoriesForGitHubApp(): array
+    {
+        $url = '/installation/repositories';
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        return $response['body']['repositories'];
+    }
+
+    /**
+     * Add Comment to Pull Request
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function addComment($repoName, $pullRequestNumber)
+    {
+        $url = '/repos/' . $this->user . '/' . $repoName . '/issues/' . $pullRequestNumber . '/comments';
+
+        $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => "hello from Utopia!"]);
+
+        return;
+    }
+
+    /**
+     * Update Pull Request Comment
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function updateComment($repoName, $commentId)
+    {
+        $url = '/repos/' . $this->user . '/' . $repoName . '/issues/comments/' . $commentId;
+
+        $this->call(self::METHOD_PATCH, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => "update from Utopia!"]);
+
+        return;
+    }
+
+    /**
+     * Downloads a ZIP archive of a repository.
+     *
+     * @param string $repo The name of the repository.
+     * @param string $ref The name of the commit, branch, or tag to download.
+     * @param string $path The path of the file or directory to download. Optional.
+     * @return string The contents of the ZIP archive as a string.
+     */
+    public function downloadRepositoryZip(string $repoName, string $ref, string $path = ''): string
+    {
+        // Build the URL for the API request
+        $url = "/repos/" . $this->user . "/{$repoName}/zipball/{$ref}";
+
+        // Add the path parameter to the URL query parameters, if specified
+        if (!empty($path)) {
+            $url .= "?path={$path}";
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        // Return the contents of the ZIP archive
+        return $response['body'];
+    }
+
+    /**
+     * Downloads a tar archive of a repository.
+     *
+     * @param string $repo The name of the repository.
+     * @param string $ref The name of the commit, branch, or tag to download.
+     * @return string The contents of the tar archive as a string.
+     */
+    public function downloadRepositoryTar(string $repoName, string $ref): string
+    {
+        // Build the URL for the API request
+        $url = "/repos/" . $this->user . "/{$repoName}/tarball/{$ref}";
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        // Return the contents of the tar archive
+        return $response['body'];
+    }
+
+    /**
+     * Forks a repository on GitHub.
+     *
+     * @param string $owner The owner of the repository to fork.
+     * @param string $repo The name of the repository to fork.
+     * @param string|null $organization The name of the organization to fork the repository into. If not provided, the repository will be forked into the authenticated user's account.
+     * @param string|null $name The name of the new forked repository. If not provided, the name will be the same as the original repository.
+     * @param bool $defaultBranchOnly Whether to include only the default branch in the forked repository. Defaults to false.
+     *
+     * @return array|null The data of the newly forked repository, or null if the fork operation failed.
+     */
+    public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?array
+    {
+        $url = "/repos/$owner/$repo/forks";
+        
+        // Create the payload data for the API request
+        $data = [
+            'organization' => $organization,
+            'name' => $name,
+            'default_branch_only' => $defaultBranchOnly,
+        ];
+        
+        // Send the API request to fork the repository
+        $response = $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], $data);
+        return $response['body'];
+    }
+
+    /**
+     * Generates a git clone command using app access token
+     *
+     * @param string $repoUrl The URL of the repo to be cloned
+     *
+     * @return string The git clone command as a string
+     */
+    public function generateGitCloneCommand(string $repoUrl) {
+        // Split the repository URL into its parts
+        $parts = parse_url($repoUrl);
+        
+        // Get the owner and repository name from the URL
+        $pathParts = explode('/', $parts['path']);
+        
+        // Construct the clone URL with the access token
+        $cloneUrl = str_replace("https://", "https://{$this->accessToken}@", $repoUrl);
+        
+        // Construct the Git clone command with the clone URL
+        $command = "git clone {$cloneUrl}";
+        
+        return $command;
+    }
+}

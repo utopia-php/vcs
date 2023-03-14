@@ -39,7 +39,7 @@ class GitHub extends Git
      * GitHub constructor.
      *
      */
-    public function __construct(string $userName, string $installationId, string $privateKey, string $githubAppId)
+    public function __construct(string $installationId, string $privateKey, string $githubAppId, string $userName = "")
     {
         // Set user name
         $this->user = $userName;

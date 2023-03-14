@@ -15,7 +15,7 @@ class GitHubTest extends TestCase
         $privateKey = App::getEnv("GITHUB_PRIVATE_KEY");
         $githubAppId = App::getEnv("GITHUB_APP_IDENTIFIER");
         $installationId = "1234"; //your GitHub App Installation ID here
-        $this->github = new GitHub("vermakhushboo", $installationId, $privateKey, $githubAppId);
+        $this->github = new GitHub($installationId, $privateKey, $githubAppId, "vermakhushboo");
     }
 
     public function testGetUser(): void
@@ -52,7 +52,7 @@ class GitHubTest extends TestCase
         // download the tar archive of the repo
         $tarContents = $this->github->downloadRepositoryTar("gatsby-ecommerce-theme", "main");
 
-        // Save the ZIP archive to a file
+        // Save the TAR archive to a file
         file_put_contents('./desktop/hello-world1.tar', $tarContents);
     }
 

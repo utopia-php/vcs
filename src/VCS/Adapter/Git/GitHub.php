@@ -224,4 +224,27 @@ class GitHub extends Git
         $response = $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], $data);
         return $response['body'];
     }
+
+    /**
+     * Generates a git clone command using app access token
+     *
+     * @param string $repoUrl The URL of the repo to be cloned
+     *
+     * @return string The git clone command as a string
+     */
+    public function generateGitCloneCommand(string $repoUrl) {
+        // Split the repository URL into its parts
+        $parts = parse_url($repoUrl);
+        
+        // Get the owner and repository name from the URL
+        $pathParts = explode('/', $parts['path']);
+        
+        // Construct the clone URL with the access token
+        $cloneUrl = str_replace("https://", "https://{$this->accessToken}@", $repoUrl);
+        
+        // Construct the Git clone command with the clone URL
+        $command = "git clone {$cloneUrl}";
+        
+        return $command;
+    }
 }

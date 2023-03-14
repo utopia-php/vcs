@@ -61,4 +61,11 @@ class GitHubTest extends TestCase
         // Fork a repository into authenticated user's account with custom name
         $response = $this->github->forkRepository("appwrite", "demos-for-astro", name: "fork-api-test-clone");
     }
+
+    public function testGenerateGitCloneCommand(): string
+    {
+        $repoUrl = "https://github.com/vermakhushboo/testing-fork.git";
+        $gitCloneCommand = $this->github->generateGitCloneCommand($repoUrl);
+        return $gitCloneCommand;
+    }
 }

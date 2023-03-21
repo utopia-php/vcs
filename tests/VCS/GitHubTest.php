@@ -64,8 +64,8 @@ class GitHubTest extends TestCase
 
     public function testGenerateGitCloneCommand(): string
     {
-        $repoUrl = "https://github.com/vermakhushboo/testing-fork.git";
-        $gitCloneCommand = $this->github->generateGitCloneCommand($repoUrl);
+        $repoId = "155386150";
+        $gitCloneCommand = $this->github->generateGitCloneCommand($repoId);
         return $gitCloneCommand;
     }
 }

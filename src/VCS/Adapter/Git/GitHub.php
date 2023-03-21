@@ -228,16 +228,16 @@ class GitHub extends Git
     /**
      * Generates a git clone command using app access token
      *
-     * @param string $repoUrl The URL of the repo to be cloned
+     * @param string $repoId The ID of the repo to be cloned
      *
      * @return string The git clone command as a string
      */
-    public function generateGitCloneCommand(string $repoUrl) {
-        // Split the repository URL into its parts
-        $parts = parse_url($repoUrl);
-        
-        // Get the owner and repository name from the URL
-        $pathParts = explode('/', $parts['path']);
+    public function generateGitCloneCommand(string $repoID) {
+        $url = "/repositories/{$repoID}";
+
+        $repoData = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        $repoUrl = $repoData["body"]["html_url"];
         
         // Construct the clone URL with the access token
         $cloneUrl = str_replace("https://", "https://{$this->accessToken}@", $repoUrl);

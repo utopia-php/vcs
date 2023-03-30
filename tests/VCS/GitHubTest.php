@@ -12,10 +12,11 @@ class GitHubTest extends TestCase
 
     public function setUp(): void
     {
+        $this->github = new GitHub();
         $privateKey = App::getEnv("GITHUB_PRIVATE_KEY");
         $githubAppId = App::getEnv("GITHUB_APP_IDENTIFIER");
         $installationId = "1234"; //your GitHub App Installation ID here
-        $this->github = new GitHub($installationId, $privateKey, $githubAppId, "vermakhushboo");
+        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId, "vermakhushboo");
     }
 
     public function testGetUser(): void
@@ -67,5 +68,35 @@ class GitHubTest extends TestCase
         $repoId = "155386150";
         $gitCloneCommand = $this->github->generateGitCloneCommand($repoId);
         return $gitCloneCommand;
+    }
+
+    public function testParseWebhookEventPayload(): void
+    {
+        $payload = '{
+            "event": "push",
+            "payload": {
+                "ref": "refs/heads/main",
+                "before": "d1691190ef54f329b41333273722f444edc937ab",
+                "after": "d06526f437939d1298f9dea15478665692ee4e69",
+                "repository": {
+                    "id": 1234,
+                    "node_id": "R_kgDOI_yRPA",
+                    "name": "testing-fork",
+                    "full_name": "vermakhushboo/testing-fork",
+                    "private": true,
+                    "html_url": "https://github.com/vermakhushboo/testing-fork"
+                },
+                "pusher": {
+                    "name": "vermakhushboo"
+                },
+                "sender": {
+                    "login": "vermakhushboo"
+                },
+                "installation": {
+                    "id": 1234
+                }
+            }
+        }';
+        $result = $this->github->parseWebhookEventPayload($payload);
     }
 }

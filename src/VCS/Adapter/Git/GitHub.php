@@ -35,11 +35,16 @@ class GitHub extends Git
      */
     protected $headers = ['content-type' => 'application/json'];
 
+    public function __construct()
+    {
+        
+    }
+
     /**
      * GitHub constructor.
      *
      */
-    public function __construct(string $installationId, string $privateKey, string $githubAppId, string $userName = "")
+    public function initialiseVariables(string $installationId, string $privateKey, string $githubAppId, string $userName = "")
     {
         // Set user name
         $this->user = $userName;
@@ -246,5 +251,26 @@ class GitHub extends Git
         $command = "git clone {$cloneUrl}";
         
         return $command;
+    }
+
+    public function parseWebhookEventPayload(string $payload) {
+        $payload = json_decode($payload, true);
+        $event = $payload["event"];
+
+        $result = array();
+
+        if($event == "push")
+        {
+            $ref = $payload["payload"]["ref"];
+            $branch = str_replace("refs/heads/", "", $ref);
+            $repositoryId = strval($payload["payload"]["repository"]["id"]);
+            $result = array(
+                "event" => $event,
+                "branch" => $branch,
+                "repositoryId" => $repositoryId
+            );
+        }
+
+        return json_encode($result);
     }
 }

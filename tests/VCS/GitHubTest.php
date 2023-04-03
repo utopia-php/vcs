@@ -73,30 +73,22 @@ class GitHubTest extends TestCase
     public function testParseWebhookEventPayload(): void
     {
         $payload = '{
-            "event": "push",
-            "payload": {
-                "ref": "refs/heads/main",
-                "before": "d1691190ef54f329b41333273722f444edc937ab",
-                "after": "d06526f437939d1298f9dea15478665692ee4e69",
-                "repository": {
-                    "id": 1234,
-                    "node_id": "R_kgDOI_yRPA",
-                    "name": "testing-fork",
-                    "full_name": "vermakhushboo/testing-fork",
-                    "private": true,
-                    "html_url": "https://github.com/vermakhushboo/testing-fork"
-                },
-                "pusher": {
-                    "name": "vermakhushboo"
-                },
-                "sender": {
-                    "login": "vermakhushboo"
-                },
-                "installation": {
-                    "id": 1234
+            "ref": "refs/heads/main",
+            "before": "1234",
+            "after": "1234",
+            "repository": {
+                "id": 603754812,
+                "node_id": "R_kgDOI_yRPA",
+                "name": "testing-fork",
+                "full_name": "vermakhushboo/testing-fork",
+                "private": true,
+                "owner": {
                 }
+            },
+            "installation": {
+                "id": 1234
             }
         }';
-        $result = $this->github->parseWebhookEventPayload($payload);
+        $this->github->parseWebhookEventPayload("push", $payload);
     }
 }

@@ -253,24 +253,21 @@ class GitHub extends Git
         return $command;
     }
 
-    public function parseWebhookEventPayload(string $payload) {
+    public function parseWebhookEventPayload(string $event, string $payload) {
         $payload = json_decode($payload, true);
-        $event = $payload["event"];
 
         $result = array();
 
         if($event == "push")
         {
-            $ref = $payload["payload"]["ref"];
+            $ref = $payload["ref"];
             $branch = str_replace("refs/heads/", "", $ref);
-            $repositoryId = strval($payload["payload"]["repository"]["id"]);
+            $repositoryId = strval($payload["repository"]["id"]);
             $result = array(
-                "event" => $event,
                 "branch" => $branch,
                 "repositoryId" => $repositoryId
             );
         }
-
         return json_encode($result);
     }
 }

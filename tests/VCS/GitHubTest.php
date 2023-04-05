@@ -66,7 +66,7 @@ class GitHubTest extends TestCase
     public function testGenerateGitCloneCommand(): string
     {
         $repoId = "155386150";
-        $gitCloneCommand = $this->github->generateGitCloneCommand($repoId);
+        $gitCloneCommand = $this->github->generateGitCloneCommand($repoId, "main");
         return $gitCloneCommand;
     }
 

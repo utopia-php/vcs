@@ -237,7 +237,7 @@ class GitHub extends Git
      *
      * @return string The git clone command as a string
      */
-    public function generateGitCloneCommand(string $repoID) {
+    public function generateGitCloneCommand(string $repoID, string $branchName) {
         $url = "/repositories/{$repoID}";
 
         $repoData = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
@@ -248,7 +248,7 @@ class GitHub extends Git
         $cloneUrl = str_replace("https://", "https://{$this->accessToken}@", $repoUrl);
         
         // Construct the Git clone command with the clone URL
-        $command = "git clone {$cloneUrl}";
+        $command = "git clone -b " . $branchName . " --depth=1 {$cloneUrl}";
         
         return $command;
     }

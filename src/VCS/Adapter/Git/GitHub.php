@@ -263,9 +263,11 @@ class GitHub extends Git
             $ref = $payload["ref"];
             $branch = str_replace("refs/heads/", "", $ref);
             $repositoryId = strval($payload["repository"]["id"]);
+            $installationId = strval($payload["installation"]["id"]);
             $result = array(
                 "branch" => $branch,
-                "repositoryId" => $repositoryId
+                "repositoryId" => $repositoryId,
+                "installationId" => $installationId
             );
         }
         return json_encode($result);

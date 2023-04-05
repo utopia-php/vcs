@@ -37,7 +37,6 @@ class GitHub extends Git
 
     public function __construct()
     {
-        
     }
 
     /**
@@ -217,14 +216,14 @@ class GitHub extends Git
     public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?array
     {
         $url = "/repos/$owner/$repo/forks";
-        
+
         // Create the payload data for the API request
         $data = [
             'organization' => $organization,
             'name' => $name,
             'default_branch_only' => $defaultBranchOnly,
         ];
-        
+
         // Send the API request to fork the repository
         $response = $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], $data);
         return $response['body'];
@@ -237,39 +236,44 @@ class GitHub extends Git
      *
      * @return string The git clone command as a string
      */
-    public function generateGitCloneCommand(string $repoID, string $branchName) {
+    public function generateGitCloneCommand(string $repoID, string $branchName)
+    {
         $url = "/repositories/{$repoID}";
 
         $repoData = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
 
         $repoUrl = $repoData["body"]["html_url"];
-        
+
         // Construct the clone URL with the access token
         $cloneUrl = str_replace("https://", "https://{$this->accessToken}@", $repoUrl);
-        
+
         // Construct the Git clone command with the clone URL
         $command = "git clone -b " . $branchName . " --depth=1 {$cloneUrl}";
-        
+
         return $command;
     }
 
-    public function parseWebhookEventPayload(string $event, string $payload) {
+    public function parseWebhookEventPayload(string $event, string $payload)
+    {
         $payload = json_decode($payload, true);
 
-        $result = array();
+        $repositoryId = strval($payload["repository"]["id"]);
+        $installationId = strval($payload["installation"]["id"]);
+        $branch = "";
 
-        if($event == "push")
-        {
+        if ($event == "push") {
             $ref = $payload["ref"];
             $branch = str_replace("refs/heads/", "", $ref);
-            $repositoryId = strval($payload["repository"]["id"]);
-            $installationId = strval($payload["installation"]["id"]);
-            $result = array(
-                "branch" => $branch,
-                "repositoryId" => $repositoryId,
-                "installationId" => $installationId
-            );
+        } else if ($event == "pull_request") {
+            $branch = $payload["pull_request"]["head"]["ref"];
         }
+
+        $result = array(
+            "branch" => $branch,
+            "repositoryId" => $repositoryId,
+            "installationId" => $installationId
+        );
+
         return json_encode($result);
     }
 }

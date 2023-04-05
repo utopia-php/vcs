@@ -48,7 +48,7 @@ class GitHubTest extends TestCase
         file_put_contents('./desktop/hello-world.zip', $zipContents);
     }
 
-    public function testDownloadRepositoryTar():void
+    public function testDownloadRepositoryTar(): void
     {
         // download the tar archive of the repo
         $tarContents = $this->github->downloadRepositoryTar("gatsby-ecommerce-theme", "main");
@@ -72,7 +72,7 @@ class GitHubTest extends TestCase
 
     public function testParseWebhookEventPayload(): void
     {
-        $payload = '{
+        $payload_push = '{
             "ref": "refs/heads/main",
             "before": "1234",
             "after": "1234",
@@ -89,6 +89,26 @@ class GitHubTest extends TestCase
                 "id": 1234
             }
         }';
-        $this->github->parseWebhookEventPayload("push", $payload);
+
+        $payload_pull_request = '{
+            "action": "opened",
+            "number": 1,
+            "pull_request": {
+                "id": 1303283688,
+                "state": "open",
+                "head": {
+                    "ref": "test"
+                }
+            },
+            "repository": {
+                "id": 3498
+            },
+            "installation": {
+                "id": 9876
+            }
+        }';
+
+        $this->github->parseWebhookEventPayload("push", $payload_push);
+        $this->github->parseWebhookEventPayload("pull_request", $payload_pull_request);
     }
 }

@@ -245,7 +245,7 @@ class GitHub extends Git
         $repoUrl = $repoData["body"]["html_url"];
 
         // Construct the clone URL with the access token
-        $cloneUrl = str_replace("https://", "https://{$this->accessToken}@", $repoUrl);
+        $cloneUrl = str_replace("https://", "https://{$this->user}:{$this->accessToken}@", $repoUrl);
 
         // Construct the Git clone command with the clone URL
         $command = "git clone -b " . $branchName . " --depth=1 {$cloneUrl}";

@@ -253,6 +253,14 @@ class GitHub extends Git
         return $command;
     }
 
+    /**
+     * Parses webhook event payload
+     *
+     * @param string $event Type of event: push, pull_request etc
+     * @param string $payload The webhook payload received from GitHub
+     *
+     * @return json Parsed payload as a json object
+     */
     public function parseWebhookEventPayload(string $event, string $payload)
     {
         $payload = json_decode($payload, true);

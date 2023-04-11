@@ -256,24 +256,37 @@ class GitHub extends Git
     public function parseWebhookEventPayload(string $event, string $payload)
     {
         $payload = json_decode($payload, true);
-
-        $repositoryId = strval($payload["repository"]["id"]);
         $installationId = strval($payload["installation"]["id"]);
-        $branch = "";
 
-        if ($event == "push") {
-            $ref = $payload["ref"];
-            $branch = str_replace("refs/heads/", "", $ref);
-        } else if ($event == "pull_request") {
-            $branch = $payload["pull_request"]["head"]["ref"];
+        switch ($event) {
+            case "push":
+                $ref = $payload["ref"];
+                $repositoryId = strval($payload["repository"]["id"]);
+                $branch = str_replace("refs/heads/", "", $ref);
+                return json_encode([
+                    "branch" => $branch,
+                    "repositoryId" => $repositoryId,
+                    "installationId" => $installationId
+                ]);
+            case "pull_request":
+                if ($payload["action"] == "opened") {
+                    $repositoryId = strval($payload["repository"]["id"]);
+                    $branch = $payload["pull_request"]["head"]["ref"];
+                    return json_encode([
+                        "branch" => $branch,
+                        "repositoryId" => $repositoryId,
+                        "installationId" => $installationId
+                    ]);
+                }
+                break;
+            case "installation":
+                if ($payload["action"] == "deleted") {
+                    return json_encode([
+                        "installationId" => $installationId
+                    ]);
+                }
+                break;
         }
-
-        $result = array(
-            "branch" => $branch,
-            "repositoryId" => $repositoryId,
-            "installationId" => $installationId
-        );
-
-        return json_encode($result);
+        return json_encode([]);
     }
 }

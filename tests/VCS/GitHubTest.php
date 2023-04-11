@@ -108,7 +108,16 @@ class GitHubTest extends TestCase
             }
         }';
 
+        $payload_uninstall = '{
+            "action": "deleted",
+            "installation": {
+                "id": 1234
+            }
+        }
+        ';
+
         $this->github->parseWebhookEventPayload("push", $payload_push);
         $this->github->parseWebhookEventPayload("pull_request", $payload_pull_request);
+        $this->github->parseWebhookEventPayload("installation", $payload_uninstall);
     }
 }

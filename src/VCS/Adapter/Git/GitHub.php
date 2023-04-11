@@ -28,6 +28,12 @@ class GitHub extends Git
      */
     protected $installationId;
 
+    const EVENT_PUSH = 'push';
+
+    const EVENT_PULL_REQUEST = 'pull_request';
+
+    const EVENT_INSTALLATION = 'installation';
+
     /**
      * Global Headers
      *

@@ -141,13 +141,13 @@ class GitHub extends Git
      * @return array
      * @throws Exception
      */
-    public function addComment($repoName, $pullRequestNumber)
+    public function addComment($repoName, $pullRequestNumber, $comment)
     {
         $url = '/repos/' . $this->user . '/' . $repoName . '/issues/' . $pullRequestNumber . '/comments';
 
-        $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => "hello from Utopia!"]);
-
-        return;
+        $response = $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => $comment]);
+        $commentId = $response["body"]["id"];
+        return $commentId;
     }
 
     /**
@@ -156,13 +156,13 @@ class GitHub extends Git
      * @return array
      * @throws Exception
      */
-    public function updateComment($repoName, $commentId)
+    public function updateComment($repoName, $commentId, $comment)
     {
         $url = '/repos/' . $this->user . '/' . $repoName . '/issues/comments/' . $commentId;
 
-        $this->call(self::METHOD_PATCH, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => "update from Utopia!"]);
-
-        return;
+        $response = $this->call(self::METHOD_PATCH, $url, ["Authorization" => "Bearer $this->accessToken"], ["body" => $comment]);
+        $commentId = $response["body"]["id"];
+        return $commentId;
     }
 
     /**

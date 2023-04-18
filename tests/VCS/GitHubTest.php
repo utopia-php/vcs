@@ -31,12 +31,12 @@ class GitHubTest extends TestCase
 
     public function testAddComment(): void
     {
-        $this->github->addComment("basic-js-crud", 1);
+        $commentId = $this->github->addComment("basic-js-crud", 1, "hello");
     }
 
     public function testUpdateComment(): void
     {
-        $this->github->updateComment("basic-js-crud", 1431560395);
+        $commentId = $this->github->updateComment("basic-js-crud", 1431560395, "update");
     }
 
     public function testDownloadRepositoryZip(): void

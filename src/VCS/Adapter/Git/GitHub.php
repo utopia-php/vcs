@@ -86,7 +86,6 @@ class GitHub extends Git
         $token = $jwt->encode($payload);
         $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
         $this->accessToken = $res['body']['token'];
-        var_dump($this->accessToken);
     }
 
     /**
@@ -283,13 +282,17 @@ class GitHub extends Git
                     "installationId" => $installationId
                 ]);
             case "pull_request":
-                if ($payload["action"] == "opened") {
+                if ($payload["action"] == "opened" or $payload["action"] == "reopened") {
                     $repositoryId = strval($payload["repository"]["id"]);
                     $branch = $payload["pull_request"]["head"]["ref"];
+                    $repositoryName = $payload["repository"]["name"];
+                    $pullRequestNumber = $payload["number"];
                     return json_encode([
                         "branch" => $branch,
                         "repositoryId" => $repositoryId,
-                        "installationId" => $installationId
+                        "installationId" => $installationId,
+                        "repositoryName" => $repositoryName,
+                        "pullRequestNumber" => $pullRequestNumber
                     ]);
                 }
                 break;

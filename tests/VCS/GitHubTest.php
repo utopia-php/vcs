@@ -101,7 +101,8 @@ class GitHubTest extends TestCase
                 }
             },
             "repository": {
-                "id": 3498
+                "id": 3498,
+                "name": "functions-example"
             },
             "installation": {
                 "id": 9876

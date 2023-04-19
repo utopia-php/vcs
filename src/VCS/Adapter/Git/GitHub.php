@@ -281,27 +281,28 @@ class GitHub extends Git
                     "repositoryId" => $repositoryId,
                     "installationId" => $installationId
                 ]);
+                break;
             case "pull_request":
-                if ($payload["action"] == "opened" or $payload["action"] == "reopened") {
-                    $repositoryId = strval($payload["repository"]["id"]);
-                    $branch = $payload["pull_request"]["head"]["ref"];
-                    $repositoryName = $payload["repository"]["name"];
-                    $pullRequestNumber = $payload["number"];
-                    return json_encode([
-                        "branch" => $branch,
-                        "repositoryId" => $repositoryId,
-                        "installationId" => $installationId,
-                        "repositoryName" => $repositoryName,
-                        "pullRequestNumber" => $pullRequestNumber
-                    ]);
-                }
+                $repositoryId = strval($payload["repository"]["id"]);
+                $branch = $payload["pull_request"]["head"]["ref"];
+                $repositoryName = $payload["repository"]["name"];
+                $pullRequestNumber = $payload["number"];
+                $action = $payload["action"];
+                return json_encode([
+                    "action" => $action,
+                    "branch" => $branch,
+                    "repositoryId" => $repositoryId,
+                    "installationId" => $installationId,
+                    "repositoryName" => $repositoryName,
+                    "pullRequestNumber" => $pullRequestNumber
+                ]);
                 break;
             case "installation":
-                if ($payload["action"] == "deleted") {
-                    return json_encode([
-                        "installationId" => $installationId
-                    ]);
-                }
+                $action = $payload["action"];
+                return json_encode([
+                    "action" => $action,
+                    "installationId" => $installationId
+                ]);
                 break;
         }
         return json_encode([]);

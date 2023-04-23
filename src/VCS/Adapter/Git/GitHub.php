@@ -307,4 +307,10 @@ class GitHub extends Git
         }
         return json_encode([]);
     }
+
+    public function getRepositoryName(string $repoId) {
+        $url = "/repositories/$repoId";
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+        return $response['body']['name'];
+    }
 }

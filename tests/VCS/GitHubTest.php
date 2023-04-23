@@ -121,4 +121,9 @@ class GitHubTest extends TestCase
         $this->github->parseWebhookEventPayload("pull_request", $payload_pull_request);
         $this->github->parseWebhookEventPayload("installation", $payload_uninstall);
     }
+
+    public function testGetRepositoryName(): void
+    {
+        $repoName = $this->github->getRepositoryName("615825784");
+    }
 }

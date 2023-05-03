@@ -308,9 +308,34 @@ class GitHub extends Git
         return json_encode([]);
     }
 
+    /**
+     * Fetches repository name using repository id
+     *
+     * @param string $repoId ID of GitHub Repository
+     *
+     * @return string name of GitHub repository
+     */
     public function getRepositoryName(string $repoId) {
         $url = "/repositories/$repoId";
         $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
         return $response['body']['name'];
+    }
+
+    /**
+     * Updates status check of each commit
+     * state can be one of: error, failure, pending, success
+     */
+    public function updateCommitStatus(string $repositoryName, string $commitSHA, string $state, string $description = "", string $target_url = "", string $context = "") {
+        $url = "/repos/$this->user/$repositoryName/statuses/$commitSHA";
+
+        $body = [
+            "state" => $state,
+            "target_url" => $target_url,
+            "description" => $description,
+            "context" => $context
+        ];
+
+        $this->call(self::METHOD_POST, $url, ["Authorization" => "Bearer $this->accessToken"], $body);
+        return;
     }
 }

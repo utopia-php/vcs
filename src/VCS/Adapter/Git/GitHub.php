@@ -275,11 +275,15 @@ class GitHub extends Git
             case "push":
                 $ref = $payload["ref"];
                 $repositoryId = strval($payload["repository"]["id"]);
+                $repositoryName = $payload["repository"]["name"];
+                $commitSHA = $payload["after"];
                 $branch = str_replace("refs/heads/", "", $ref);
                 return json_encode([
                     "branch" => $branch,
                     "repositoryId" => $repositoryId,
-                    "installationId" => $installationId
+                    "installationId" => $installationId,
+                    "repositoryName" => $repositoryName,
+                    "commitSHA" => $commitSHA
                 ]);
                 break;
             case "pull_request":

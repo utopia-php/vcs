@@ -75,7 +75,7 @@ class GitHubTest extends TestCase
         $payload_push = '{
             "ref": "refs/heads/main",
             "before": "1234",
-            "after": "1234",
+            "after": "4567",
             "repository": {
                 "id": 603754812,
                 "node_id": "R_kgDOI_yRPA",

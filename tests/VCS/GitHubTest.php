@@ -102,7 +102,10 @@ class GitHubTest extends TestCase
             },
             "repository": {
                 "id": 3498,
-                "name": "functions-example"
+                "name": "functions-example",
+                "owner": {
+                    "name": "vermakhushboo"
+                }
             },
             "installation": {
                 "id": 9876
@@ -129,6 +132,6 @@ class GitHubTest extends TestCase
 
      public function testUpdateCommitStatus(): void
      {
-        $this->github->updateCommitStatus("functions-example", "a71dc759d5cbe5316c990f91f98de65d99f4ca64", "failure", "build failed", "", "Appwrite Deployment");
+        $this->github->updateCommitStatus("functions-example", "a71dc759d5cbe5316c990f91f98de65d99f4ca64", "vermakhushboo", "failure", "build failed", "", "Appwrite Deployment");
      }
 }

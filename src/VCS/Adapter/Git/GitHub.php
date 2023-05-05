@@ -277,13 +277,15 @@ class GitHub extends Git
                 $repositoryId = strval($payload["repository"]["id"]);
                 $repositoryName = $payload["repository"]["name"];
                 $commitSHA = $payload["after"];
+                $ownerName = $payload["repository"]["owner"]["name"];
                 $branch = str_replace("refs/heads/", "", $ref);
                 return json_encode([
                     "branch" => $branch,
                     "repositoryId" => $repositoryId,
                     "installationId" => $installationId,
                     "repositoryName" => $repositoryName,
-                    "commitSHA" => $commitSHA
+                    "commitSHA" => $commitSHA,
+                    "ownerName" => $ownerName
                 ]);
                 break;
             case "pull_request":
@@ -329,8 +331,8 @@ class GitHub extends Git
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */
-    public function updateCommitStatus(string $repositoryName, string $commitSHA, string $state, string $description = "", string $target_url = "", string $context = "") {
-        $url = "/repos/$this->user/$repositoryName/statuses/$commitSHA";
+    public function updateCommitStatus(string $repositoryName, string $commitSHA, string $ownerName, string $state, string $description = "", string $target_url = "", string $context = "") {
+        $url = "/repos/$ownerName/$repositoryName/statuses/$commitSHA";
 
         $body = [
             "state" => $state,

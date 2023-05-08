@@ -21,7 +21,7 @@ class GitHubTest extends TestCase
 
     public function testGetUser(): void
     {
-        $this->github->getUser();
+        $this->github->getUser("vermakhushboo");
     }
 
     public function testListRepositoriesForGitHubApp(): void
@@ -31,18 +31,18 @@ class GitHubTest extends TestCase
 
     public function testAddComment(): void
     {
-        $commentId = $this->github->addComment("basic-js-crud", 1, "hello");
+        $commentId = $this->github->addComment("vermakhushboo", "basic-js-crud", 1, "hello");
     }
 
     public function testUpdateComment(): void
     {
-        $commentId = $this->github->updateComment("basic-js-crud", 1431560395, "update");
+        $commentId = $this->github->updateComment("vermakhushboo", "basic-js-crud", 1431560395, "update");
     }
 
     public function testDownloadRepositoryZip(): void
     {
         // download the zip archive of the repo
-        $zipContents = $this->github->downloadRepositoryZip("gatsby-ecommerce-theme", "main");
+        $zipContents = $this->github->downloadRepositoryZip("vermakhushboo", "gatsby-ecommerce-theme", "main");
 
         // Save the ZIP archive to a file
         file_put_contents('./desktop/hello-world.zip', $zipContents);
@@ -51,7 +51,7 @@ class GitHubTest extends TestCase
     public function testDownloadRepositoryTar(): void
     {
         // download the tar archive of the repo
-        $tarContents = $this->github->downloadRepositoryTar("gatsby-ecommerce-theme", "main");
+        $tarContents = $this->github->downloadRepositoryTar("vermakhushboo", "gatsby-ecommerce-theme", "main");
 
         // Save the TAR archive to a file
         file_put_contents('./desktop/hello-world1.tar', $tarContents);
@@ -66,7 +66,7 @@ class GitHubTest extends TestCase
     public function testGenerateGitCloneCommand(): string
     {
         $repoId = "155386150";
-        $gitCloneCommand = $this->github->generateGitCloneCommand($repoId, "main");
+        $gitCloneCommand = $this->github->generateGitCloneCommand("vermakhushboo", $repoId, "main");
         return $gitCloneCommand;
     }
 
@@ -83,6 +83,7 @@ class GitHubTest extends TestCase
                 "full_name": "vermakhushboo/testing-fork",
                 "private": true,
                 "owner": {
+                    "name": "vermakhushboo"
                 }
             },
             "installation": {
@@ -104,7 +105,7 @@ class GitHubTest extends TestCase
                 "id": 3498,
                 "name": "functions-example",
                 "owner": {
-                    "name": "vermakhushboo"
+                    "login": "vermakhushboo"
                 }
             },
             "installation": {

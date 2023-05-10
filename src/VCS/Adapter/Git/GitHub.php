@@ -126,6 +126,21 @@ class GitHub extends Git
     }
 
     /**
+     * Search repositories for specified user
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function searchRepositories($owner, $query, $page, $per_page): array
+    {
+        $url = '/search/repositories?q=' . $query . '+user%3A' . $owner . '&type=repositories&sort=updated&page=' . $page . '&per_page=' . $per_page;
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        return $response['body']['items'];
+    }
+
+    /**
      * Add Comment to Pull Request
      *
      * @return array
@@ -313,7 +328,8 @@ class GitHub extends Git
      *
      * @return string name of GitHub repository
      */
-    public function getRepositoryName(string $repoId) {
+    public function getRepositoryName(string $repoId)
+    {
         $url = "/repositories/$repoId";
         $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
         return $response['body']['name'];
@@ -323,7 +339,8 @@ class GitHub extends Git
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */
-    public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = "", string $target_url = "", string $context = "") {
+    public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = "", string $target_url = "", string $context = "")
+    {
         $url = "/repos/$owner/$repositoryName/statuses/$SHA";
 
         $body = [

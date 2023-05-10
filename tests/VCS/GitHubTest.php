@@ -121,7 +121,10 @@ class GitHubTest extends TestCase
         $payload_uninstall = '{
             "action": "deleted",
             "installation": {
-                "id": 1234
+                "id": 1234,
+                "account": {
+                    "login": "vermakhushboo"
+                }
             }
         }
         ';

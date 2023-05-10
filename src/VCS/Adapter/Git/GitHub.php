@@ -312,9 +312,11 @@ class GitHub extends Git
                 break;
             case "installation":
                 $action = $payload["action"];
+                $userName = $payload["installation"]["account"]["login"];
                 return [
                     "action" => $action,
-                    "installationId" => $installationId
+                    "installationId" => $installationId,
+                    "userName" => $userName
                 ];
                 break;
         }

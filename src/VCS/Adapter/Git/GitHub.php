@@ -135,6 +135,7 @@ class GitHub extends Git
     public function searchRepositories($owner, $query, $page, $per_page): array
     {
         $url = '/search/repositories?q=' . $query . '+user%3A' . $owner . '&type=repositories&sort=updated&page=' . $page . '&per_page=' . $per_page;
+        var_dump($url);
 
         $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
 

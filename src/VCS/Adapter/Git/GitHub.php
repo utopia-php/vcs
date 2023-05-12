@@ -76,6 +76,7 @@ class GitHub extends Git
         $token = $jwt->encode($payload);
         $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
         $this->accessToken = $res['body']['token'];
+        var_dump($this->accessToken);
     }
 
     /**
@@ -310,7 +311,7 @@ class GitHub extends Git
                     "owner" => $owner
                 ];
                 break;
-            case "installation":
+            case ("installation" || "installation_repositories"):
                 $action = $payload["action"];
                 $userName = $payload["installation"]["account"]["login"];
                 return [

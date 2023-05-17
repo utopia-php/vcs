@@ -126,6 +126,15 @@ class GitHub extends Git
         return $response['body']['repositories'];
     }
 
+    public function getTotalReposCount(): int
+    {
+        $url = '/installation/repositories';
+
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        return $response['body']['total_count'];
+    }
+
     /**
      * Add Comment to Pull Request
      *

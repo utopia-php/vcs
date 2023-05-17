@@ -29,6 +29,11 @@ class GitHubTest extends TestCase
         $repos = $this->github->listRepositoriesForGitHubApp(1, 5);
     }
 
+    public function testGetTotalReposCount(): void
+    {
+        $count = $this->github->getTotalReposCount();
+    }
+
     public function testAddComment(): void
     {
         $commentId = $this->github->addComment("vermakhushboo", "basic-js-crud", 1, "hello");
@@ -134,8 +139,8 @@ class GitHubTest extends TestCase
         $repoName = $this->github->getRepositoryName("615825784");
     }
 
-     public function testUpdateCommitStatus(): void
-     {
+    public function testUpdateCommitStatus(): void
+    {
         $this->github->updateCommitStatus("functions-example", "a71dc759d5cbe5316c990f91f98de65d99f4ca64", "vermakhushboo", "failure", "build failed", "", "Appwrite Deployment");
-     }
+    }
 }

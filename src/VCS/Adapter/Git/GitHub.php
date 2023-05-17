@@ -117,29 +117,13 @@ class GitHub extends Git
      * @return array
      * @throws Exception
      */
-    public function listRepositoriesForGitHubApp(): array
+    public function listRepositoriesForGitHubApp($page, $per_page): array
     {
-        $url = '/installation/repositories';
+        $url = '/installation/repositories?page=' . $page . '&per_page=' . $per_page;
 
         $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
 
         return $response['body']['repositories'];
-    }
-
-    /**
-     * Search repositories for specified user
-     *
-     * @return array
-     * @throws Exception
-     */
-    public function searchRepositories($owner, $query, $page, $per_page): array
-    {
-        $url = '/search/repositories?q=' . $query . '+user%3A' . $owner . '&type=repositories&sort=updated&page=' . $page . '&per_page=' . $per_page;
-        var_dump($url);
-
-        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
-
-        return $response['body']['items'];
     }
 
     /**

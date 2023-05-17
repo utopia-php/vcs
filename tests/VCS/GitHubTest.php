@@ -26,12 +26,7 @@ class GitHubTest extends TestCase
 
     public function testListRepositoriesForGitHubApp(): void
     {
-        $repos = $this->github->listRepositoriesForGitHubApp();
-    }
-
-    public function testSearchRepositories() : void
-    {
-        $repos = $this->github->searchRepositories("vermakhushboo", "f", 1, 5);
+        $repos = $this->github->listRepositoriesForGitHubApp(1, 5);
     }
 
     public function testAddComment(): void

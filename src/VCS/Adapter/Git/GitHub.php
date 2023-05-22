@@ -21,6 +21,11 @@ class GitHub extends Git
     /**
      * @var string
      */
+    protected $jwtToken;
+
+    /**
+     * @var string
+     */
     protected $installationId;
 
     const EVENT_PUSH = 'push';
@@ -74,6 +79,7 @@ class GitHub extends Git
         // generate access token
         $jwt = new JWT($privateKey, 'RS256');
         $token = $jwt->encode($payload);
+        $this->jwtToken = $token;
         $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
         $this->accessToken = $res['body']['token'];
         var_dump($this->accessToken);
@@ -109,6 +115,18 @@ class GitHub extends Git
     {
         $response = $this->call(self::METHOD_GET, '/users/' . $username);
         return $response;
+    }
+
+    /**
+     * Get owner name of the GitHub installation 
+     *
+     * @return string
+     */
+    public function getOwnerName($installationId): string
+    {
+        $url = '/app/installations/' . $installationId;
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->jwtToken"]);
+        return $response['body']['account']['login'];
     }
 
     /**

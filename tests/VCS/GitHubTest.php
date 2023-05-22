@@ -24,6 +24,11 @@ class GitHubTest extends TestCase
         $this->github->getUser("vermakhushboo");
     }
 
+    public function testGetOwnerName(): void
+    {
+        $owner = $this->github->getOwnerName("37569846");
+    }
+
     public function testListRepositoriesForGitHubApp(): void
     {
         $repos = $this->github->listRepositoriesForGitHubApp(1, 5);

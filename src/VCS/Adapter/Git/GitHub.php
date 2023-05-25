@@ -364,8 +364,13 @@ class GitHub extends Git
         $url = "/repos/$owner/$repositoryName/branches";
         
         $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+
+        $names = [];
+        foreach ($response['body'] as $subarray) {
+            $names[] = $subarray["name"];
+        }
         
-        return $response['body'];
+        return $names;
     }
 
     /**

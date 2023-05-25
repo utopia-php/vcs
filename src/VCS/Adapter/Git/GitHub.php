@@ -351,6 +351,24 @@ class GitHub extends Git
     }
 
     /**
+     * Lists branches for a given repository
+     *
+     * @param string $owner Owner name of the repository
+     * 
+     * @param string $repositoryName Name of the GitHub repository
+     *
+     * @return array List of branch names as array
+     */
+    public function listBranches(string $owner, string $repositoryName): array
+    {
+        $url = "/repos/$owner/$repositoryName/branches";
+        
+        $response = $this->call(self::METHOD_GET, $url, ["Authorization" => "Bearer $this->accessToken"]);
+        
+        return $response['body'];
+    }
+
+    /**
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */

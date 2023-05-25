@@ -148,4 +148,9 @@ class GitHubTest extends TestCase
     {
         $this->github->updateCommitStatus("functions-example", "a71dc759d5cbe5316c990f91f98de65d99f4ca64", "vermakhushboo", "failure", "build failed", "", "Appwrite Deployment");
     }
+
+    public function testListBranches(): void
+    {
+        $this->github->listBranches("vermakhushboo", "functions-example");
+    }
 }

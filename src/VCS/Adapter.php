@@ -24,24 +24,14 @@ abstract class Adapter
 
     public const METHOD_TRACE = 'TRACE';
 
-    /**
-     * Is Self Signed Certificates Allowed?
-     *
-     * @var bool
-     */
-    protected $selfSigned = true;
+    protected bool $selfSigned = true;
 
-    /**
-     * Service host name
-     *
-     * @var string
-     */
-    protected $endpoint;
+    protected string $endpoint;
 
     /**
      * Global Headers
      *
-     * @var array
+     * @var array<string, string>
      */
     protected $headers = [];
 

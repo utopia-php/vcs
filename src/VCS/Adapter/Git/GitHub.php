@@ -45,7 +45,7 @@ class GitHub extends Git
         $this->installationId = $installationId;
 
         $response = $this->cache->load($installationId, 60 * 9); // 10 minutes, but 1 minute earlier to be safe
-        if (! $response) {
+        if ($response == false) {
             $this->generateAccessToken($privateKey, $githubAppId);
 
             $this->cache->save($installationId, \json_encode([
@@ -401,6 +401,5 @@ class GitHub extends Git
         ];
 
         $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
-
     }
 }

@@ -4,6 +4,8 @@ namespace Utopia\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Utopia\App;
+use Utopia\Cache\Adapter\None;
+use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git\GitHub;
 
 class GitHubTest extends TestCase
@@ -12,7 +14,7 @@ class GitHubTest extends TestCase
 
     public function setUp(): void
     {
-        $this->github = new GitHub();
+        $this->github = new GitHub(new Cache(new None()));
         $privateKey = App::getEnv('GITHUB_PRIVATE_KEY');
         $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER');
         $installationId = '1234'; //your GitHub App Installation ID here

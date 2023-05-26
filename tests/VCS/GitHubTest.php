@@ -13,20 +13,20 @@ class GitHubTest extends TestCase
     public function setUp(): void
     {
         $this->github = new GitHub();
-        $privateKey = App::getEnv("GITHUB_PRIVATE_KEY");
-        $githubAppId = App::getEnv("GITHUB_APP_IDENTIFIER");
-        $installationId = "1234"; //your GitHub App Installation ID here
-        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId, "vermakhushboo");
+        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY');
+        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER');
+        $installationId = '1234'; //your GitHub App Installation ID here
+        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId, 'vermakhushboo');
     }
 
     public function testGetUser(): void
     {
-        $this->github->getUser("vermakhushboo");
+        $this->github->getUser('vermakhushboo');
     }
 
     public function testGetOwnerName(): void
     {
-        $owner = $this->github->getOwnerName("37569846");
+        $owner = $this->github->getOwnerName('37569846');
     }
 
     public function testListRepositoriesForGitHubApp(): void
@@ -41,18 +41,18 @@ class GitHubTest extends TestCase
 
     public function testAddComment(): void
     {
-        $commentId = $this->github->addComment("vermakhushboo", "basic-js-crud", 1, "hello");
+        $commentId = $this->github->addComment('vermakhushboo', 'basic-js-crud', 1, 'hello');
     }
 
     public function testUpdateComment(): void
     {
-        $commentId = $this->github->updateComment("vermakhushboo", "basic-js-crud", 1431560395, "update");
+        $commentId = $this->github->updateComment('vermakhushboo', 'basic-js-crud', 1431560395, 'update');
     }
 
     public function testDownloadRepositoryZip(): void
     {
         // download the zip archive of the repo
-        $zipContents = $this->github->downloadRepositoryZip("vermakhushboo", "gatsby-ecommerce-theme", "main");
+        $zipContents = $this->github->downloadRepositoryZip('vermakhushboo', 'gatsby-ecommerce-theme', 'main');
 
         // Save the ZIP archive to a file
         file_put_contents('./desktop/hello-world.zip', $zipContents);
@@ -61,7 +61,7 @@ class GitHubTest extends TestCase
     public function testDownloadRepositoryTar(): void
     {
         // download the tar archive of the repo
-        $tarContents = $this->github->downloadRepositoryTar("vermakhushboo", "gatsby-ecommerce-theme", "main");
+        $tarContents = $this->github->downloadRepositoryTar('vermakhushboo', 'gatsby-ecommerce-theme', 'main');
 
         // Save the TAR archive to a file
         file_put_contents('./desktop/hello-world1.tar', $tarContents);
@@ -70,13 +70,14 @@ class GitHubTest extends TestCase
     public function testForkRepository(): void
     {
         // Fork a repository into authenticated user's account with custom name
-        $response = $this->github->forkRepository("appwrite", "demos-for-astro", name: "fork-api-test-clone");
+        $response = $this->github->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
     }
 
     public function testGenerateGitCloneCommand(): string
     {
-        $repoId = "155386150";
-        $gitCloneCommand = $this->github->generateGitCloneCommand("vermakhushboo", $repoId, "main");
+        $repoId = '155386150';
+        $gitCloneCommand = $this->github->generateGitCloneCommand('vermakhushboo', $repoId, 'main');
+
         return $gitCloneCommand;
     }
 
@@ -134,23 +135,23 @@ class GitHubTest extends TestCase
         }
         ';
 
-        $this->github->parseWebhookEventPayload("push", $payload_push);
-        $this->github->parseWebhookEventPayload("pull_request", $payload_pull_request);
-        $this->github->parseWebhookEventPayload("installation", $payload_uninstall);
+        $this->github->parseWebhookEventPayload('push', $payload_push);
+        $this->github->parseWebhookEventPayload('pull_request', $payload_pull_request);
+        $this->github->parseWebhookEventPayload('installation', $payload_uninstall);
     }
 
     public function testGetRepositoryName(): void
     {
-        $repoName = $this->github->getRepositoryName("615825784");
+        $repoName = $this->github->getRepositoryName('615825784');
     }
 
     public function testUpdateCommitStatus(): void
     {
-        $this->github->updateCommitStatus("functions-example", "a71dc759d5cbe5316c990f91f98de65d99f4ca64", "vermakhushboo", "failure", "build failed", "", "Appwrite Deployment");
+        $this->github->updateCommitStatus('functions-example', 'a71dc759d5cbe5316c990f91f98de65d99f4ca64', 'vermakhushboo', 'failure', 'build failed', '', 'Appwrite Deployment');
     }
 
     public function testListBranches(): void
     {
-        $this->github->listBranches("vermakhushboo", "functions-example");
+        $this->github->listBranches('vermakhushboo', 'functions-example');
     }
 }

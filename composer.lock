@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d13c62261f4722e3361d82b5f689e477",
+    "content-hash": "defc15760be761695f6779d67d8bba72",
     "packages": [
         {
             "name": "adhocore/jwt",
@@ -447,6 +447,55 @@
                 }
             ],
             "time": "2022-11-03T14:55:06+00:00"
+        },
+        {
+            "name": "utopia-php/cache",
+            "version": "0.8.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/utopia-php/cache.git",
+                "reference": "212e66100a1f32e674fca5d9bc317cc998303089"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/utopia-php/cache/zipball/212e66100a1f32e674fca5d9bc317cc998303089",
+                "reference": "212e66100a1f32e674fca5d9bc317cc998303089",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-memcached": "*",
+                "ext-redis": "*",
+                "php": ">=8.0"
+            },
+            "require-dev": {
+                "laravel/pint": "1.2.*",
+                "phpunit/phpunit": "^9.3",
+                "vimeo/psalm": "4.13.1"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Utopia\\Cache\\": "src/Cache"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "A simple cache library to manage application cache storing, loading and purging",
+            "keywords": [
+                "cache",
+                "framework",
+                "php",
+                "upf",
+                "utopia"
+            ],
+            "support": {
+                "issues": "https://github.com/utopia-php/cache/issues",
+                "source": "https://github.com/utopia-php/cache/tree/0.8.0"
+            },
+            "time": "2022-10-16T16:48:09+00:00"
         },
         {
             "name": "utopia-php/framework",

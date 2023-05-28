@@ -41,9 +41,11 @@ class GitHubTest extends TestCase
         $count = $this->github->getTotalReposCount();
     }
 
-    public function testAddComment(): void
+    // TODO: testGetComment()
+
+    public function testCreateComment(): void
     {
-        $commentId = $this->github->addComment('vermakhushboo', 'basic-js-crud', 1, 'hello');
+        $commentId = $this->github->createComment('vermakhushboo', 'basic-js-crud', 1, 'hello');
     }
 
     public function testUpdateComment(): void

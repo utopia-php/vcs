@@ -168,7 +168,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function addComment($owner, $repoName, $pullRequestNumber, $comment)
+    public function createComment($owner, $repoName, $pullRequestNumber, $comment)
     {
         $url = '/repos/'.$owner.'/'.$repoName.'/issues/'.$pullRequestNumber.'/comments';
 
@@ -176,6 +176,23 @@ class GitHub extends Git
         $commentId = $response['body']['id'];
 
         return $commentId;
+    }
+
+    /**
+     * Get Comment of Pull Request
+     *
+     * @return string
+     *
+     * @throws Exception
+     */
+    public function getComment($owner, $repoName, $commentId): string
+    {
+        $url = '/repos/'.$owner.'/'.$repoName.'/issues/comments/'.$commentId;
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        $comment = $response['body']['body'];
+
+        return $comment;
     }
 
     /**

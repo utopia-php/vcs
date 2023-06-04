@@ -1,5 +1,9 @@
 <?php
 
+namespace Utopia\Detector\Adapter;
+
+use Utopia\Detector\Detector;
+
 class JavaScript extends Detector
 {
     const DETECTOR_JAVASCRIPT = 'JavaScript';

@@ -3,16 +3,16 @@
 namespace Utopia\Tests;
 
 use PHPUnit\Framework\TestCase;
-use DetectorFactory;
-use Dart;
-use JavaScript;
-use PHP;
-use Python;
-use Ruby;
+use Utopia\Detector\Adapter\Dart;
+use Utopia\Detector\Adapter\JavaScript;
+use Utopia\Detector\Adapter\PHP;
+use Utopia\Detector\Adapter\Python;
+use Utopia\Detector\Adapter\Ruby;
+use Utopia\Detector\DetectorFactory;
 
 class DetectorTest extends TestCase
 {
-    public function testDetect(){
+    public function testDetect() {
 
         $files = ['package.json', 'src/index.js', 'src/components/main.svelte'];
         $languages = ['Javascript'];

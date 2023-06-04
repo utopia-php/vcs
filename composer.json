@@ -11,7 +11,7 @@
         "test": "vendor/bin/phpunit --configuration phpunit.xml"
     },
     "autoload": {
-        "psr-4": {"Utopia\\VCS\\": "src/VCS"}
+        "psr-4": {"Utopia\\VCS\\": "src/VCS", "Utopia\\Detector\\": "src/Detector"}
     },
     "autoload-dev": {
         "psr-4": {"Utopia\\Tests\\": "tests/VCS"}

@@ -499,16 +499,16 @@
         },
         {
             "name": "utopia-php/framework",
-            "version": "0.26.0",
+            "version": "0.26.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/utopia-php/framework.git",
-                "reference": "e8da5576370366d3bf9c574ec855f8c96fe4f34e"
+                "reference": "7a18a2b0d6c8dba878c926b73650fd2c4eeaa70d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/utopia-php/framework/zipball/e8da5576370366d3bf9c574ec855f8c96fe4f34e",
-                "reference": "e8da5576370366d3bf9c574ec855f8c96fe4f34e",
+                "url": "https://api.github.com/repos/utopia-php/framework/zipball/7a18a2b0d6c8dba878c926b73650fd2c4eeaa70d",
+                "reference": "7a18a2b0d6c8dba878c926b73650fd2c4eeaa70d",
                 "shasum": ""
             },
             "require": {
@@ -537,9 +537,9 @@
             ],
             "support": {
                 "issues": "https://github.com/utopia-php/framework/issues",
-                "source": "https://github.com/utopia-php/framework/tree/0.26.0"
+                "source": "https://github.com/utopia-php/framework/tree/0.26.3"
             },
-            "time": "2023-01-13T08:14:43+00:00"
+            "time": "2023-06-03T14:01:15+00:00"
         },
         {
             "name": "vlucas/phpdotenv",

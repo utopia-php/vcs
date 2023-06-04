@@ -1,5 +1,7 @@
 <?php
 
+namespace Utopia\Detector;
+
 class DetectorFactory
 {
     protected $detectors = [];
@@ -15,7 +17,7 @@ class DetectorFactory
         return $this;
     }
 
-    public function detect(): ?Detector
+    public function detect(): ?string
     {
         foreach ($this->detectors as $detector) {
             if ($detector->detect()) {

@@ -1,5 +1,7 @@
 <?php
 
+namespace Utopia\Detector;
+
 abstract class Detector
 {
     protected $files;

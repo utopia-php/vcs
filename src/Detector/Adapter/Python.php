@@ -1,5 +1,9 @@
 <?php
 
+namespace Utopia\Detector\Adapter;
+
+use Utopia\Detector\Detector;
+
 class Python extends Detector
 {
     const DETECTOR_PYTHON = 'Python';

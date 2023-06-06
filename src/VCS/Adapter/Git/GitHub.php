@@ -419,4 +419,24 @@ class GitHub extends Git
 
         $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
     }
+    
+    /**
+     * Get repository languages
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @return array|null List of repository languages or null if the request fails
+     */
+    public function getRepositoryLanguages(string $owner, string $repositoryName): ?array
+    {
+        $url = "/repos/$owner/$repositoryName/languages";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        if (isset($response['body'])) {
+            return $response['body'];
+        }
+
+        return null;
+    }
 }

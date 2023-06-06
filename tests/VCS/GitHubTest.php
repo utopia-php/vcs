@@ -158,4 +158,15 @@ class GitHubTest extends TestCase
     {
         $this->github->listBranches('vermakhushboo', 'functions-example');
     }
+
+    public function testGetRepositoryLanguages(): void
+    {
+        $languages = $this->github->getRepositoryLanguages('vermakhushboo', 'basic-js-crud');
+
+        $this->assertIsArray($languages);
+
+        $this->assertArrayHasKey('JavaScript', $languages);
+        $this->assertArrayHasKey('HTML', $languages);
+        $this->assertArrayHasKey('CSS', $languages);
+    }
 }

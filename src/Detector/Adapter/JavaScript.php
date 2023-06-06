@@ -41,7 +41,7 @@ class JavaScript extends Detector
             return true;
         }
 
-        if (isset($this->languages[self::DETECTOR_JAVASCRIPT])) {
+        if (in_array(self::DETECTOR_JAVASCRIPT, $this->languages)) {
             return true;
         }
 

@@ -41,7 +41,7 @@ class PHP extends Detector
             return true;
         }
 
-        if (isset($this->languages[self::DETECTOR_PHP])) {
+        if (in_array(self::DETECTOR_PHP, $this->languages)) {
             return true;
         }
 

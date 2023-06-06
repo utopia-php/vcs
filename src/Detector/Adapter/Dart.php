@@ -41,7 +41,7 @@ class Dart extends Detector
             return true;
         }
 
-        if (isset($this->languages[self::DETECTOR_DART])) {
+        if (in_array(self::DETECTOR_DART, $this->languages)) {
             return true;
         }
 

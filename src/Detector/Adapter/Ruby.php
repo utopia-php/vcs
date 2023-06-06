@@ -41,7 +41,7 @@ class Ruby extends Detector
             return true;
         }
 
-        if (isset($this->languages[self::DETECTOR_RUBY])) {
+        if (in_array(self::DETECTOR_RUBY, $this->languages)) {
             return true;
         }
 

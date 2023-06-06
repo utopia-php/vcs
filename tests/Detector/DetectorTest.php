@@ -29,7 +29,7 @@ class DetectorTest extends TestCase
 
         var_dump($detectorFactory->detect());
 
-        // // Ensure that detect() returns null when no detector matches
+        // Ensure that detect() returns null when no detector matches
         // $this->assertNull($detectorFactory->detect());
     }
 }

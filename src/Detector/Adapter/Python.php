@@ -41,7 +41,7 @@ class Python extends Detector
             return true;
         }
 
-        if (isset($this->languages[self::DETECTOR_PYTHON])) {
+        if (in_array(self::DETECTOR_PYTHON, $this->languages)) {
             return true;
         }
 

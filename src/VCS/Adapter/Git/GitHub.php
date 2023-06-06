@@ -448,14 +448,17 @@ class GitHub extends Git
      * @param string $path Path to list contents from
      * @return array List of contents at the specified path
      */
-    public function listRepositoryContents(string $owner, string $repositoryName, string $path): array
+    public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array
     {
-        $url = "/repos/$owner/$repositoryName/contents/$path";
+        $url = "/repos/$owner/$repositoryName/contents";
+        if (!empty($path)) {
+            $url .= "/$path";
+        }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
         return array_map(static function ($item) {
             return $item['name'];
-        }, $response['body']);    
+        }, $response['body']);
     }
 }

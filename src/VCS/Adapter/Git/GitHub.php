@@ -439,4 +439,23 @@ class GitHub extends Git
 
         return null;
     }
+
+    /**
+     * List contents of the specified root directory.
+     *
+     * @param string $owner Owner name of the repository
+     * @param string $repositoryName Name of the GitHub repository
+     * @param string $path Path to list contents from
+     * @return array List of contents at the specified path
+     */
+    public function listRepositoryContents(string $owner, string $repositoryName, string $path): array
+    {
+        $url = "/repos/$owner/$repositoryName/contents/$path";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return array_map(static function ($item) {
+            return $item['name'];
+        }, $response['body']);    
+    }
 }

@@ -152,6 +152,22 @@ class GitHub extends Git
         return $response['body']['repositories'];
     }
 
+    /**
+     * Get GitHub repository
+     *
+     * @return array
+     *
+     * @throws Exception
+     */
+    public function getRepository(string $owner, string $repositoryName): array
+    {
+        $url = "/repos/{$owner}/{$repositoryName}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return $response['body'];
+    }
+
     public function getTotalReposCount(): int
     {
         $url = '/installation/repositories';

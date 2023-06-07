@@ -5,14 +5,19 @@ namespace Utopia\Detector;
 class DetectorFactory
 {
     protected $detectors = [];
+    protected $files;
+    protected $languages;
 
-    public function __construct(array $detectors = [])
+    public function __construct(array $files = [], array $languages = [])
     {
-        $this->detectors = $detectors;
+        $this->files = $files;
+        $this->languages = $languages;
     }
 
     public function addDetector(Detector $detector): self
     {
+        $detector->setFiles($this->files);
+        $detector->setLanguages($this->languages);
         $this->detectors[] = $detector;
         return $this;
     }

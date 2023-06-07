@@ -25,15 +25,15 @@ class DetectorTest extends TestCase
 
         $files = $github->listRepositoryContents('appwrite', 'appwrite');
         $languages = $github->getRepositoryLanguages('appwrite', 'appwrite');
-        $detectorFactory = new DetectorFactory();
+        $detectorFactory = new DetectorFactory($files, $languages);
 
         // Add some detectors to the factory
         $detectorFactory
-            ->addDetector(new JavaScript($files, $languages))
-            ->addDetector(new PHP($files, $languages))
-            ->addDetector(new Python($files, $languages))
-            ->addDetector(new Dart($files, $languages))
-            ->addDetector(new Ruby($files, $languages));
+            ->addDetector(new JavaScript())
+            ->addDetector(new PHP())
+            ->addDetector(new Python())
+            ->addDetector(new Dart())
+            ->addDetector(new Ruby());
 
 
         $runtime = $detectorFactory->detect();

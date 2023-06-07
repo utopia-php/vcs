@@ -7,12 +7,6 @@ abstract class Detector
     protected $files;
     protected $languages;
 
-    public function __construct(array $files, array $languages)
-    {
-        $this->files = $files;
-        $this->languages = $languages;
-    }
-
     abstract public function getLanguage(): ?string;
 
     abstract public function getRuntime(): ?string;
@@ -24,4 +18,14 @@ abstract class Detector
     abstract public function getEntryPoint(): ?string;
 
     abstract public function detect(): ?bool;
+
+    public function setFiles(array $files): void
+    {
+        $this->files = $files;
+    }
+
+    public function setLanguages(array $languages): void
+    {
+        $this->languages = $languages;
+    }
 }

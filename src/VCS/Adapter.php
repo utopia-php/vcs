@@ -49,7 +49,7 @@ abstract class Adapter
      *
      * @throws Exception
      */
-    public function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true)
+    protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true)
     {
         $headers = array_merge($this->headers, $headers);
         $ch = curl_init($this->endpoint.$path.(($method == self::METHOD_GET && ! empty($params)) ? '?'.http_build_query($params) : ''));

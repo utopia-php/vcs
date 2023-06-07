@@ -77,12 +77,10 @@ class GitHubTest extends TestCase
         $response = $this->github->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
     }
 
-    public function testGenerateGitCloneCommand(): string
+    public function testGenerateGitCloneCommand(): void
     {
         $repoId = '155386150';
         $gitCloneCommand = $this->github->generateGitCloneCommand('vermakhushboo', $repoId, 'main');
-
-        return $gitCloneCommand;
     }
 
     public function testParseWebhookEventPayload(): void

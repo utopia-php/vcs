@@ -25,7 +25,7 @@ class JavaScript extends Detector
         return 'npm build';
     }
 
-    public function getEntryPoint(): string
+    public function getEntrypoint(): string
     {
         return 'src/index.js';
     }

@@ -2,9 +2,9 @@
 
 namespace Utopia\Detector\Adapter;
 
-use Utopia\Detector\Detector;
+use Utopia\Detector\Adapter;
 
-class PHP extends Detector
+class PHP extends Adapter
 {
     const DETECTOR_PHP = 'PHP';
 

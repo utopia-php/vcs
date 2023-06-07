@@ -8,10 +8,10 @@ use Utopia\Detector\Adapter\JavaScript;
 use Utopia\Detector\Adapter\PHP;
 use Utopia\Detector\Adapter\Python;
 use Utopia\Detector\Adapter\Ruby;
-use Utopia\Detector\DetectorFactory;
 use Utopia\App;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\Detector\Detector;
 use Utopia\VCS\Adapter\Git\GitHub;
 
 class DetectorTest extends TestCase
@@ -25,7 +25,7 @@ class DetectorTest extends TestCase
 
         $files = $github->listRepositoryContents('appwrite', 'appwrite');
         $languages = $github->getRepositoryLanguages('appwrite', 'appwrite');
-        $detectorFactory = new DetectorFactory($files, $languages);
+        $detectorFactory = new Detector($files, $languages);
 
         // Add some detectors to the factory
         $detectorFactory

@@ -2,9 +2,9 @@
 
 namespace Utopia\Detector\Adapter;
 
-use Utopia\Detector\Detector;
+use Utopia\Detector\Adapter;
 
-class Dart extends Detector
+class Dart extends Adapter
 {
     const DETECTOR_DART = 'Dart';
 

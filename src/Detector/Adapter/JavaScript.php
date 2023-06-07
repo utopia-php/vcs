@@ -2,9 +2,9 @@
 
 namespace Utopia\Detector\Adapter;
 
-use Utopia\Detector\Detector;
+use Utopia\Detector\Adapter;
 
-class JavaScript extends Detector
+class JavaScript extends Adapter
 {
     const DETECTOR_JAVASCRIPT = 'JavaScript';
 

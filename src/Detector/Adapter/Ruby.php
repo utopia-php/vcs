@@ -2,9 +2,9 @@
 
 namespace Utopia\Detector\Adapter;
 
-use Utopia\Detector\Detector;
+use Utopia\Detector\Adapter;
 
-class Ruby extends Detector
+class Ruby extends Adapter
 {
     const DETECTOR_RUBY = 'Ruby';
 

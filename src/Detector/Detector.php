@@ -2,30 +2,33 @@
 
 namespace Utopia\Detector;
 
-abstract class Detector
+class Detector
 {
+    protected $detectors = [];
     protected $files;
     protected $languages;
 
-    abstract public function getLanguage(): ?string;
-
-    abstract public function getRuntime(): ?string;
-
-    abstract public function getInstallCommand(): ?string;
-
-    abstract public function getBuildCommand(): ?string;
-
-    abstract public function getEntryPoint(): ?string;
-
-    abstract public function detect(): ?bool;
-
-    public function setFiles(array $files): void
+    public function __construct(array $files = [], array $languages = [])
     {
         $this->files = $files;
+        $this->languages = $languages;
     }
 
-    public function setLanguages(array $languages): void
+    public function addDetector(Adapter $detector): self
     {
-        $this->languages = $languages;
+        $detector->setFiles($this->files);
+        $detector->setLanguages($this->languages);
+        $this->detectors[] = $detector;
+        return $this;
+    }
+
+    public function detect(): ?string
+    {
+        foreach ($this->detectors as $detector) {
+            if ($detector->detect()) {
+                return $detector->getRuntime();
+            }
+        }
+        return null;
     }
 }

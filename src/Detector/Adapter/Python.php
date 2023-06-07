@@ -2,9 +2,9 @@
 
 namespace Utopia\Detector\Adapter;
 
-use Utopia\Detector\Detector;
+use Utopia\Detector\Adapter;
 
-class Python extends Detector
+class Python extends Adapter
 {
     const DETECTOR_PYTHON = 'Python';
 

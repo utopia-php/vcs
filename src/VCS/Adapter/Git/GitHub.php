@@ -303,7 +303,7 @@ class GitHub extends Git
      * @param  string  $repoId The ID of the repo to be cloned
      * @return string The git clone command as a string
      */
-    public function generateGitCloneCommand(string $owner, string $repoID, string $branchName)
+    public function generateGitCloneCommand(string $owner, string $repoID, string $branchName, string $directory, string $rootDirectory)
     {
         $url = "/repositories/{$repoID}";
 
@@ -315,8 +315,7 @@ class GitHub extends Git
         $cloneUrl = str_replace('https://', "https://{$owner}:{$this->accessToken}@", $repoUrl);
 
         // Construct the Git clone command with the clone URL
-        $command = 'git clone -b '.$branchName." --depth=1 {$cloneUrl}";
-
+        $command = "mkdir -p {$directory} && cd {$directory} && git init && git remote add origin {$cloneUrl} && git config core.sparsecheckout true && echo \"{$rootDirectory}/*\" >> .git/info/sparse-checkout && git pull --depth=1 origin {$branchName}";
         return $command;
     }
 

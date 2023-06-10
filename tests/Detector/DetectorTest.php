@@ -21,20 +21,12 @@ use Utopia\VCS\Adapter\Git\GitHub;
 
 class DetectorTest extends TestCase
 {
-    public function testDetect()
+    protected $github;
+
+    public function detect($files, $languages): string
     {
-        $github = new GitHub(new Cache(new None()));
-        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY');
-        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER');
-        $installationId = '37569846'; //your GitHub App Installation ID here
-        $github->initialiseVariables($installationId, $privateKey, $githubAppId, 'vermakhushboo');
-
-        $files = $github->listRepositoryContents('mxcl', 'PromiseKit');
-        $languages = $github->getRepositoryLanguages('mxcl', 'PromiseKit');
-
         $detectorFactory = new Detector($files, $languages);
 
-        // Add some detectors to the factory
         $detectorFactory
             ->addDetector(new JavaScript())
             ->addDetector(new PHP())
@@ -48,9 +40,38 @@ class DetectorTest extends TestCase
             ->addDetector(new Dotnet());
 
         $runtime = $detectorFactory->detect();
-        var_dump($runtime);
+        return $runtime;
+    }
 
-        // Ensure that detect() returns null when no detector matches
-        // $this->assertNull($detectorFactory->detect());
+    public function setUp(): void
+    {
+        $this->github = new GitHub(new Cache(new None()));
+        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY');
+        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER');
+        $installationId = '1234'; //your GitHub App Installation ID here
+        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId, 'vermakhushboo');
+    }
+
+    public function testLanguageDetection()
+    {
+        $languageMap = [
+            ['vermakhushboo', 'basic-js-crud', 'node'],
+            ['appwrite', 'appwrite', 'php'],
+            ['joblib', 'joblib', 'python'],
+            ['smartherd', 'DartTutorial', 'dart'],
+            ['realm', 'realm-swift', 'swift'],
+            ['aws', 'aws-sdk-ruby', 'ruby'],
+            ['functionaljava', 'functionaljava', 'java'],
+            ['Dobiasd', 'FunctionalPlus', 'cpp'],
+            ['anthonychu', 'azure-functions-deno-worker', 'deno'],
+            ['mono', 'mono-basic', 'dotnet']
+        ];
+
+        foreach ($languageMap as [$owner, $repositoryName, $expectedRuntime]) {
+            $files = $this->github->listRepositoryContents($owner, $repositoryName);
+            $languages = $this->github->getRepositoryLanguages($owner, $repositoryName);
+            $runtime = $this->detect($files, $languages);
+            $this->assertEquals($expectedRuntime, $runtime);
+        }
     }
 }

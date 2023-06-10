@@ -6,13 +6,24 @@ use Utopia\Detector\Adapter;
 
 class Dotnet extends Adapter
 {
-    const DETECTOR_DOTNET = '.NET';
-
-    const RUNTIME_DOTNET = 'dotnet';
-
-    public function getLanguage(): string
+    public function getLanguages(): array
     {
-        return self::DETECTOR_DOTNET;
+        return ['C#', 'Visual Basic .NET'];
+    }
+
+    public function getRuntime(): string
+    {
+        return 'dotnet';
+    }
+
+    public function getFileExtensions(): array
+    {
+        return ['cs', 'vb', 'sln', 'csproj', 'vbproj'];
+    }
+
+    public function getFiles(): array
+    {
+        return ['Program.cs', 'Solution.sln', 'Function.csproj', 'Program.vb'];
     }
 
     public function getInstallCommand(): string
@@ -28,35 +39,5 @@ class Dotnet extends Adapter
     public function getEntryPoint(): string
     {
         return 'Program.cs';
-    }
-
-    public function getRuntime(): string
-    {
-        return self::RUNTIME_DOTNET;
-    }
-
-    public function detect(): ?bool
-    {
-        if (in_array('Program.cs', $this->files)) {
-            return true;
-        }
-
-        if (in_array('Function.csproj', $this->files)) {
-            return true;
-        }
-
-        if (in_array('Solution.sln', $this->files)) {
-            return true;
-        }
-
-        if (in_array('web.config', $this->files)) {
-            return true;
-        }
-
-        if (in_array(self::DETECTOR_DOTNET, $this->languages)) {
-            return true;
-        }
-
-        return false;
     }
 }

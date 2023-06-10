@@ -6,13 +6,24 @@ use Utopia\Detector\Adapter;
 
 class Java extends Adapter
 {
-    const DETECTOR_JAVA = 'Java';
-
-    const RUNTIME_JAVA = 'java';
-
-    public function getLanguage(): string
+    public function getLanguages(): array
     {
-        return self::DETECTOR_JAVA;
+        return ['Java'];
+    }
+
+    public function getRuntime(): string
+    {
+        return 'java';
+    }
+
+    public function getFileExtensions(): array
+    {
+        return ['java', 'class', 'jar'];
+    }
+
+    public function getFiles(): array
+    {
+        return ['pom.xml', 'pmd.xml', 'build.gradle', 'build.gradle.kts'];
     }
 
     public function getInstallCommand(): string
@@ -28,27 +39,5 @@ class Java extends Adapter
     public function getEntryPoint(): string
     {
         return 'Main.java';
-    }
-
-    public function getRuntime(): string
-    {
-        return self::RUNTIME_JAVA;
-    }
-
-    public function detect(): ?bool
-    {
-        if (in_array('pom.xml', $this->files) || in_array('pmd.xml', $this->files)) {
-            return true;
-        }
-
-        if (in_array('build.gradle', $this->files) || in_array('build.gradle.kts', $this->files)) {
-            return true;
-        }
-
-        if (in_array(self::DETECTOR_JAVA, $this->languages)) {
-            return true;
-        }
-
-        return false;
     }
 }

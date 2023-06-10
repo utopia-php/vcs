@@ -6,13 +6,24 @@ use Utopia\Detector\Adapter;
 
 class PHP extends Adapter
 {
-    const DETECTOR_PHP = 'PHP';
-
-    const RUNTIME_PHP = 'php';
-
-    public function getLanguage(): string
+    public function getLanguages(): array
     {
-        return self::DETECTOR_PHP;
+        return ['PHP'];
+    }
+
+    public function getRuntime(): string
+    {
+        return 'php';
+    }
+
+    public function getFileExtensions(): array
+    {
+        return ['php'];
+    }
+
+    public function getFiles(): array
+    {
+        return ['composer.json', 'composer.lock'];
     }
 
     public function getInstallCommand(): string
@@ -28,28 +39,5 @@ class PHP extends Adapter
     public function getEntryPoint(): string
     {
         return 'index.php';
-    }
-
-    public function getRuntime(): string
-    {
-        return self::RUNTIME_PHP;
-    }
-
-    public function detect(): ?bool
-    {
-        if (in_array('composer.json', $this->files)) {
-            return true;
-        }
-
-        if (in_array(self::DETECTOR_PHP, $this->languages)) {
-            return true;
-        }
-
-        // foreach ($this->files as $file) {
-        //     if (pathinfo($file, PATHINFO_EXTENSION) === 'php') {
-        //         return $this;
-        //     }
-        // }
-        return false;
     }
 }

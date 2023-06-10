@@ -6,13 +6,24 @@ use Utopia\Detector\Adapter;
 
 class Python extends Adapter
 {
-    const DETECTOR_PYTHON = 'Python';
-
-    const RUNTIME_PYTHON = 'python';
-
-    public function getLanguage(): string
+    public function getLanguages(): array
     {
-        return self::DETECTOR_PYTHON;
+        return ['Python'];
+    }
+
+    public function getRuntime(): string
+    {
+        return 'python';
+    }
+
+    public function getFileExtensions(): array
+    {
+        return ['py'];
+    }
+
+    public function getFiles(): array
+    {
+        return ['requirements.txt', 'setup.py'];
     }
 
     public function getInstallCommand(): string
@@ -22,35 +33,11 @@ class Python extends Adapter
 
     public function getBuildCommand(): string
     {
-        return ''; // No build command for Python
+        return '';
     }
 
     public function getEntryPoint(): string
     {
-        return 'main.py'; // Replace with your Python entry point file name
-    }
-
-    public function getRuntime(): string
-    {
-        return self::RUNTIME_PYTHON;
-    }
-
-    public function detect(): ?bool
-    {
-        if (in_array('requirements.txt', $this->files)) {
-            return true;
-        }
-
-        if (in_array(self::DETECTOR_PYTHON, $this->languages)) {
-            return true;
-        }
-
-        // foreach ($this->files as $file) {
-        //     if (pathinfo($file, PATHINFO_EXTENSION) === 'py') {
-        //         return true;
-        //     }
-        // }
-
-        return false;
+        return 'main.py';
     }
 }

@@ -6,13 +6,24 @@ use Utopia\Detector\Adapter;
 
 class Deno extends Adapter
 {
-    const DETECTOR_DENO = 'TypeScript';
-
-    const RUNTIME_DENO = 'deno';
-
-    public function getLanguage(): string
+    public function getLanguages(): array
     {
-        return self::DETECTOR_DENO;
+        return ['TypeScript'];
+    }
+
+    public function getRuntime(): string
+    {
+        return 'deno';
+    }
+
+    public function getFileExtensions(): array
+    {
+        return ['ts', 'tsx'];
+    }
+
+    public function getFiles(): array
+    {
+        return ['mod.ts', 'deps.ts'];
     }
 
     public function getInstallCommand(): string
@@ -28,27 +39,5 @@ class Deno extends Adapter
     public function getEntryPoint(): string
     {
         return 'mod.ts';
-    }
-
-    public function getRuntime(): string
-    {
-        return self::RUNTIME_DENO;
-    }
-
-    public function detect(): ?bool
-    {
-        if (in_array('mod.ts', $this->files)) {
-            return true;
-        }
-
-        if (in_array('deps.ts', $this->files)) {
-            return true;
-        }
-
-        if (in_array(self::DETECTOR_DENO, $this->languages)) {
-            return true;
-        }
-
-        return false;
     }
 }

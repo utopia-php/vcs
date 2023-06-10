@@ -16,14 +16,14 @@ class JavaScript extends Adapter
         return 'node';
     }
 
-    public function getFiles(): array
+    public function getFileExtensions(): array
     {
         return ['js', 'ts'];
     }
 
-    public function getFileExtensions(): array
+    public function getFiles(): array
     {
-        return ['pakcage.json', 'package-lock.json', 'yarn.lock', 'tsconfig.json'];
+        return ['package.json', 'package-lock.json', 'yarn.lock', 'tsconfig.json'];
     }
 
     public function getInstallCommand(): string

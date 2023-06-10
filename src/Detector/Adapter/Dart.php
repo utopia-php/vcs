@@ -6,13 +6,24 @@ use Utopia\Detector\Adapter;
 
 class Dart extends Adapter
 {
-    const DETECTOR_DART = 'Dart';
-
-    const RUNTIME_DART = 'dart';
-
-    public function getLanguage(): string
+    public function getLanguages(): array
     {
-        return self::DETECTOR_DART;
+        return ['Dart'];
+    }
+
+    public function getRuntime(): string
+    {
+        return 'dart';
+    }
+
+    public function getFileExtensions(): array
+    {
+        return ['dart'];
+    }
+
+    public function getFiles(): array
+    {
+        return ['pubspec.yaml', 'pubspec.lock'];
     }
 
     public function getInstallCommand(): string
@@ -28,36 +39,5 @@ class Dart extends Adapter
     public function getEntryPoint(): string
     {
         return 'lib/main.dart';
-    }
-
-    public function getRuntime(): string
-    {
-        return self::RUNTIME_DART;
-    }
-
-    public function detect(): bool
-    {
-        if (in_array('pubspec.yaml', $this->files)) {
-            return true;
-        }
-
-        if (in_array(self::DETECTOR_DART, $this->languages)) {
-            return true;
-        }
-
-        if (
-            in_array('lib/main.dart', $this->files) ||
-            in_array('pubspec.lock', $this->files)
-        ) {
-            return true;
-        }
-
-        // foreach ($this->files as $file) {
-        //     if (pathinfo($file, PATHINFO_EXTENSION) === 'dart') {
-        //         return true;
-        //     }
-        // }
-
-        return false;
     }
 }

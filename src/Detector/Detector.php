@@ -56,7 +56,7 @@ class Detector
         // 3. Look for mathch with Git language
         foreach ($this->languages as $language) {
             foreach ($this->detectors as $detector) {
-                if ($language === $detector->getLanguage()) {
+                if ($language === $detector->getLanguages()) {
                     return $detector->getRuntime();
                 }
             }

@@ -6,32 +6,24 @@ use Utopia\Detector\Adapter;
 
 class JavaScript extends Adapter
 {
-    const DETECTOR_JAVASCRIPT = 'JavaScript';
-
-    const RUNTIME_NODE = 'node';
-
-    const FILE_EXTENSIONS = ['js'];
-
-    const FILES = ['pakcage.json', 'package-lock.json', 'yarn.lock'];
-
-    public function getLanguage(): string
+    public function getLanguages(): array
     {
-        return self::DETECTOR_JAVASCRIPT;
+        return ['JavaScript', 'TypeScript'];
     }
 
     public function getRuntime(): string
     {
-        return self::RUNTIME_NODE;
+        return 'node';
     }
 
     public function getFiles(): array
     {
-        return self::FILES;
+        return ['js', 'ts'];
     }
 
     public function getFileExtensions(): array
     {
-        return self::FILE_EXTENSIONS;
+        return ['pakcage.json', 'package-lock.json', 'yarn.lock', 'tsconfig.json'];
     }
 
     public function getInstallCommand(): string

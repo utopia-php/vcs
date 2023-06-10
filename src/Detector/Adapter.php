@@ -4,7 +4,7 @@ namespace Utopia\Detector;
 
 abstract class Adapter
 {
-    abstract public function getLanguage(): string;
+    abstract public function getLanguages(): array;
 
     abstract public function getRuntime(): string;
 

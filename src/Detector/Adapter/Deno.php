@@ -6,7 +6,7 @@ use Utopia\Detector\Adapter;
 
 class Deno extends Adapter
 {
-    const DETECTOR_DENO = 'Deno';
+    const DETECTOR_DENO = 'TypeScript';
 
     const RUNTIME_DENO = 'deno';
 

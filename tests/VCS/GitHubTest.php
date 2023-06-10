@@ -163,9 +163,9 @@ class GitHubTest extends TestCase
 
         $this->assertIsArray($languages);
 
-        $this->assertArrayHasKey('JavaScript', $languages);
-        $this->assertArrayHasKey('HTML', $languages);
-        $this->assertArrayHasKey('CSS', $languages);
+        $this->assertContains('JavaScript', $languages);
+        $this->assertContains('HTML', $languages);
+        $this->assertContains('CSS', $languages);
     }
 
     public function testListRepositoryContents(): void

@@ -29,8 +29,9 @@ class DetectorTest extends TestCase
         $installationId = '37569846'; //your GitHub App Installation ID here
         $github->initialiseVariables($installationId, $privateKey, $githubAppId, 'vermakhushboo');
 
-        $files = $github->listRepositoryContents('joblib', 'joblib');
-        $languages = $github->getRepositoryLanguages('joblib', 'joblib');
+        $files = $github->listRepositoryContents('mxcl', 'PromiseKit');
+        $languages = $github->getRepositoryLanguages('mxcl', 'PromiseKit');
+
         $detectorFactory = new Detector($files, $languages);
 
         // Add some detectors to the factory
@@ -39,8 +40,8 @@ class DetectorTest extends TestCase
             ->addDetector(new PHP())
             ->addDetector(new Python())
             ->addDetector(new Dart())
-            ->addDetector(new Ruby())
             ->addDetector(new Swift())
+            ->addDetector(new Ruby())
             ->addDetector(new Java())
             ->addDetector(new CPP())
             ->addDetector(new Deno())

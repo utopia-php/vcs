@@ -4,9 +4,20 @@ namespace Utopia\Detector;
 
 class Detector
 {
-    protected $detectors = [];
-    protected $files;
-    protected $languages;
+    /**
+     * @var Adapter[]
+     */
+    protected array $detectors = [];
+
+    /**
+     * @var string[]
+     */
+    protected array $files;
+
+    /**
+     * @var string[]
+     */
+    protected array $languages;
 
     public function __construct(array $files = [], array $languages = [])
     {
@@ -16,19 +27,41 @@ class Detector
 
     public function addDetector(Adapter $detector): self
     {
-        $detector->setFiles($this->files);
-        $detector->setLanguages($this->languages);
         $this->detectors[] = $detector;
+
         return $this;
     }
 
     public function detect(): ?string
     {
+        // 1. Look for specific files
         foreach ($this->detectors as $detector) {
-            if ($detector->detect()) {
+            $detectorFiles = $detector->getFiles();
+
+            $matches = \array_intersect($detectorFiles, $this->files);
+            if (\count($matches) > 0) {
                 return $detector->getRuntime();
             }
         }
+
+        // 2. Look for files with extension
+        foreach ($this->detectors as $detector) {
+            foreach ($this->files as $file) {
+                if (\in_array(pathinfo($file, PATHINFO_EXTENSION), $detector->getFileExtensions())) {
+                    return $detector->getRuntime();
+                }
+            }
+        }
+
+        // 3. Look for mathch with Git language
+        foreach ($this->languages as $language) {
+            foreach ($this->detectors as $detector) {
+                if ($language === $detector->getLanguage()) {
+                    return $detector->getRuntime();
+                }
+            }
+        }
+
         return null;
     }
 }

@@ -170,6 +170,6 @@ class GitHubTest extends TestCase
 
     public function testListRepositoryContents(): void
     {
-        $contents = $this-> github->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
+        $contents = $this->github->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
     }
 }

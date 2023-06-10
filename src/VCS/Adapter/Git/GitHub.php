@@ -316,6 +316,7 @@ class GitHub extends Git
 
         // Construct the Git clone command with the clone URL
         $command = "mkdir -p {$directory} && cd {$directory} && git init && git remote add origin {$cloneUrl} && git config core.sparsecheckout true && echo \"{$rootDirectory}/*\" >> .git/info/sparse-checkout && git pull --depth=1 origin {$branchName}";
+
         return $command;
     }
 
@@ -434,7 +435,7 @@ class GitHub extends Git
 
         $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
     }
-    
+
     /**
      * Get repository languages
      *
@@ -458,15 +459,15 @@ class GitHub extends Git
     /**
      * List contents of the specified root directory.
      *
-     * @param string $owner Owner name of the repository
-     * @param string $repositoryName Name of the GitHub repository
-     * @param string $path Path to list contents from
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @param  string  $path Path to list contents from
      * @return array List of contents at the specified path
      */
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array
     {
         $url = "/repos/$owner/$repositoryName/contents";
-        if (!empty($path)) {
+        if (! empty($path)) {
             $url .= "/$path";
         }
 

@@ -51,7 +51,7 @@ class Swift extends Adapter
         ) {
             return true;
         }
-    
+
         if (
             in_array('project.pbxproj', $this->files) ||
             in_array('Podfile', $this->files)

@@ -50,7 +50,6 @@ class PHP extends Adapter
         //         return $this;
         //     }
         // }
-        
         return false;
     }
 }

@@ -323,6 +323,19 @@ class GitHub extends Git
     /**
      * Parses webhook event payload
      *
+     * @param  string  $payload Raw body of HTTP request
+     * @param  string  $signature Signature provided by GitHub in header
+     * @param  string  $signatureKey Webhook secret configured on GitHub
+     * @return bool
+     */
+    public function validateWebhook(string $payload, string $signature, string $signatureKey)
+    {
+        return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
+    }
+
+    /**
+     * Parses webhook event payload
+     *
      * @param  string  $event Type of event: push, pull_request etc
      * @param  string  $payload The webhook payload received from GitHub
      * @return json Parsed payload as a json object

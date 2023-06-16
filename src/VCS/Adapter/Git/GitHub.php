@@ -157,11 +157,16 @@ class GitHub extends Git
      */
     public function getBranchPullRequest(string $owner, string $repositoryName, string $branch): array
     {
+        \var_dump($owner);
+        \var_dump($repositoryName);
+        \var_dump($branch);
+
         $url = "/repos/{$owner}/{$repositoryName}/pulls?base={$branch}&state=open&sort=updated&per_page=1";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        \var_dump($response);
 
-        return $response['body'][0] ?? null;
+        return $response['body'][0] ?? [];
     }
 
     /**

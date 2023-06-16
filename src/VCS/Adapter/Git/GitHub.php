@@ -153,6 +153,18 @@ class GitHub extends Git
     }
 
     /**
+     * Get latest opened pull request with specific base branch
+     */
+    public function getBranchPullRequest(string $owner, string $repositoryName, string $branch): array
+    {
+        $url = "/repos/{$owner}/{$repositoryName}/pulls?base={$branch}&state=open&sort=updated&per_page=1";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return $response['body'][0] ?? null;
+    }
+
+    /**
      * Get GitHub repository
      *
      * @return array

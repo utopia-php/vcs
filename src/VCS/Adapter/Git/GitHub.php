@@ -183,7 +183,7 @@ class GitHub extends Git
 
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
-        $url = "/orgs/{$owner}/{$repositoryName}";
+        $url = "/orgs/{$owner}/repos";
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], [
             'name' => $repositoryName,

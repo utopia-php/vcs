@@ -79,8 +79,7 @@ class GitHubTest extends TestCase
 
     public function testGenerateGitCloneCommand(): void
     {
-        $repoId = '155386150';
-        $gitCloneCommand = $this->github->generateGitCloneCommand('vermakhushboo', $repoId, 'main');
+        $gitCloneCommand = $this->github->generateGitCloneCommand('vermakhushboo', 'Amigo', 'main', '', '');
     }
 
     public function testParseWebhookEventPayload(): void

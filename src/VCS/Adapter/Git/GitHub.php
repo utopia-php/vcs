@@ -324,20 +324,11 @@ class GitHub extends Git
 
     /**
      * Generates a git clone command using app access token
-     *
-     * @param  string  $repoId The ID of the repo to be cloned
-     * @return string The git clone command as a string
      */
-    public function generateGitCloneCommand(string $owner, string $repoID, string $branchName, string $directory, string $rootDirectory)
+    public function generateGitCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory)
     {
-        $url = "/repositories/{$repoID}";
-
-        $repoData = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        $repoUrl = $repoData['body']['html_url'];
-
         // Construct the clone URL with the access token
-        $cloneUrl = str_replace('https://', "https://{$owner}:{$this->accessToken}@", $repoUrl);
+        $cloneUrl = "https://{$owner}:{$this->accessToken}@github.com/{$owner}/{$repositoryName}";
 
         // Construct the Git clone command with the clone URL
         $command = "mkdir -p {$directory} && cd {$directory} && git init && git remote add origin {$cloneUrl} && git config core.sparsecheckout true && echo \"{$rootDirectory}/*\" >> .git/info/sparse-checkout && git pull --depth=1 origin {$branchName}";
@@ -424,12 +415,12 @@ class GitHub extends Git
     /**
      * Fetches repository name using repository id
      *
-     * @param  string  $repoId ID of GitHub Repository
+     * @param  string  $repository ID of GitHub Repository
      * @return string name of GitHub repository
      */
-    public function getRepositoryName(string $repoId)
+    public function getRepositoryName(string $repositoryId)
     {
-        $url = "/repositories/$repoId";
+        $url = "/repositories/$repositoryId";
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
         return $response['body']['name'];

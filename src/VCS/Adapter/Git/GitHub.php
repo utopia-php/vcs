@@ -333,7 +333,7 @@ class GitHub extends Git
         var_dump($cloneUrl);
 
         // Construct the Git clone command with the clone URL
-        $command = "mkdir -p {$directory} && cd {$directory} && git init && git remote add origin {$cloneUrl} && git config core.sparsecheckout true && echo \"{$rootDirectory}/*\" >> .git/info/sparse-checkout && git pull --depth=1 origin {$branchName}";
+        $command = "mkdir -p {$directory} && cd {$directory} && git init && git remote add origin {$cloneUrl} && git config core.sparseCheckout true && echo \"{$rootDirectory}\" >> .git/info/sparse-checkout && git pull origin {$branchName}";
 
         return $command;
     }

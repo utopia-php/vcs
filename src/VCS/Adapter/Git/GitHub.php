@@ -331,7 +331,7 @@ class GitHub extends Git
         $cloneUrl = "https://{$owner}:{$this->accessToken}@github.com/{$owner}/{$repositoryName}";
 
         // Construct the Git clone command with the clone URL
-        $command = "mkdir -p {$directory} && cd {$directory} && git config --global init.defaultBranch main && git init && git remote add origin {$cloneUrl} && git config core.sparseCheckout true && echo \"{$rootDirectory}\" >> .git/info/sparse-checkout && git pull origin {$branchName} 2>/dev/null && true && git checkout -b {$branchName}";
+        $command = "mkdir -p {$directory} && cd {$directory} && git config --global init.defaultBranch main && git init && git remote add origin {$cloneUrl} && git config core.sparseCheckout true && echo \"{$rootDirectory}\" >> .git/info/sparse-checkout && git pull origin {$branchName} && git checkout {$branchName}";
 
         return $command;
     }

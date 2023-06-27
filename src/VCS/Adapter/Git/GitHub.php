@@ -387,6 +387,7 @@ class GitHub extends Git
                 $action = $payload['action'];
                 $owner = $payload['repository']['owner']['login'];
                 $SHA = $payload['pull_request']['head']['sha'];
+                $external = $payload['pull_request']['head']['label'] !== $payload['pull_request']['base']['label'];
 
                 return [
                     'action' => $action,
@@ -397,6 +398,7 @@ class GitHub extends Git
                     'pullRequestNumber' => $pullRequestNumber,
                     'SHA' => $SHA,
                     'owner' => $owner,
+                    'external' => $external
                 ];
                 break;
             case 'installation' || 'installation_repositories':

@@ -202,6 +202,15 @@ class GitHub extends Git
         return $response['body']['total_count'];
     }
 
+    public function getPullRequest(string $owner, string $repoName, $pullRequestNumber): array
+    {
+        $url = "/repos/{$owner}/{$repoName}/pulls/{$pullRequestNumber}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return $response['body'];
+    }
+
     /**
      * Add Comment to Pull Request
      *
@@ -209,7 +218,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function createComment($owner, $repoName, $pullRequestNumber, $comment)
+    public function createComment(string $owner, string $repoName, $pullRequestNumber, $comment)
     {
         $url = '/repos/'.$owner.'/'.$repoName.'/issues/'.$pullRequestNumber.'/comments';
 

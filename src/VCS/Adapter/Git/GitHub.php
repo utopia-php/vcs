@@ -386,6 +386,9 @@ class GitHub extends Git
                     'repositoryName' => $repositoryName,
                     'SHA' => $SHA,
                     'owner' => $owner,
+                    'external' => false,
+                    'pullRequestNumber' => '',
+                    'action' => ''
                 ];
                 break;
             case 'pull_request':

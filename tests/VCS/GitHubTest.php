@@ -30,7 +30,7 @@ class GitHubTest extends TestCase
     public function testGetOwnerName(): void
     {
         $owner = $this->github->getOwnerName('37569846');
-        $this->assertEquals('vermakhushboo', $owner); 
+        $this->assertEquals('vermakhushboo', $owner);
     }
 
     public function testListRepositoriesForGitHubApp(): void

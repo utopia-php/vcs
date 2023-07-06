@@ -40,6 +40,7 @@ class DetectorTest extends TestCase
             ->addDetector(new Dotnet());
 
         $runtime = $detectorFactory->detect();
+
         return $runtime;
     }
 
@@ -64,7 +65,7 @@ class DetectorTest extends TestCase
             ['functionaljava', 'functionaljava', 'java'],
             ['Dobiasd', 'FunctionalPlus', 'cpp'],
             ['anthonychu', 'azure-functions-deno-worker', 'deno'],
-            ['mono', 'mono-basic', 'dotnet']
+            ['mono', 'mono-basic', 'dotnet'],
         ];
 
         foreach ($languageMap as [$owner, $repositoryName, $expectedRuntime]) {

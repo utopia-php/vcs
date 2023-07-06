@@ -355,7 +355,7 @@ class GitHub extends Git
      */
     public function validateWebhook(string $payload, string $signature, string $signatureKey)
     {
-        return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
+        return $signature === ('sha256='.hash_hmac('sha256', $payload, $signatureKey));
     }
 
     /**
@@ -388,7 +388,7 @@ class GitHub extends Git
                     'owner' => $owner,
                     'external' => false,
                     'pullRequestNumber' => '',
-                    'action' => ''
+                    'action' => '',
                 ];
                 break;
             case 'pull_request':
@@ -410,7 +410,7 @@ class GitHub extends Git
                     'pullRequestNumber' => $pullRequestNumber,
                     'SHA' => $SHA,
                     'owner' => $owner,
-                    'external' => $external
+                    'external' => $external,
                 ];
                 break;
             case 'installation' || 'installation_repositories':

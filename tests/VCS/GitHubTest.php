@@ -45,8 +45,6 @@ class GitHubTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $count);
     }
 
-    // TODO: testGetComment()
-
     public function testCreateComment(): void
     {
         $commentId = $this->github->createComment('vermakhushboo', 'basic-js-crud', 1, 'hello');
@@ -199,5 +197,39 @@ class GitHubTest extends TestCase
         $contents = $this->github->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
+    }
+
+    public function testGetBranchPullRequest(): void
+    {
+        $result = $this->github->getBranchPullRequest("vermakhushboo", "basic-js-crud", "test");
+        $this->assertIsArray($result);
+        $this->assertNotEmpty($result);
+    }
+
+    public function testGetPullRequest(): void
+    {
+        $owner = 'vermakhushboo';
+        $repositoryName = 'basic-js-crud';
+        $pullRequestNumber = 1;
+
+        $result = $this->github->getPullRequest($owner, $repositoryName, $pullRequestNumber);
+
+        $this->assertIsArray($result);
+        $this->assertNotEmpty($result);
+        $this->assertEquals($pullRequestNumber, $result['number']);
+        $this->assertEquals($owner, $result['base']['user']['login']);
+        $this->assertEquals($repositoryName, $result['base']['repo']['name']);
+    }
+
+    public function testGetComment(): void
+    {   
+        $owner = 'vermakhushboo';
+        $repositoryName = 'basic-js-crud';
+        $commentId = '1431560395';
+
+        $result = $this->github->getComment($owner, $repositoryName, $commentId);
+
+        $this->assertIsString($result);
+        $this->assertNotEmpty($result);
     }
 }

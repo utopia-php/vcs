@@ -38,7 +38,7 @@ class GitHub extends Git
     }
 
     /**
-     * GitHub constructor.
+     * GitHub Initialisation with access token generation.
      */
     public function initialiseVariables(string $installationId, string $privateKey, string $githubAppId)
     {

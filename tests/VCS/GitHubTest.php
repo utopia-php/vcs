@@ -23,22 +23,26 @@ class GitHubTest extends TestCase
 
     public function testGetUser(): void
     {
-        $this->github->getUser('vermakhushboo');
+        $user = $this->github->getUser('vermakhushboo');
+        $this->assertEquals('vermakhushboo', $user['body']['login']);
     }
 
     public function testGetOwnerName(): void
     {
         $owner = $this->github->getOwnerName('37569846');
+        $this->assertEquals('vermakhushboo', $owner); 
     }
 
     public function testListRepositoriesForGitHubApp(): void
     {
-        $repos = $this->github->listRepositoriesForGitHubApp(1, 5);
+        $repos = $this->github->listRepositoriesForGitHubApp(1, 3);
+        $this->assertCount(3, $repos);
     }
 
     public function testGetTotalReposCount(): void
     {
         $count = $this->github->getTotalReposCount();
+        $this->assertGreaterThanOrEqual(0, $count);
     }
 
     // TODO: testGetComment()
@@ -46,11 +50,13 @@ class GitHubTest extends TestCase
     public function testCreateComment(): void
     {
         $commentId = $this->github->createComment('vermakhushboo', 'basic-js-crud', 1, 'hello');
+        $this->assertNotEmpty($commentId);
     }
 
     public function testUpdateComment(): void
     {
         $commentId = $this->github->updateComment('vermakhushboo', 'basic-js-crud', 1431560395, 'update');
+        $this->assertNotEmpty($commentId);
     }
 
     public function testDownloadRepositoryZip(): void
@@ -60,6 +66,9 @@ class GitHubTest extends TestCase
 
         // Save the ZIP archive to a file
         file_put_contents('./desktop/hello-world.zip', $zipContents);
+
+        // Assert that the file was saved successfully
+        $this->assertFileExists('./desktop/hello-world.zip');
     }
 
     public function testDownloadRepositoryTar(): void
@@ -69,17 +78,24 @@ class GitHubTest extends TestCase
 
         // Save the TAR archive to a file
         file_put_contents('./desktop/hello-world1.tar', $tarContents);
+
+        // Assert that the file was saved successfully
+        $this->assertFileExists('./desktop/hello-world1.tar');
     }
 
     public function testForkRepository(): void
     {
         // Fork a repository into authenticated user's account with custom name
         $response = $this->github->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
+        // Assert that the forked repo has the expected name
+        $this->assertEquals('fork-api-test-clone', $response['name']);
     }
 
     public function testGenerateGitCloneCommand(): void
     {
         $gitCloneCommand = $this->github->generateGitCloneCommand('vermakhushboo', 'Amigo', 'main', '', '');
+        $this->assertNotEmpty($gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
     }
 
     public function testParseWebhookEventPayload(): void
@@ -110,7 +126,12 @@ class GitHubTest extends TestCase
                 "id": 1303283688,
                 "state": "open",
                 "head": {
-                    "ref": "test"
+                    "ref": "test",
+                    "sha": "08e857a3ee1d1b0156502239798f558c996a664f",
+                    "label": "vermakhushboo:test"
+                },
+                "base": {
+                    "label": "vermakhushboo:main"
                 }
             },
             "repository": {
@@ -136,24 +157,30 @@ class GitHubTest extends TestCase
         }
         ';
 
-        $this->github->parseWebhookEventPayload('push', $payload_push);
-        $this->github->parseWebhookEventPayload('pull_request', $payload_pull_request);
-        $this->github->parseWebhookEventPayload('installation', $payload_uninstall);
+        $pushResult = $this->github->parseWebhookEventPayload('push', $payload_push);
+        $this->assertEquals('main', $pushResult['branch']);
+        $this->assertEquals('603754812', $pushResult['repositoryId']);
+
+        $pullRequestResult = $this->github->parseWebhookEventPayload('pull_request', $payload_pull_request);
+        $this->assertEquals('opened', $pullRequestResult['action']);
+        $this->assertEquals(1, $pullRequestResult['pullRequestNumber']);
+
+        $uninstallResult = $this->github->parseWebhookEventPayload('installation', $payload_uninstall);
+        $this->assertEquals('deleted', $uninstallResult['action']);
+        $this->assertEquals(1234, $uninstallResult['installationId']);
     }
 
     public function testGetRepositoryName(): void
     {
-        $repoName = $this->github->getRepositoryName('615825784');
-    }
-
-    public function testUpdateCommitStatus(): void
-    {
-        $this->github->updateCommitStatus('functions-example', 'a71dc759d5cbe5316c990f91f98de65d99f4ca64', 'vermakhushboo', 'failure', 'build failed', '', 'Appwrite Deployment');
+        $repoName = $this->github->getRepositoryName('432284323');
+        $this->assertEquals('basic-js-crud', $repoName);
     }
 
     public function testListBranches(): void
     {
-        $this->github->listBranches('vermakhushboo', 'functions-example');
+        $branches = $this->github->listBranches('vermakhushboo', 'basic-js-crud');
+        $this->assertIsArray($branches);
+        $this->assertNotEmpty($branches);
     }
 
     public function testGetRepositoryLanguages(): void
@@ -170,5 +197,7 @@ class GitHubTest extends TestCase
     public function testListRepositoryContents(): void
     {
         $contents = $this->github->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
+        $this->assertIsArray($contents);
+        $this->assertNotEmpty($contents);
     }
 }

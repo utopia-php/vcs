@@ -23,4 +23,4 @@ jobs:
 
     - name: Run Tests
       run: |
-        docker-compose exec tests vendor/bin/phpunit --configuration phpunit.xml tests
+        docker-compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml tests

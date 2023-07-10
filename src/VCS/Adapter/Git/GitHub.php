@@ -333,6 +333,10 @@ class GitHub extends Git
      */
     public function generateGitCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory)
     {
+        if (empty($rootDirectory)) {
+            $rootDirectory = '*';
+        }
+
         // Construct the clone URL with the access token
         $cloneUrl = "https://{$owner}:{$this->accessToken}@github.com/{$owner}/{$repositoryName}";
 

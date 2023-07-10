@@ -53,7 +53,7 @@ class Detector
             }
         }
 
-        // 3. Look for mathch with Git language
+        // 3. Look for match with language detected by Git
         foreach ($this->detectors as $detector) {
             foreach ($this->languages as $language) {
                 if (\in_array($language, $detector->getLanguages())) {

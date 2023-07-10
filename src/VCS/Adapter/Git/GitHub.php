@@ -84,7 +84,7 @@ class GitHub extends Git
         $jwt = new JWT($privateKey, 'RS256');
         $token = $jwt->encode($payload);
         $this->jwtToken = $token;
-        $res = $this->call(self::METHOD_POST, '/app/installations/'.$this->installationId.'/access_tokens', ['Authorization' => 'Bearer '.$token]);
+        $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
         $this->accessToken = $res['body']['token'];
         var_dump($this->accessToken);
     }
@@ -118,7 +118,7 @@ class GitHub extends Git
      */
     public function getUser(string $username): array
     {
-        $response = $this->call(self::METHOD_GET, '/users/'.$username);
+        $response = $this->call(self::METHOD_GET, '/users/' . $username);
 
         return $response;
     }
@@ -130,7 +130,7 @@ class GitHub extends Git
      */
     public function getOwnerName($installationId): string
     {
-        $url = '/app/installations/'.$installationId;
+        $url = '/app/installations/' . $installationId;
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->jwtToken"]);
 
         return $response['body']['account']['login'];
@@ -145,7 +145,7 @@ class GitHub extends Git
      */
     public function listRepositoriesForGitHubApp($page, $per_page): array
     {
-        $url = '/installation/repositories?page='.$page.'&per_page='.$per_page;
+        $url = '/installation/repositories?page=' . $page . '&per_page=' . $per_page;
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
@@ -220,7 +220,7 @@ class GitHub extends Git
      */
     public function createComment(string $owner, string $repoName, $pullRequestNumber, $comment)
     {
-        $url = '/repos/'.$owner.'/'.$repoName.'/issues/'.$pullRequestNumber.'/comments';
+        $url = '/repos/' . $owner . '/' . $repoName . '/issues/' . $pullRequestNumber . '/comments';
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], ['body' => $comment]);
         $commentId = $response['body']['id'];
@@ -237,7 +237,7 @@ class GitHub extends Git
      */
     public function getComment($owner, $repoName, $commentId): string
     {
-        $url = '/repos/'.$owner.'/'.$repoName.'/issues/comments/'.$commentId;
+        $url = '/repos/' . $owner . '/' . $repoName . '/issues/comments/' . $commentId;
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
         $comment = $response['body']['body'];
@@ -254,7 +254,7 @@ class GitHub extends Git
      */
     public function updateComment($owner, $repoName, $commentId, $comment)
     {
-        $url = '/repos/'.$owner.'/'.$repoName.'/issues/comments/'.$commentId;
+        $url = '/repos/' . $owner . '/' . $repoName . '/issues/comments/' . $commentId;
 
         $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], ['body' => $comment]);
         $commentId = $response['body']['id'];
@@ -273,10 +273,10 @@ class GitHub extends Git
     public function downloadRepositoryZip(string $owner, string $repoName, string $ref, string $path = ''): string
     {
         // Build the URL for the API request
-        $url = '/repos/'.$owner."/{$repoName}/zipball/{$ref}";
+        $url = '/repos/' . $owner . "/{$repoName}/zipball/{$ref}";
 
         // Add the path parameter to the URL query parameters, if specified
-        if (! empty($path)) {
+        if (!empty($path)) {
             $url .= "?path={$path}";
         }
 
@@ -296,7 +296,7 @@ class GitHub extends Git
     public function downloadRepositoryTar(string $owner, string $repoName, string $ref): string
     {
         // Build the URL for the API request
-        $url = '/repos/'.$owner."/{$repoName}/tarball/{$ref}";
+        $url = '/repos/' . $owner . "/{$repoName}/tarball/{$ref}";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
@@ -355,7 +355,7 @@ class GitHub extends Git
      */
     public function validateWebhook(string $payload, string $signature, string $signatureKey)
     {
-        return $signature === ('sha256='.hash_hmac('sha256', $payload, $signatureKey));
+        return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
     }
 
     /**
@@ -512,7 +512,7 @@ class GitHub extends Git
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array
     {
         $url = "/repos/$owner/$repositoryName/contents";
-        if (! empty($path)) {
+        if (!empty($path)) {
             $url .= "/$path";
         }
 

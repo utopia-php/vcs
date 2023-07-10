@@ -201,7 +201,7 @@ class GitHubTest extends TestCase
 
     public function testGetBranchPullRequest(): void
     {
-        $result = $this->github->getBranchPullRequest("vermakhushboo", "basic-js-crud", "test");
+        $result = $this->github->getBranchPullRequest('vermakhushboo', 'basic-js-crud', 'test');
         $this->assertIsArray($result);
         $this->assertNotEmpty($result);
     }
@@ -222,7 +222,7 @@ class GitHubTest extends TestCase
     }
 
     public function testGetComment(): void
-    {   
+    {
         $owner = 'vermakhushboo';
         $repositoryName = 'basic-js-crud';
         $commentId = '1431560395';

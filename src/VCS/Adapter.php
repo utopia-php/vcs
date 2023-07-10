@@ -52,7 +52,7 @@ abstract class Adapter
     protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true)
     {
         $headers = array_merge($this->headers, $headers);
-        $ch = curl_init($this->endpoint.$path.(($method == self::METHOD_GET && ! empty($params)) ? '?'.http_build_query($params) : ''));
+        $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
         $responseHeaders = [];
         $responseStatus = -1;
         $responseType = '';
@@ -77,7 +77,7 @@ abstract class Adapter
         }
 
         foreach ($headers as $i => $header) {
-            $headers[] = $i.':'.$header;
+            $headers[] = $i . ':' . $header;
             unset($headers[$i]);
         }
 
@@ -122,7 +122,7 @@ abstract class Adapter
                     $json = json_decode($responseBody, true);
 
                     if ($json === null) {
-                        throw new Exception('Failed to parse response: '.$responseBody);
+                        throw new Exception('Failed to parse response: ' . $responseBody);
                     }
 
                     $responseBody = $json;
@@ -132,7 +132,7 @@ abstract class Adapter
         }
 
         if ((curl_errno($ch)/* || 200 != $responseStatus*/)) {
-            throw new Exception(curl_error($ch).' with status code '.$responseStatus, $responseStatus);
+            throw new Exception(curl_error($ch) . ' with status code ' . $responseStatus, $responseStatus);
         }
 
         curl_close($ch);
@@ -140,7 +140,7 @@ abstract class Adapter
         $responseHeaders['status-code'] = $responseStatus;
 
         if ($responseStatus === 500) {
-            echo 'Server error('.$method.': '.$path.'. Params: '.json_encode($params).'): '.json_encode($responseBody)."\n";
+            echo 'Server error(' . $method . ': ' . $path . '. Params: ' . json_encode($params) . '): ' . json_encode($responseBody) . "\n";
         }
 
         return [

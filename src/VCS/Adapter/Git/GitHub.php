@@ -9,11 +9,11 @@ use Utopia\VCS\Adapter\Git;
 
 class GitHub extends Git
 {
-    const EVENT_PUSH = 'push';
+    public const EVENT_PUSH = 'push';
 
-    const EVENT_PULL_REQUEST = 'pull_request';
+    public const EVENT_PULL_REQUEST = 'pull_request';
 
-    const EVENT_INSTALLATION = 'installation';
+    public const EVENT_INSTALLATION = 'installation';
 
     protected string $endpoint = 'https://api.github.com';
 

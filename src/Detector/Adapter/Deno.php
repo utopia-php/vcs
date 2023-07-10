@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class Deno extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['TypeScript'];
@@ -16,11 +19,17 @@ class Deno extends Adapter
         return 'deno';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['ts', 'tsx'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['mod.ts', 'deps.ts'];

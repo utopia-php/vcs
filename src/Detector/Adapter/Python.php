@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class Python extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['Python'];
@@ -16,11 +19,17 @@ class Python extends Adapter
         return 'python';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['py'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['requirements.txt', 'setup.py'];

@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class Ruby extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['Ruby'];
@@ -16,11 +19,17 @@ class Ruby extends Adapter
         return 'ruby';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['rb'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['Gemfile', 'Gemfile.lock', 'Rakefile', 'Guardfile'];

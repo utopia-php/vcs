@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class JavaScript extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['JavaScript', 'TypeScript'];
@@ -16,11 +19,17 @@ class JavaScript extends Adapter
         return 'node';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['js', 'ts'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['package.json', 'package-lock.json', 'yarn.lock', 'tsconfig.json'];

@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class Dart extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['Dart'];
@@ -16,11 +19,17 @@ class Dart extends Adapter
         return 'dart';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['dart'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['pubspec.yaml', 'pubspec.lock'];

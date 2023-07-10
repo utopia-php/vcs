@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class PHP extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['PHP'];
@@ -16,11 +19,17 @@ class PHP extends Adapter
         return 'php';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['php'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['composer.json', 'composer.lock'];

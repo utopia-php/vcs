@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class CPP extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['C++'];
@@ -16,11 +19,17 @@ class CPP extends Adapter
         return 'cpp';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['cpp', 'h', 'hpp', 'cxx', 'cc'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['main.cpp', 'Solution', 'CMakeLists.txt', '.clang-format'];

@@ -40,7 +40,7 @@ class GitHub extends Git
     /**
      * GitHub Initialisation with access token generation.
      */
-    public function initialiseVariables(string $installationId, string $privateKey, string $githubAppId)
+    public function initialiseVariables(string $installationId, string $privateKey, string $githubAppId): void
     {
         $this->installationId = $installationId;
 
@@ -61,9 +61,6 @@ class GitHub extends Git
 
     /**
      * Generate Access Token
-     *
-     * @param  string  $userName The username of account which has installed GitHub app
-     * @param  string  $installationId Installation ID of the GitHub App
      */
     protected function generateAccessToken(string $privateKey, string $githubAppId)
     {

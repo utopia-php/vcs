@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class Swift extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['Swift'];
@@ -16,11 +19,17 @@ class Swift extends Adapter
         return 'swift';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['swift', 'xcodeproj', 'xcworkspace'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['Package.swift', 'Podfile', 'project.pbxproj'];

@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class Java extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['Java'];
@@ -16,11 +19,17 @@ class Java extends Adapter
         return 'java';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['java', 'class', 'jar'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['pom.xml', 'pmd.xml', 'build.gradle', 'build.gradle.kts'];

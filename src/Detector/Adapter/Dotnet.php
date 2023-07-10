@@ -6,6 +6,9 @@ use Utopia\Detector\Adapter;
 
 class Dotnet extends Adapter
 {
+    /**
+     * @return string[]
+     */
     public function getLanguages(): array
     {
         return ['C#', 'Visual Basic .NET'];
@@ -16,11 +19,17 @@ class Dotnet extends Adapter
         return 'dotnet';
     }
 
+    /**
+     * @return string[]
+     */
     public function getFileExtensions(): array
     {
         return ['cs', 'vb', 'sln', 'csproj', 'vbproj'];
     }
 
+    /**
+     * @return string[]
+     */
     public function getFiles(): array
     {
         return ['Program.cs', 'Solution.sln', 'Function.csproj', 'Program.vb'];

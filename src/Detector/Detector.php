@@ -19,6 +19,10 @@ class Detector
      */
     protected array $languages;
 
+    /**
+     * @param string[] $files
+     * @param string[] $languages
+     */
     public function __construct(array $files = [], array $languages = [])
     {
         $this->files = $files;

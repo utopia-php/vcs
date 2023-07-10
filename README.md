@@ -22,22 +22,26 @@ Init in your application:
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use Utopia\VCS\Adapter\Git\GitHub;
-use Utopia\App;
-use Utopia\Cache\Adapter\None;
-use Utopia\Cache\Cache;
 
 // Initialise your adapter
-$github = new GitHub(new Cache(new None()));
+$github = new GitHub();
 
-// Set and read values from environment variables
-$privateKey = App::getEnv('GITHUB_PRIVATE_KEY');
-$githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER');
-$installationId = '1234'; //your GitHub App Installation ID here
+// Your GitHub app private key. You can generate this from your GitHub App settings.
+$privateKey = 'your-github-app-private-key';
+
+// Your GitHub App ID. You can find this in the GitHub App dashboard.
+$githubAppId = 'your-github-app-id';
+
+// Your GitHub App installation ID. You can find this in the GitHub App installation settings.
+$installationId = 'your-github-app-installation-id';
 
 // Initialise variables
 $github->initialiseVariables($installationId, $privateKey, $githubAppId, 'github-username');
 
-// Perform the actions that you want
+// Perform the actions that you want, ex: create repository
+$owner = '<repository-owner>';
+$name = '<repository-name>';
+$isPrivate = true; // Set to false if you want to create a public repository
 $repository = $github->createRepository($owner, $name, $private);
 ```
 

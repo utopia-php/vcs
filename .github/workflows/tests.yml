@@ -29,5 +29,4 @@ jobs:
 
     - name: Run Tests
       run: |
-        docker run --rm -v $PWD:/app --network openruntimes-runtimes -w /app phpswoole/swoole:4.8.12-php8.0-alpine sh -c \
-        "composer install --profile --ignore-platform-reqs && composer test"
+        docker-compose exec tests vendor/bin/phpunit --configuration phpunit.xml tests

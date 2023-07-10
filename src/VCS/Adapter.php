@@ -54,7 +54,7 @@ abstract class Adapter
         $headers = array_merge($this->headers, $headers);
         $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
 
-        if(!$ch) {
+        if (!$ch) {
             throw new Exception('Curl failed to initialize');
         }
 

@@ -87,7 +87,6 @@ class GitHub extends Git
         $this->jwtToken = $token;
         $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
         $this->accessToken = $res['body']['token'];
-        var_dump($this->accessToken);
     }
 
     /**

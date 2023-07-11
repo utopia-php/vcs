@@ -16,7 +16,6 @@ jobs:
           APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
           INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
       run: |
-        echo $PRIVATE_KEY
         docker compose up -d
         sleep 15
 

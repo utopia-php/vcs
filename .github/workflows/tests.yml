@@ -11,6 +11,10 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Start Test Stack
+      env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
       run: |
         echo $PRIVATE_KEY
         docker compose up -d
@@ -23,9 +27,5 @@ jobs:
         docker network ls
 
     - name: Run Tests
-      env:
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
-          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
       run: |
         docker-compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml tests

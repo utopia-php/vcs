@@ -81,7 +81,7 @@ class GitHubTest extends TestCase
         // Fork a repository into authenticated user's account with custom name
         $response = $this->github->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
         // Assert that the forked repo has the expected name
-        $this->assertEquals('fork-api-test-clone', $response['name']);
+        $this->assertEquals('fork-api-test-clone', $response);
         $this->github->deleteRepository("test-kh", "fork-api-test-clone");
     }
 

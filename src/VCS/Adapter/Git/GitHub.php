@@ -238,7 +238,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function createComment(string $owner, string $repositoryName, string $pullRequestNumber, string $comment): string
+    public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string
     {
         $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/' . $pullRequestNumber . '/comments';
 
@@ -279,7 +279,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function updateComment(string $owner, string $repositoryName, string $commentId, string $comment): string
+    public function updateComment(string $owner, string $repositoryName, int $commentId, string $comment): string
     {
         $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/comments/' . $commentId;
 
@@ -337,9 +337,9 @@ class GitHub extends Git
      * @param  string|null  $organization The name of the organization to fork the repository into. If not provided, the repository will be forked into the authenticated user's account.
      * @param  string|null  $name The name of the new forked repository. If not provided, the name will be the same as the original repository.
      * @param  bool  $defaultBranchOnly Whether to include only the default branch in the forked repository. Defaults to false.
-     * @return array<mixed> The data of the newly forked repository
+     * @return string The name of the newly forked repository
      */
-    public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?array
+    public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?string
     {
         $url = "/repos/$owner/$repo/forks";
 
@@ -353,7 +353,7 @@ class GitHub extends Git
         // Send the API request to fork the repository
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $data);
 
-        return $response['body'];
+        return $response['body']['name'];
     }
 
     /**

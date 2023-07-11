@@ -9,7 +9,7 @@ services:
       - ./tests:/usr/local/src/tests
       - ./phpunit.xml:/usr/local/src/phpunit.xml
     environment:
-      - GITHUB_PRIVATE_KEY
-      - GITHUB_APP_IDENTIFIER
-      - GITHUB_WEBHOOK_SECRET
-      - GITHUB_INSTALLATION_ID
+      - PRIVATE_KEY
+      - APP_IDENTIFIER
+      - WEBHOOK_SECRET
+      - INSTALLATION_ID

@@ -51,9 +51,9 @@ class DetectorTest extends TestCase
     public function setUp(): void
     {
         $this->github = new GitHub(new Cache(new None()));
-        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY') ?? '';
-        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER') ?? '';
-        $installationId = App::getEnv('GITHUB_INSTALLATION_ID') ?? '';
+        $privateKey = App::getEnv('PRIVATE_KEY') ?? '';
+        $githubAppId = App::getEnv('APP_IDENTIFIER') ?? '';
+        $installationId = App::getEnv('INSTALLATION_ID') ?? '';
         $this->github->initialiseVariables($installationId, $privateKey, $githubAppId);
     }
 

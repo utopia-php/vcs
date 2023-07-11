@@ -196,6 +196,13 @@ class GitHub extends Git
         return $response['body'];
     }
 
+    public function deleteRepository(string $owner, string $repositoryName): void
+    {
+        $url = "/repos/{$owner}/{$repositoryName}";
+
+        $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
+    }
+
     public function getTotalReposCount(): int
     {
         $url = '/installation/repositories';
@@ -261,7 +268,7 @@ class GitHub extends Git
      *
      * @param string $owner      The owner of the repository
      * @param string $repositoryName   The name of the repository
-     * @param string $commentId  The ID of the comment to update
+     * @param int $commentId  The ID of the comment to update
      * @param string $comment    The updated comment content
      * @return string            The ID of the updated comment
      *
@@ -325,7 +332,7 @@ class GitHub extends Git
      * @param  string|null  $organization The name of the organization to fork the repository into. If not provided, the repository will be forked into the authenticated user's account.
      * @param  string|null  $name The name of the new forked repository. If not provided, the name will be the same as the original repository.
      * @param  bool  $defaultBranchOnly Whether to include only the default branch in the forked repository. Defaults to false.
-     * @return array<mixed>|null The data of the newly forked repository, or null if the fork operation failed.
+     * @return array<mixed> The data of the newly forked repository
      */
     public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?array
     {

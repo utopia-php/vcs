@@ -21,23 +21,17 @@ class GitHubTest extends TestCase
         $this->github->initialiseVariables($installationId, $privateKey, $githubAppId);
     }
 
-    public function testGetUser(): void
-    {
-        $user = $this->github->getUser('vermakhushboo');
-        $this->assertEquals('vermakhushboo', $user['body']['login']);
-    }
-
     public function testGetOwnerName(): void
     {
         $installationId = App::getEnv('GITHUB_INSTALLATION_ID') ?? '';
         $owner = $this->github->getOwnerName($installationId);
-        $this->assertEquals('appwrite', $owner);
+        $this->assertEquals('test-kh', $owner);
     }
 
     public function testListRepositoriesForGitHubApp(): void
     {
-        $repos = $this->github->listRepositoriesForGitHubApp(1, 3);
-        $this->assertCount(3, $repos);
+        $repos = $this->github->listRepositoriesForGitHubApp(1, 2);
+        $this->assertCount(2, $repos);
     }
 
     public function testGetTotalReposCount(): void
@@ -48,26 +42,26 @@ class GitHubTest extends TestCase
 
     public function testCreateComment(): void
     {
-        $commentId = $this->github->createComment('vermakhushboo', 'basic-js-crud', 1, 'hello');
+        $commentId = $this->github->createComment('test-kh', 'test2', 1, 'hello');
         $this->assertNotEmpty($commentId);
     }
 
     public function testUpdateComment(): void
     {
-        $commentId = $this->github->updateComment('vermakhushboo', 'basic-js-crud', 1431560395, 'update');
+        $commentId = $this->github->updateComment('test-kh', 'test2', 1630320767, 'update');
         $this->assertNotEmpty($commentId);
     }
 
     public function testDownloadRepositoryZip(): void
     {
         // download the zip archive of the repo
-        $zipContents = $this->github->downloadRepositoryZip('appwrite', 'demos-for-react', 'main');
+        $zipContents = $this->github->downloadRepositoryZip('test-kh', 'test2', 'main');
 
         // Save the ZIP archive to a file
-        file_put_contents('./desktop/hello-world.zip', $zipContents);
+        file_put_contents('./hello-world.zip', $zipContents);
 
         // Assert that the file was saved successfully
-        $this->assertFileExists('./desktop/hello-world.zip');
+        $this->assertFileExists('./hello-world.zip');
     }
 
     public function testDownloadRepositoryTar(): void
@@ -76,10 +70,10 @@ class GitHubTest extends TestCase
         $tarContents = $this->github->downloadRepositoryTar('appwrite', 'demos-for-react', 'main');
 
         // Save the TAR archive to a file
-        file_put_contents('./desktop/hello-world1.tar', $tarContents);
+        file_put_contents('./hello-world.tar', $tarContents);
 
         // Assert that the file was saved successfully
-        $this->assertFileExists('./desktop/hello-world1.tar');
+        $this->assertFileExists('./hello-world.tar');
     }
 
     public function testForkRepository(): void
@@ -88,11 +82,12 @@ class GitHubTest extends TestCase
         $response = $this->github->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
         // Assert that the forked repo has the expected name
         $this->assertEquals('fork-api-test-clone', $response['name']);
+        $this->github->deleteRepository("test-kh", "fork-api-test-clone");
     }
 
     public function testGenerateGitCloneCommand(): void
     {
-        $gitCloneCommand = $this->github->generateGitCloneCommand('vermakhushboo', 'Amigo', 'main', '', '');
+        $gitCloneCommand = $this->github->generateGitCloneCommand('test-kh', 'test2', 'main', '', '');
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
     }

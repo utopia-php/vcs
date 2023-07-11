@@ -12,6 +12,7 @@ jobs:
 
     - name: Start Test Stack
       run: |
+        echo $PRIVATE_KEY
         docker compose up -d
         sleep 15
 

@@ -48,10 +48,12 @@ class GitHub extends Git
         if ($response == false) {
             $this->generateAccessToken($privateKey, $githubAppId);
 
-            $this->cache->save($installationId, \json_encode([
+            $tokens = \json_encode([
                 'jwtToken' => $this->jwtToken,
                 'accessToken' => $this->accessToken,
-            ]));
+            ]) ?: '{}';
+
+            $this->cache->save($installationId, $tokens);
         } else {
             $parsed = \json_decode($response, true);
             $this->jwtToken = $parsed['jwtToken'];
@@ -64,8 +66,11 @@ class GitHub extends Git
      */
     protected function generateAccessToken(string $privateKey, string $githubAppId): void
     {
-        // fetch env variables from .env file
-        $privateKey = openssl_pkey_get_private($privateKey);
+        /**
+         * @var resource $privateKeyObj
+         */
+        $privateKeyObj = \openssl_pkey_get_private($privateKey);
+
         $appIdentifier = $githubAppId;
 
         $iat = time();
@@ -77,7 +82,7 @@ class GitHub extends Git
         ];
 
         // generate access token
-        $jwt = new JWT($privateKey, 'RS256');
+        $jwt = new JWT($privateKeyObj, 'RS256');
         $token = $jwt->encode($payload);
         $this->jwtToken = $token;
         $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
@@ -226,7 +231,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string
+    public function createComment(string $owner, string $repositoryName, string $pullRequestNumber, string $comment): string
     {
         $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/' . $pullRequestNumber . '/comments';
 
@@ -267,7 +272,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function updateComment($owner, $repositoryName, $commentId, $comment): string
+    public function updateComment(string $owner, string $repositoryName, string $commentId, string $comment): string
     {
         $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/comments/' . $commentId;
 

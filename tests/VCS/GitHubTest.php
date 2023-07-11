@@ -48,13 +48,13 @@ class GitHubTest extends TestCase
 
     public function testCreateComment(): void
     {
-        $commentId = $this->github->createComment('vermakhushboo', 'basic-js-crud', 1, 'hello');
+        $commentId = $this->github->createComment('vermakhushboo', 'basic-js-crud', '1', 'hello');
         $this->assertNotEmpty($commentId);
     }
 
     public function testUpdateComment(): void
     {
-        $commentId = $this->github->updateComment('vermakhushboo', 'basic-js-crud', 1431560395, 'update');
+        $commentId = $this->github->updateComment('vermakhushboo', 'basic-js-crud', '1431560395', 'update');
         $this->assertNotEmpty($commentId);
     }
 
@@ -87,7 +87,7 @@ class GitHubTest extends TestCase
         // Fork a repository into authenticated user's account with custom name
         $response = $this->github->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
         // Assert that the forked repo has the expected name
-        $this->assertEquals('fork-api-test-clone', $response['name']);
+        $this->assertEquals('fork-api-test-clone', $response['name'] ?? '');
     }
 
     public function testGenerateGitCloneCommand(): void

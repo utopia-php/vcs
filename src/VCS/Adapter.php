@@ -117,14 +117,20 @@ abstract class Adapter
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         }
 
-        $responseBody = curl_exec($ch);
+        $responseBody = \curl_exec($ch) ?: '';
+
+        if ($responseBody === true) {
+            $responseBody = '';
+        }
+
         $responseType = $responseHeaders['content-type'] ?? '';
-        $responseStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $responseStatus = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
         if ($decode) {
-            switch (substr($responseType, 0, strpos($responseType, ';'))) {
+            $length = strpos($responseType, ';') ?: 0;
+            switch (substr($responseType, 0, $length)) {
                 case 'application/json':
-                    $json = json_decode($responseBody, true);
+                    $json = \json_decode($responseBody, true);
 
                     if ($json === null) {
                         throw new Exception('Failed to parse response: ' . $responseBody);
@@ -157,9 +163,9 @@ abstract class Adapter
     /**
      * Flatten params array to PHP multiple format
      *
-     * @param  array  $data
+     * @param  array<mixed>  $data
      * @param  string  $prefix
-     * @return array
+     * @return array<mixed>
      */
     protected function flatten(array $data, string $prefix = ''): array
     {

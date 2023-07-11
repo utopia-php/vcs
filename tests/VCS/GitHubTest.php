@@ -10,15 +10,15 @@ use Utopia\VCS\Adapter\Git\GitHub;
 
 class GitHubTest extends TestCase
 {
-    protected $github;
+    protected GitHub $github;
 
     public function setUp(): void
     {
         $this->github = new GitHub(new Cache(new None()));
-        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY');
-        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER');
-        $installationId = '1234'; //your GitHub App Installation ID here
-        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId, 'vermakhushboo');
+        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY') ?? '';
+        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER') ?? '';
+        $installationId = App::getEnv('GITHUB_INSTALLATION_ID') ?? '';
+        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId);
     }
 
     public function testGetUser(): void
@@ -29,8 +29,9 @@ class GitHubTest extends TestCase
 
     public function testGetOwnerName(): void
     {
-        $owner = $this->github->getOwnerName('37569846');
-        $this->assertEquals('vermakhushboo', $owner);
+        $installationId = App::getEnv('GITHUB_INSTALLATION_ID') ?? '';
+        $owner = $this->github->getOwnerName($installationId);
+        $this->assertEquals('appwrite', $owner);
     }
 
     public function testListRepositoriesForGitHubApp(): void
@@ -60,7 +61,7 @@ class GitHubTest extends TestCase
     public function testDownloadRepositoryZip(): void
     {
         // download the zip archive of the repo
-        $zipContents = $this->github->downloadRepositoryZip('vermakhushboo', 'gatsby-ecommerce-theme', 'main');
+        $zipContents = $this->github->downloadRepositoryZip('appwrite', 'demos-for-react', 'main');
 
         // Save the ZIP archive to a file
         file_put_contents('./desktop/hello-world.zip', $zipContents);
@@ -72,7 +73,7 @@ class GitHubTest extends TestCase
     public function testDownloadRepositoryTar(): void
     {
         // download the tar archive of the repo
-        $tarContents = $this->github->downloadRepositoryTar('vermakhushboo', 'gatsby-ecommerce-theme', 'main');
+        $tarContents = $this->github->downloadRepositoryTar('appwrite', 'demos-for-react', 'main');
 
         // Save the TAR archive to a file
         file_put_contents('./desktop/hello-world1.tar', $tarContents);
@@ -170,8 +171,8 @@ class GitHubTest extends TestCase
 
     public function testGetRepositoryName(): void
     {
-        $repoName = $this->github->getRepositoryName('432284323');
-        $this->assertEquals('basic-js-crud', $repoName);
+        $repositoryName = $this->github->getRepositoryName('432284323');
+        $this->assertEquals('basic-js-crud', $repositoryName);
     }
 
     public function testListBranches(): void

@@ -62,11 +62,10 @@ class GitHub extends Git
     /**
      * Generate Access Token
      */
-    protected function generateAccessToken(string $privateKey, string $githubAppId)
+    protected function generateAccessToken(string $privateKey, string $githubAppId): void
     {
         // fetch env variables from .env file
-        $privateKeyString = $privateKey;
-        $privateKey = openssl_pkey_get_private($privateKeyString);
+        $privateKey = openssl_pkey_get_private($privateKey);
         $appIdentifier = $githubAppId;
 
         $iat = time();
@@ -109,7 +108,7 @@ class GitHub extends Git
     /**
      * Get user
      *
-     * @return array
+     * @return array<mixed>
      *
      * @throws Exception
      */
@@ -125,7 +124,7 @@ class GitHub extends Git
      *
      * @return string
      */
-    public function getOwnerName($installationId): string
+    public function getOwnerName(string $installationId): string
     {
         $url = '/app/installations/' . $installationId;
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->jwtToken"]);
@@ -135,8 +134,9 @@ class GitHub extends Git
 
     /**
      * List repositories for GitHub App
-     *
-     * @return array
+     * @param int $page page number
+     * @param int $per_page number of results per page
+     * @return array<mixed>
      *
      * @throws Exception
      */
@@ -151,6 +151,7 @@ class GitHub extends Git
 
     /**
      * Get latest opened pull request with specific base branch
+     * @return array<mixed>
      */
     public function getBranchPullRequest(string $owner, string $repositoryName, string $branch): array
     {
@@ -165,7 +166,7 @@ class GitHub extends Git
     /**
      * Get GitHub repository
      *
-     * @return array
+     * @return array<mixed>
      *
      * @throws Exception
      */
@@ -178,6 +179,11 @@ class GitHub extends Git
         return $response['body'];
     }
 
+    /**
+     * Create new repository
+     *
+     * @return array<mixed> Details of new repository
+     */
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
         $url = "/orgs/{$owner}/repos";
@@ -199,9 +205,14 @@ class GitHub extends Git
         return $response['body']['total_count'];
     }
 
-    public function getPullRequest(string $owner, string $repoName, $pullRequestNumber): array
+    /**
+     * Get Pull Request
+     *
+     * @return array<mixed> The retrieved pull request
+     */
+    public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array
     {
-        $url = "/repos/{$owner}/{$repoName}/pulls/{$pullRequestNumber}";
+        $url = "/repos/{$owner}/{$repositoryName}/pulls/{$pullRequestNumber}";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
@@ -211,13 +222,13 @@ class GitHub extends Git
     /**
      * Add Comment to Pull Request
      *
-     * @return array
+     * @return string
      *
      * @throws Exception
      */
-    public function createComment(string $owner, string $repoName, $pullRequestNumber, $comment)
+    public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string
     {
-        $url = '/repos/' . $owner . '/' . $repoName . '/issues/' . $pullRequestNumber . '/comments';
+        $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/' . $pullRequestNumber . '/comments';
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], ['body' => $comment]);
         $commentId = $response['body']['id'];
@@ -228,13 +239,16 @@ class GitHub extends Git
     /**
      * Get Comment of Pull Request
      *
-     * @return string
+     * @param string $owner       The owner of the repository
+     * @param string $repositoryName    The name of the repository
+     * @param string $commentId   The ID of the comment to retrieve
+     * @return string              The retrieved comment
      *
      * @throws Exception
      */
-    public function getComment($owner, $repoName, $commentId): string
+    public function getComment($owner, $repositoryName, $commentId): string
     {
-        $url = '/repos/' . $owner . '/' . $repoName . '/issues/comments/' . $commentId;
+        $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/comments/' . $commentId;
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
         $comment = $response['body']['body'];
@@ -245,13 +259,17 @@ class GitHub extends Git
     /**
      * Update Pull Request Comment
      *
-     * @return array
+     * @param string $owner      The owner of the repository
+     * @param string $repositoryName   The name of the repository
+     * @param string $commentId  The ID of the comment to update
+     * @param string $comment    The updated comment content
+     * @return string            The ID of the updated comment
      *
      * @throws Exception
      */
-    public function updateComment($owner, $repoName, $commentId, $comment)
+    public function updateComment($owner, $repositoryName, $commentId, $comment): string
     {
-        $url = '/repos/' . $owner . '/' . $repoName . '/issues/comments/' . $commentId;
+        $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/comments/' . $commentId;
 
         $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], ['body' => $comment]);
         $commentId = $response['body']['id'];
@@ -262,15 +280,15 @@ class GitHub extends Git
     /**
      * Downloads a ZIP archive of a repository.
      *
-     * @param  string  $repo The name of the repository.
+     * @param  string  $repositoryName The name of the repository.
      * @param  string  $ref The name of the commit, branch, or tag to download.
      * @param  string  $path The path of the file or directory to download. Optional.
      * @return string The contents of the ZIP archive as a string.
      */
-    public function downloadRepositoryZip(string $owner, string $repoName, string $ref, string $path = ''): string
+    public function downloadRepositoryZip(string $owner, string $repositoryName, string $ref, string $path = ''): string
     {
         // Build the URL for the API request
-        $url = '/repos/' . $owner . "/{$repoName}/zipball/{$ref}";
+        $url = '/repos/' . $owner . "/{$repositoryName}/zipball/{$ref}";
 
         // Add the path parameter to the URL query parameters, if specified
         if (!empty($path)) {
@@ -286,14 +304,12 @@ class GitHub extends Git
     /**
      * Downloads a tar archive of a repository.
      *
-     * @param  string  $repo The name of the repository.
-     * @param  string  $ref The name of the commit, branch, or tag to download.
      * @return string The contents of the tar archive as a string.
      */
-    public function downloadRepositoryTar(string $owner, string $repoName, string $ref): string
+    public function downloadRepositoryTar(string $owner, string $repositoryName, string $ref): string
     {
         // Build the URL for the API request
-        $url = '/repos/' . $owner . "/{$repoName}/tarball/{$ref}";
+        $url = '/repos/' . $owner . "/{$repositoryName}/tarball/{$ref}";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
@@ -309,7 +325,7 @@ class GitHub extends Git
      * @param  string|null  $organization The name of the organization to fork the repository into. If not provided, the repository will be forked into the authenticated user's account.
      * @param  string|null  $name The name of the new forked repository. If not provided, the name will be the same as the original repository.
      * @param  bool  $defaultBranchOnly Whether to include only the default branch in the forked repository. Defaults to false.
-     * @return array|null The data of the newly forked repository, or null if the fork operation failed.
+     * @return array<mixed>|null The data of the newly forked repository, or null if the fork operation failed.
      */
     public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?array
     {
@@ -331,7 +347,7 @@ class GitHub extends Git
     /**
      * Generates a git clone command using app access token
      */
-    public function generateGitCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory)
+    public function generateGitCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
     {
         if (empty($rootDirectory)) {
             $rootDirectory = '*';
@@ -354,7 +370,7 @@ class GitHub extends Git
      * @param  string  $signatureKey Webhook secret configured on GitHub
      * @return bool
      */
-    public function validateWebhook(string $payload, string $signature, string $signatureKey)
+    public function validateWebhook(string $payload, string $signature, string $signatureKey): bool
     {
         return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
     }
@@ -364,9 +380,9 @@ class GitHub extends Git
      *
      * @param  string  $event Type of event: push, pull_request etc
      * @param  string  $payload The webhook payload received from GitHub
-     * @return json Parsed payload as a json object
+     * @return array<mixed> Parsed payload as a json object
      */
-    public function parseWebhookEventPayload(string $event, string $payload)
+    public function parseWebhookEventPayload(string $event, string $payload): array
     {
         $payload = json_decode($payload, true);
         $installationId = strval($payload['installation']['id']);
@@ -391,7 +407,6 @@ class GitHub extends Git
                     'pullRequestNumber' => '',
                     'action' => '',
                 ];
-                break;
             case 'pull_request':
                 $repositoryId = strval($payload['repository']['id']);
                 $branch = $payload['pull_request']['head']['ref'];
@@ -413,8 +428,8 @@ class GitHub extends Git
                     'owner' => $owner,
                     'external' => $external,
                 ];
-                break;
-            case 'installation' || 'installation_repositories':
+            case 'installation':
+            case 'installation_repositories':
                 $action = $payload['action'];
                 $userName = $payload['installation']['account']['login'];
 
@@ -423,7 +438,6 @@ class GitHub extends Git
                     'installationId' => $installationId,
                     'userName' => $userName,
                 ];
-                break;
         }
 
         return [];
@@ -432,10 +446,10 @@ class GitHub extends Git
     /**
      * Fetches repository name using repository id
      *
-     * @param  string  $repository ID of GitHub Repository
+     * @param  string  $repositoryId ID of GitHub Repository
      * @return string name of GitHub repository
      */
-    public function getRepositoryName(string $repositoryId)
+    public function getRepositoryName(string $repositoryId): string
     {
         $url = "/repositories/$repositoryId";
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
@@ -448,7 +462,7 @@ class GitHub extends Git
      *
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
-     * @return array List of branch names as array
+     * @return array<string> List of branch names as array
      */
     public function listBranches(string $owner, string $repositoryName): array
     {
@@ -468,7 +482,7 @@ class GitHub extends Git
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */
-    public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = '')
+    public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
         $url = "/repos/$owner/$repositoryName/statuses/$SHA";
 
@@ -487,9 +501,9 @@ class GitHub extends Git
      *
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
-     * @return array|null List of repository languages or null if the request fails
+     * @return array<mixed> List of repository languages
      */
-    public function getRepositoryLanguages(string $owner, string $repositoryName): ?array
+    public function getRepositoryLanguages(string $owner, string $repositoryName): array
     {
         $url = "/repos/$owner/$repositoryName/languages";
 
@@ -499,7 +513,7 @@ class GitHub extends Git
             return array_keys($response['body']);
         }
 
-        return null;
+        return [];
     }
 
     /**
@@ -508,7 +522,7 @@ class GitHub extends Git
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
      * @param  string  $path Path to list contents from
-     * @return array List of contents at the specified path
+     * @return array<mixed> List of contents at the specified path
      */
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array
     {

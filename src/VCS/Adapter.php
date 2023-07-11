@@ -45,7 +45,7 @@ abstract class Adapter
      * @param  array<mixed>  $params
      * @param  array<string, string>  $headers
      * @param  bool  $decode
-     * @return array<mixed>|string
+     * @return array<mixed>
      *
      * @throws Exception
      */

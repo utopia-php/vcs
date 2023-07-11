@@ -21,9 +21,13 @@ use Utopia\VCS\Adapter\Git\GitHub;
 
 class DetectorTest extends TestCase
 {
-    protected $github;
+    protected GitHub $github;
 
-    public function detect($files, $languages): string
+    /**
+     * @param array<string> $files
+     * @param array<string> $languages
+     */
+    public function detect($files, $languages): ?string
     {
         $detectorFactory = new Detector($files, $languages);
 
@@ -47,13 +51,13 @@ class DetectorTest extends TestCase
     public function setUp(): void
     {
         $this->github = new GitHub(new Cache(new None()));
-        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY');
-        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER');
-        $installationId = '1234'; //your GitHub App Installation ID here
-        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId, 'vermakhushboo');
+        $privateKey = App::getEnv('GITHUB_PRIVATE_KEY') ?? '';
+        $githubAppId = App::getEnv('GITHUB_APP_IDENTIFIER') ?? '';
+        $installationId = App::getEnv('GITHUB_INSTALLATION_ID') ?? '';
+        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId);
     }
 
-    public function testLanguageDetection()
+    public function testLanguageDetection(): void
     {
         $languageMap = [
             ['vermakhushboo', 'basic-js-crud', 'node'],

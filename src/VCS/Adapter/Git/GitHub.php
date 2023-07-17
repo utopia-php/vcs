@@ -7,6 +7,8 @@ use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
 
+use function PHPUnit\Framework\isEmpty;
+
 class GitHub extends Git
 {
     public const EVENT_PUSH = 'push';
@@ -360,9 +362,15 @@ class GitHub extends Git
      */
     public function generateGitCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
     {
-        if ($rootDirectory === "./") {
+        var_dump("root " . $rootDirectory);
+
+        var_dump(isEmpty($rootDirectory));
+
+        if (empty($rootDirectory)) {
             $rootDirectory = '*';
         }
+
+        var_dump($rootDirectory);
 
         // Construct the clone URL with the access token
         $cloneUrl = "https://{$owner}:{$this->accessToken}@github.com/{$owner}/{$repositoryName}";

@@ -360,7 +360,7 @@ class GitHub extends Git
      */
     public function generateGitCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
     {
-        if (empty($rootDirectory)) {
+        if ($rootDirectory === "./") {
             $rootDirectory = '*';
         }
 

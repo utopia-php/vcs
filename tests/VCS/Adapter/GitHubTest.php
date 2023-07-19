@@ -5,11 +5,12 @@ namespace Utopia\Tests;
 use Utopia\App;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitHub;
 
 class GitHubTest extends Base
 {
-    protected function createVCSAdapter()
+    protected function createVCSAdapter(): Git
     {
         return new GitHub(new Cache(new None()));
     }
@@ -32,7 +33,7 @@ class GitHubTest extends Base
 
     public function testListRepositories(): void
     {
-        $repos = $this->vcsAdapter->listRepositoriesForGitHubApp(1, 2);
+        $repos = $this->vcsAdapter->listRepositoriesForGitApp(1, 2);
         $this->assertCount(2, $repos);
     }
 

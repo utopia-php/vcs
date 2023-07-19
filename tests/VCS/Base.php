@@ -3,17 +3,18 @@
 namespace Utopia\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Utopia\VCS\Adapter\Git;
 
 abstract class Base extends TestCase
 {
-    protected $vcsAdapter;
+    protected Git $vcsAdapter;
 
     protected function setUp(): void
     {
         $this->vcsAdapter = $this->createVCSAdapter();
     }
 
-    abstract protected function createVCSAdapter();
+    abstract protected function createVCSAdapter(): Git;
 
     abstract public function testGetOwnerName(): void;
 

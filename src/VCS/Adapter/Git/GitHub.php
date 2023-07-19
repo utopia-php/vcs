@@ -144,7 +144,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function listRepositoriesForGitHubApp($page, $per_page): array
+    public function listRepositoriesForGitApp($page, $per_page): array
     {
         $url = '/installation/repositories?page=' . $page . '&per_page=' . $per_page;
 

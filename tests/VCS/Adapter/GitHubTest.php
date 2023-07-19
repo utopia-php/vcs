@@ -2,60 +2,62 @@
 
 namespace Utopia\Tests;
 
-use PHPUnit\Framework\TestCase;
 use Utopia\App;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git\GitHub;
 
-class GitHubTest extends TestCase
+class GitHubTest extends Base
 {
-    protected GitHub $github;
+    protected function createVCSAdapter()
+    {
+        return new GitHub(new Cache(new None()));
+    }
 
     public function setUp(): void
     {
-        $this->github = new GitHub(new Cache(new None()));
+        $this->vcsAdapter = new GitHub(new Cache(new None()));
         $privateKey = App::getEnv('PRIVATE_KEY') ?? '';
         $githubAppId = App::getEnv('APP_IDENTIFIER') ?? '';
         $installationId = App::getEnv('INSTALLATION_ID') ?? '';
-        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId);
+        $this->vcsAdapter->initialiseVariables($installationId, $privateKey, $githubAppId);
     }
 
     public function testGetOwnerName(): void
     {
         $installationId = App::getEnv('INSTALLATION_ID') ?? '';
-        $owner = $this->github->getOwnerName($installationId);
+        $owner = $this->vcsAdapter->getOwnerName($installationId);
         $this->assertEquals('test-kh', $owner);
     }
 
-    public function testListRepositoriesForGitHubApp(): void
+    public function testListRepositories(): void
     {
-        $repos = $this->github->listRepositoriesForGitHubApp(1, 2);
+        $repos = $this->vcsAdapter->listRepositoriesForGitHubApp(1, 2);
         $this->assertCount(2, $repos);
     }
 
     public function testGetTotalReposCount(): void
     {
-        $count = $this->github->getTotalReposCount();
+        $count = $this->vcsAdapter->getTotalReposCount();
         $this->assertGreaterThanOrEqual(0, $count);
     }
 
     public function testCreateComment(): void
     {
-        $commentId = $this->github->createComment('test-kh', 'test2', 1, 'hello');
+        $commentId = $this->vcsAdapter->createComment('test-kh', 'test2', 1, 'hello');
         $this->assertNotEmpty($commentId);
     }
 
     public function testUpdateComment(): void
     {
-        $commentId = $this->github->updateComment('test-kh', 'test2', 1630320767, 'update');
+        $commentId = $this->vcsAdapter->updateComment('test-kh', 'test2', 1630320767, 'update');
         $this->assertNotEmpty($commentId);
     }
 
     public function testDownloadRepositoryZip(): void
     {
         // download the zip archive of the repo
-        $zipContents = $this->github->downloadRepositoryZip('test-kh', 'test2', 'main');
+        $zipContents = $this->vcsAdapter->downloadRepositoryZip('test-kh', 'test2', 'main');
 
         // Save the ZIP archive to a file
         file_put_contents('./hello-world.zip', $zipContents);
@@ -67,7 +69,7 @@ class GitHubTest extends TestCase
     public function testDownloadRepositoryTar(): void
     {
         // download the tar archive of the repo
-        $tarContents = $this->github->downloadRepositoryTar('appwrite', 'demos-for-react', 'main');
+        $tarContents = $this->vcsAdapter->downloadRepositoryTar('appwrite', 'demos-for-react', 'main');
 
         // Save the TAR archive to a file
         file_put_contents('./hello-world.tar', $tarContents);
@@ -79,15 +81,15 @@ class GitHubTest extends TestCase
     public function testForkRepository(): void
     {
         // Fork a repository into authenticated user's account with custom name
-        $response = $this->github->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
+        $response = $this->vcsAdapter->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
         // Assert that the forked repo has the expected name
         $this->assertEquals('fork-api-test-clone', $response);
-        $this->github->deleteRepository("test-kh", "fork-api-test-clone");
+        $this->vcsAdapter->deleteRepository("test-kh", "fork-api-test-clone");
     }
 
-    public function testGenerateGitCloneCommand(): void
+    public function testGenerateCloneCommand(): void
     {
-        $gitCloneCommand = $this->github->generateGitCloneCommand('test-kh', 'test2', 'main', '', '');
+        $gitCloneCommand = $this->vcsAdapter->generateGitCloneCommand('test-kh', 'test2', 'main', '', '');
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
     }
@@ -151,35 +153,35 @@ class GitHubTest extends TestCase
         }
         ';
 
-        $pushResult = $this->github->parseWebhookEventPayload('push', $payload_push);
+        $pushResult = $this->vcsAdapter->parseWebhookEventPayload('push', $payload_push);
         $this->assertEquals('main', $pushResult['branch']);
         $this->assertEquals('603754812', $pushResult['repositoryId']);
 
-        $pullRequestResult = $this->github->parseWebhookEventPayload('pull_request', $payload_pull_request);
+        $pullRequestResult = $this->vcsAdapter->parseWebhookEventPayload('pull_request', $payload_pull_request);
         $this->assertEquals('opened', $pullRequestResult['action']);
         $this->assertEquals(1, $pullRequestResult['pullRequestNumber']);
 
-        $uninstallResult = $this->github->parseWebhookEventPayload('installation', $payload_uninstall);
+        $uninstallResult = $this->vcsAdapter->parseWebhookEventPayload('installation', $payload_uninstall);
         $this->assertEquals('deleted', $uninstallResult['action']);
         $this->assertEquals(1234, $uninstallResult['installationId']);
     }
 
     public function testGetRepositoryName(): void
     {
-        $repositoryName = $this->github->getRepositoryName('432284323');
+        $repositoryName = $this->vcsAdapter->getRepositoryName('432284323');
         $this->assertEquals('basic-js-crud', $repositoryName);
     }
 
     public function testListBranches(): void
     {
-        $branches = $this->github->listBranches('vermakhushboo', 'basic-js-crud');
+        $branches = $this->vcsAdapter->listBranches('vermakhushboo', 'basic-js-crud');
         $this->assertIsArray($branches);
         $this->assertNotEmpty($branches);
     }
 
     public function testGetRepositoryLanguages(): void
     {
-        $languages = $this->github->getRepositoryLanguages('vermakhushboo', 'basic-js-crud');
+        $languages = $this->vcsAdapter->getRepositoryLanguages('vermakhushboo', 'basic-js-crud');
 
         $this->assertIsArray($languages);
 
@@ -190,14 +192,14 @@ class GitHubTest extends TestCase
 
     public function testListRepositoryContents(): void
     {
-        $contents = $this->github->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
+        $contents = $this->vcsAdapter->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
     }
 
     public function testGetBranchPullRequest(): void
     {
-        $result = $this->github->getBranchPullRequest('vermakhushboo', 'basic-js-crud', 'test');
+        $result = $this->vcsAdapter->getBranchPullRequest('vermakhushboo', 'basic-js-crud', 'test');
         $this->assertIsArray($result);
         $this->assertNotEmpty($result);
     }
@@ -208,7 +210,7 @@ class GitHubTest extends TestCase
         $repositoryName = 'basic-js-crud';
         $pullRequestNumber = 1;
 
-        $result = $this->github->getPullRequest($owner, $repositoryName, $pullRequestNumber);
+        $result = $this->vcsAdapter->getPullRequest($owner, $repositoryName, $pullRequestNumber);
 
         $this->assertIsArray($result);
         $this->assertNotEmpty($result);
@@ -223,7 +225,7 @@ class GitHubTest extends TestCase
         $repositoryName = 'basic-js-crud';
         $commentId = '1431560395';
 
-        $result = $this->github->getComment($owner, $repositoryName, $commentId);
+        $result = $this->vcsAdapter->getComment($owner, $repositoryName, $commentId);
 
         $this->assertIsString($result);
         $this->assertNotEmpty($result);

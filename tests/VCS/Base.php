@@ -34,7 +34,7 @@ abstract class Base extends TestCase
 
     abstract public function testGenerateCloneCommand(): void;
 
-    abstract public function testParseWebhookEventPayload(): void;
+    abstract public function testParseWebhookEvent(): void;
 
     abstract public function testGetRepositoryName(): void;
 

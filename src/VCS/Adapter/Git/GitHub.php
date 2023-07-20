@@ -247,7 +247,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function getComment($owner, $repositoryName, $commentId): string
+    public function getComment(string $owner, string $repositoryName, string $commentId): string
     {
         $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/comments/' . $commentId;
 
@@ -371,7 +371,7 @@ class GitHub extends Git
      * @param  string  $signatureKey Webhook secret configured on GitHub
      * @return bool
      */
-    public function validateWebhook(string $payload, string $signature, string $signatureKey): bool
+    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
         return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
     }
@@ -383,7 +383,7 @@ class GitHub extends Git
      * @param  string  $payload The webhook payload received from GitHub
      * @return array<mixed> Parsed payload as a json object
      */
-    public function parseWebhookEventPayload(string $event, string $payload): array
+    public function parseWebhookEvent(string $event, string $payload): array
     {
         $payload = json_decode($payload, true);
         $installationId = strval($payload['installation']['id']);

@@ -126,7 +126,7 @@ abstract class Adapter
      * @param string $commentId   The ID of the comment to retrieve
      * @return string              The retrieved comment
      */
-    abstract public function getComment($owner, $repositoryName, $commentId): string;
+    abstract public function getComment(string $owner, string $repositoryName, string $commentId): string;
 
     /**
      * Update Pull Request Comment
@@ -185,7 +185,7 @@ abstract class Adapter
      * @param  string  $signatureKey Webhook secret configured on Git provider
      * @return bool
      */
-    abstract public function validateWebhook(string $payload, string $signature, string $signatureKey): bool;
+    abstract public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool;
 
     /**
      * Parses webhook event payload
@@ -194,7 +194,7 @@ abstract class Adapter
      * @param string $payload The webhook payload received from Git provider
      * @return array<mixed> Parsed payload as a json object
      */
-    abstract public function parseWebhookEventPayload(string $event, string $payload): array;
+    abstract public function parseWebhookEvent(string $event, string $payload): array;
 
     /**
      * Fetches repository name using repository id

@@ -95,7 +95,7 @@ class GitHubTest extends Base
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
     }
 
-    public function testParseWebhookEventPayload(): void
+    public function testParseWebhookEvent(): void
     {
         $payload_push = '{
             "ref": "refs/heads/main",
@@ -154,15 +154,15 @@ class GitHubTest extends Base
         }
         ';
 
-        $pushResult = $this->vcsAdapter->parseWebhookEventPayload('push', $payload_push);
+        $pushResult = $this->vcsAdapter->parseWebhookEvent('push', $payload_push);
         $this->assertEquals('main', $pushResult['branch']);
         $this->assertEquals('603754812', $pushResult['repositoryId']);
 
-        $pullRequestResult = $this->vcsAdapter->parseWebhookEventPayload('pull_request', $payload_pull_request);
+        $pullRequestResult = $this->vcsAdapter->parseWebhookEvent('pull_request', $payload_pull_request);
         $this->assertEquals('opened', $pullRequestResult['action']);
         $this->assertEquals(1, $pullRequestResult['pullRequestNumber']);
 
-        $uninstallResult = $this->vcsAdapter->parseWebhookEventPayload('installation', $payload_uninstall);
+        $uninstallResult = $this->vcsAdapter->parseWebhookEvent('installation', $payload_uninstall);
         $this->assertEquals('deleted', $uninstallResult['action']);
         $this->assertEquals(1234, $uninstallResult['installationId']);
     }

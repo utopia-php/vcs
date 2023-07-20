@@ -33,7 +33,7 @@ class GitHubTest extends Base
 
     public function testListRepositories(): void
     {
-        $repos = $this->vcsAdapter->listRepositoriesForGitApp(1, 2);
+        $repos = $this->vcsAdapter->listRepositoriesForVCSApp(1, 2);
         $this->assertCount(2, $repos);
     }
 
@@ -90,7 +90,7 @@ class GitHubTest extends Base
 
     public function testGenerateCloneCommand(): void
     {
-        $gitCloneCommand = $this->vcsAdapter->generateGitCloneCommand('test-kh', 'test2', 'main', '', '');
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'main', '', '');
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
     }

@@ -100,16 +100,6 @@ class GitHub extends Git
     }
 
     /**
-     * Is Git Flow
-     *
-     * @return bool
-     */
-    public function isGitFlow(): bool
-    {
-        return true; // false for manual adapter - flow is way simpler. No auth, no branch selecting, ...
-    }
-
-    /**
      * Get user
      *
      * @return array<mixed>
@@ -144,7 +134,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function listRepositoriesForGitApp($page, $per_page): array
+    public function listRepositoriesForVCSApp($page, $per_page): array
     {
         $url = '/installation/repositories?page=' . $page . '&per_page=' . $per_page;
 
@@ -356,9 +346,9 @@ class GitHub extends Git
     }
 
     /**
-     * Generates a git clone command using app access token
+     * Generates a clone command using app access token
      */
-    public function generateGitCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
+    public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
     {
         if (empty($rootDirectory)) {
             $rootDirectory = '*';

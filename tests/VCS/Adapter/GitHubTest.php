@@ -125,10 +125,16 @@ class GitHubTest extends Base
                 "head": {
                     "ref": "test",
                     "sha": "08e857a3ee1d1b0156502239798f558c996a664f",
-                    "label": "vermakhushboo:test"
+                    "label": "vermakhushboo:test",
+                    "user": {
+                        "login": "vermakhushboo"
+                    }
                 },
                 "base": {
-                    "label": "vermakhushboo:main"
+                    "label": "vermakhushboo:main",
+                    "user": {
+                        "login": "vermakhushboo"
+                    }
                 }
             },
             "repository": {

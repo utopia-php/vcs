@@ -1,14 +1,15 @@
 <?php
 
-namespace Utopia\Tests;
+namespace Utopia\Tests\VCS\Adapter;
 
 use Utopia\App;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitHub;
 
-class GitHubTest extends GitTest
+class GitHubTest extends Base
 {
     protected function createVCSAdapter(): Git
     {

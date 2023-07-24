@@ -76,11 +76,11 @@ $vcs->initialiseVariables($installationId, $privateKey, $appId);
 
 Only include dependencies strictly necessary for the adapter, preferably official PHP libraries, if available.
 
-### Testing with Docker 
+### Testing with Docker 🛠️
 
 The existing test suite is helpful when developing a new VCS adapter. Use official Docker images from trusted sources. Add new tests for your new VCS adapter in `tests/VCS/Adapter/VCSTest.php` test class. The specific `docker-compose` command for testing can be found in the [README](/README.md#tests).
 
-### Tips and Tricks
+### Tips and Tricks 💡
 
 - Keep it simple :)
 - Prioritize code performance.

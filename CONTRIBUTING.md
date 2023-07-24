@@ -78,7 +78,7 @@ This is also important for the Utopia-php lead developers to be able to give tec
 
 ## Adding A New Adapter
 
-You can follow our [Adding new Detector Adapter](docs/add-new-detector-adapter.md) tutorial to add new detector support in this library.
+You can follow our [Adding new VCS Adapter](docs/add-new-vcs-adapter.md) tutorial to add a new VCS adapter like GitLab, Bitbucket etc. and [Adding new Detector Adapter](docs/add-new-detector-adapter.md) tutorial to add new detector support in this library.
 
 ## Other Ways to Help
 

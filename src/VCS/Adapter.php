@@ -194,7 +194,7 @@ abstract class Adapter
      * @param string $payload The webhook payload received from Git provider
      * @return array<mixed> Parsed payload as a json object
      */
-    abstract public function parseWebhookEvent(string $event, string $payload): array;
+    abstract public function getEvent(string $event, string $payload): array;
 
     /**
      * Fetches repository name using repository id

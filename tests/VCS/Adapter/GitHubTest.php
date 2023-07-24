@@ -25,7 +25,7 @@ class GitHubTest extends Base
         $this->vcsAdapter->initialiseVariables($installationId, $privateKey, $githubAppId);
     }
 
-    public function testParseWebhookEvent(): void
+    public function testgetEvent(): void
     {
         $payload_push = '{
             "ref": "refs/heads/main",
@@ -90,15 +90,15 @@ class GitHubTest extends Base
         }
         ';
 
-        $pushResult = $this->vcsAdapter->parseWebhookEvent('push', $payload_push);
+        $pushResult = $this->vcsAdapter->getEvent('push', $payload_push);
         $this->assertEquals('main', $pushResult['branch']);
         $this->assertEquals('603754812', $pushResult['repositoryId']);
 
-        $pullRequestResult = $this->vcsAdapter->parseWebhookEvent('pull_request', $payload_pull_request);
+        $pullRequestResult = $this->vcsAdapter->getEvent('pull_request', $payload_pull_request);
         $this->assertEquals('opened', $pullRequestResult['action']);
         $this->assertEquals(1, $pullRequestResult['pullRequestNumber']);
 
-        $uninstallResult = $this->vcsAdapter->parseWebhookEvent('installation', $payload_uninstall);
+        $uninstallResult = $this->vcsAdapter->getEvent('installation', $payload_uninstall);
         $this->assertEquals('deleted', $uninstallResult['action']);
         $this->assertEquals(1234, $uninstallResult['installationId']);
     }

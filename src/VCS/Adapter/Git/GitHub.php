@@ -383,7 +383,7 @@ class GitHub extends Git
      * @param  string  $payload The webhook payload received from GitHub
      * @return array<mixed> Parsed payload as a json object
      */
-    public function parseWebhookEvent(string $event, string $payload): array
+    public function getEvent(string $event, string $payload): array
     {
         $payload = json_decode($payload, true);
         $installationId = strval($payload['installation']['id']);

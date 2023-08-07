@@ -239,6 +239,16 @@ abstract class Adapter
     abstract public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array;
 
     /**
+     * Get details of a commit
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @param  string  $commitHash SHA of the commit
+     * @return array<mixed> Details of the commit
+     */
+    abstract public function getCommit(string $owner, string $repositoryName, string $commitHash): array;
+
+    /**
      * Call
      *
      * Make an API call

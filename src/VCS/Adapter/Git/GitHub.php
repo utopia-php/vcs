@@ -377,6 +377,26 @@ class GitHub extends Git
     }
 
     /**
+     * Get details of a commit
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @param  string  $commitHash SHA of the commit
+     * @return array<mixed> Details of the commit
+     */
+    public function getCommit(string $owner, string $repositoryName, string $commitHash): array
+    {
+        $url = "/repos/$owner/$repositoryName/commits/$commitHash";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return [
+            'commitAuthor' => $response['body']['commit']['author']['name'],
+            'commitMessage' => $response['body']['commit']['message'],
+        ];
+    }
+
+    /**
      * Parses webhook event payload
      *
      * @param  string  $event Type of event: push, pull_request etc
@@ -393,17 +413,25 @@ class GitHub extends Git
                 $ref = $payload['ref'];
                 $repositoryId = strval($payload['repository']['id']);
                 $repositoryName = $payload['repository']['name'];
-                $SHA = $payload['after'];
+                $repositoryUrl = $payload['repository']['url'];
+                $commitHash = $payload['after'];
                 $owner = $payload['repository']['owner']['name'];
+                $headCommitAuthor = $payload['head_commit']['author']['name'];
+                $headCommitMessage = $payload['head_commit']['message'];
+                $headCommitUrl = $payload['head_commit']['url'];
                 $branch = str_replace('refs/heads/', '', $ref);
 
                 return [
                     'branch' => $branch,
                     'repositoryId' => $repositoryId,
-                    'installationId' => $installationId,
                     'repositoryName' => $repositoryName,
-                    'SHA' => $SHA,
+                    'repositoryUrl' => $repositoryUrl,
+                    'installationId' => $installationId,
+                    'commitHash' => $commitHash,
                     'owner' => $owner,
+                    'headCommitAuthor' => $headCommitAuthor,
+                    'headCommitMessage' => $headCommitMessage,
+                    'headCommitUrl' => $headCommitUrl,
                     'external' => false,
                     'pullRequestNumber' => '',
                     'action' => '',
@@ -412,22 +440,28 @@ class GitHub extends Git
                 $repositoryId = strval($payload['repository']['id']);
                 $branch = $payload['pull_request']['head']['ref'];
                 $repositoryName = $payload['repository']['name'];
+                $repositoryUrl = $payload['repository']['url'];
+                $branchUrl = "https://api.github.com/repos/vermakhushboo/g4-node-function/branches/$branch";
                 $pullRequestNumber = $payload['number'];
                 $action = $payload['action'];
                 $owner = $payload['repository']['owner']['login'];
-                $SHA = $payload['pull_request']['head']['sha'];
+                $commitHash = $payload['pull_request']['head']['sha'];
+                $headCommitUrl = "https://api.github.com/repos/vermakhushboo/g4-node-function/git/commits/$commitHash";
                 $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
 
                 return [
-                    'action' => $action,
                     'branch' => $branch,
+                    'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,
-                    'installationId' => $installationId,
                     'repositoryName' => $repositoryName,
-                    'pullRequestNumber' => $pullRequestNumber,
-                    'SHA' => $SHA,
+                    'repositoryUrl' => $repositoryUrl,
+                    'installationId' => $installationId,
+                    'commitHash' => $commitHash,
                     'owner' => $owner,
+                    'headCommitUrl' => $headCommitUrl,
                     'external' => $external,
+                    'pullRequestNumber' => $pullRequestNumber,
+                    'action' => $action,
                 ];
             case 'installation':
             case 'installation_repositories':
@@ -483,9 +517,9 @@ class GitHub extends Git
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */
-    public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
+    public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
-        $url = "/repos/$owner/$repositoryName/statuses/$SHA";
+        $url = "/repos/$owner/$repositoryName/statuses/$commitHash";
 
         $body = [
             'state' => $state,

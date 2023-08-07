@@ -37,12 +37,20 @@ class GitHubTest extends Base
                 "name": "testing-fork",
                 "full_name": "vermakhushboo/testing-fork",
                 "private": true,
+                "url": "https://github.com/vermakhushboo/g4-node-function",
                 "owner": {
                     "name": "vermakhushboo"
                 }
             },
             "installation": {
                 "id": 1234
+            },
+            "head_commit": {
+                "author": {
+                    "name": "Khushboo Verma"
+                },
+                "message": "Update index.js",
+                "url": "https://github.com/vermakhushboo/g4-node-function/commit/b787f03343171ff5a477627796140bfa1d02da09"
             }
         }';
 
@@ -72,7 +80,8 @@ class GitHubTest extends Base
                 "name": "functions-example",
                 "owner": {
                     "login": "vermakhushboo"
-                }
+                },
+                "url": "https://github.com/vermakhushboo/g4-node-function"
             },
             "installation": {
                 "id": 9876
@@ -147,5 +156,11 @@ class GitHubTest extends Base
     {
         $commentId = $this->vcsAdapter->updateComment('test-kh', 'test2', 1630320767, 'update');
         $this->assertNotEmpty($commentId);
+    }
+
+    public function testGetCommit(): void
+    {
+        $commitDetails = $this->vcsAdapter->getCommit('test-kh', 'test1', '7ae65094d56edafc48596ffbb77950e741e56412');
+        $this->assertIsArray($commitDetails);
     }
 }

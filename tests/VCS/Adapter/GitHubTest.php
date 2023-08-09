@@ -60,9 +60,10 @@ class GitHubTest extends Base
             "pull_request": {
                 "id": 1303283688,
                 "state": "open",
+                "html_url": "https://github.com/vermakhushboo/g4-node-function/pull/17",
                 "head": {
                     "ref": "test",
-                    "sha": "08e857a3ee1d1b0156502239798f558c996a664f",
+                    "sha": "a27dbe54b17032ee35a16c24bac151e5c2b33328",
                     "label": "vermakhushboo:test",
                     "user": {
                         "login": "vermakhushboo"

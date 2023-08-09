@@ -413,13 +413,13 @@ class GitHub extends Git
                 $ref = $payload['ref'];
                 $repositoryId = strval($payload['repository']['id']);
                 $repositoryName = $payload['repository']['name'];
-                $repositoryUrl = $payload['repository']['url'];
+                $branch = str_replace('refs/heads/', '', $ref);
+                $repositoryUrl = $payload['repository']['url'] . "/tree/" . $branch;
                 $commitHash = $payload['after'];
                 $owner = $payload['repository']['owner']['name'];
                 $headCommitAuthor = $payload['head_commit']['author']['name'];
                 $headCommitMessage = $payload['head_commit']['message'];
                 $headCommitUrl = $payload['head_commit']['url'];
-                $branch = str_replace('refs/heads/', '', $ref);
 
                 return [
                     'branch' => $branch,
@@ -436,22 +436,20 @@ class GitHub extends Git
                     'pullRequestNumber' => '',
                     'action' => '',
                 ];
-            case 'pull_request':
-                $repositoryId = strval($payload['repository']['id']);
-                $branch = $payload['pull_request']['head']['ref'];
-                $repositoryName = $payload['repository']['name'];
-                $repositoryUrl = $payload['repository']['url'];
-                $branchUrl = "https://api.github.com/repos/vermakhushboo/g4-node-function/branches/$branch";
-                $pullRequestNumber = $payload['number'];
-                $action = $payload['action'];
-                $owner = $payload['repository']['owner']['login'];
-                $commitHash = $payload['pull_request']['head']['sha'];
-                $headCommitUrl = "https://api.github.com/repos/vermakhushboo/g4-node-function/git/commits/$commitHash";
-                $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
+                case 'pull_request':
+                    $repositoryId = strval($payload['repository']['id']);
+                    $branch = $payload['pull_request']['head']['ref'];
+                    $repositoryName = $payload['repository']['name'];
+                    $repositoryUrl = $payload['pull_request']['html_url'];
+                    $pullRequestNumber = $payload['number'];
+                    $action = $payload['action'];
+                    $owner = $payload['repository']['owner']['login'];
+                    $commitHash = $payload['pull_request']['head']['sha'];
+                    $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
+                    $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
 
                 return [
                     'branch' => $branch,
-                    'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,
                     'repositoryName' => $repositoryName,
                     'repositoryUrl' => $repositoryUrl,

@@ -11,5 +11,4 @@ services:
     environment:
       - PRIVATE_KEY
       - APP_IDENTIFIER
-      - WEBHOOK_SECRET
       - INSTALLATION_ID

@@ -546,6 +546,7 @@ class GitHub extends Git
                     'installationId' => $installationId,
                     'commitHash' => $commitHash,
                     'owner' => $owner,
+                    'authorUrl' => $authorUrl,
                     'headCommitUrl' => $headCommitUrl,
                     'external' => $external,
                     'pullRequestNumber' => $pullRequestNumber,

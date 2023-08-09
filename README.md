@@ -47,11 +47,17 @@ $repository = $github->createRepository($owner, $name, $private);
 To configure your GitHub App properly, you'll need to set up the following environment variables in your environment or configuration file. These values are crucial for authenticating and interacting with the GitHub API on behalf of your GitHub App.
 
 1. *PRIVATE_KEY*: You can generate this from your GitHub App settings.
-  > PRIVATE_KEY = your-github-app-private-key
+```bash
+PRIVATE_KEY = your-github-app-private-key
+```
 2. *GITHUB_APP_ID*: You can find this in the GitHub App dashboard.
-  > GITHUB_APP_ID = your-github-app-id
+```bash
+GITHUB_APP_ID = your-github-app-id
+```
 3. *INSTALLATION_ID*: You can find this in the GitHub App installation settings after installation.
-> INSTALLATION_ID = your-github-app-installation-id
+```bash
+INSTALLATION_ID = your-github-app-installation-id
+```
 
 Remember to replace the placeholders (*your-github-app-private-key*, *your-github-app-id*, and *your-github-app-installation-id*) with the actual values from your GitHub App configuration.
 By using these environment variables, you can ensure that sensitive information is kept separate from your codebase and can be easily managed across different environments without exposing sensitive data.

@@ -52,6 +52,9 @@ class GitHubTest extends Base
                 },
                 "message": "Update index.js",
                 "url": "https://github.com/vermakhushboo/g4-node-function/commit/b787f03343171ff5a477627796140bfa1d02da09"
+            },
+            "sender": {
+                "html_url": "https://github.com/vermakhushboo"
             }
         }';
 
@@ -83,10 +86,13 @@ class GitHubTest extends Base
                 "owner": {
                     "login": "vermakhushboo"
                 },
-                "url": "https://github.com/vermakhushboo/g4-node-function"
+                "html_url": "https://github.com/vermakhushboo/g4-node-function"
             },
             "installation": {
                 "id": 9876
+            },
+            "sender": {
+                "html_url": "https://github.com/vermakhushboo"
             }
         }';
 

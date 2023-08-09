@@ -496,9 +496,11 @@ class GitHub extends Git
                 $repositoryId = strval($payload['repository']['id'] ?? '');
                 $repositoryName = $payload['repository']['name'] ?? '';
                 $branch = str_replace('refs/heads/', '', $ref);
-                $repositoryUrl = $payload['repository']['url'] . "/tree/" . $branch;
+                $branchUrl = $payload['repository']['url'] . "/tree/" . $branch;
+                $repositoryUrl = $payload['repository']['url'];
                 $commitHash = $payload['after'] ?? '';
                 $owner = $payload['repository']['owner']['name'] ?? '';
+                $authorUrl = $payload['sender']['html_url'];
                 $headCommitAuthor = $payload['head_commit']['author']['name'] ?? '';
                 $headCommitMessage = $payload['head_commit']['message'] ?? '';
                 $headCommitUrl = $payload['head_commit']['url'] ?? '';
@@ -506,12 +508,14 @@ class GitHub extends Git
                 return [
                     'branchCreated' => $branchCreated,
                     'branch' => $branch,
+                    'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,
                     'repositoryName' => $repositoryName,
                     'repositoryUrl' => $repositoryUrl,
                     'installationId' => $installationId,
                     'commitHash' => $commitHash,
                     'owner' => $owner,
+                    'authorUrl' => $authorUrl,
                     'headCommitAuthor' => $headCommitAuthor,
                     'headCommitMessage' => $headCommitMessage,
                     'headCommitUrl' => $headCommitUrl,
@@ -523,16 +527,19 @@ class GitHub extends Git
                 $repositoryId = strval($payload['repository']['id'] ?? '');
                 $branch = $payload['pull_request']['head']['ref'] ?? '';
                 $repositoryName = $payload['repository']['name'] ?? '';
-                $repositoryUrl = $payload['pull_request']['html_url'] ?? '';
+                $repositoryUrl = $payload['repository']['html_url'] ?? '';
+                $branchUrl = "$repositoryUrl/tree/$branch";
                 $pullRequestNumber = $payload['number'] ?? '';
                 $action = $payload['action'] ?? '';
                 $owner = $payload['repository']['owner']['login'] ?? '';
+                $authorUrl = $payload['sender']['html_url'];
                 $commitHash = $payload['pull_request']['head']['sha'] ?? '';
                 $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
                 $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
 
                 return [
                     'branch' => $branch,
+                    'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,
                     'repositoryName' => $repositoryName,
                     'repositoryUrl' => $repositoryUrl,

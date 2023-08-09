@@ -42,9 +42,9 @@ abstract class Base extends TestCase
         $this->assertCount(2, $repos);
     }
 
-    public function testGetTotalReposCount(): void
+    public function testGetRepositoriesTotalCount(): void
     {
-        $count = $this->vcsAdapter->getTotalReposCount();
+        $count = $this->vcsAdapter->getRepositoriesTotalCount();
         $this->assertGreaterThanOrEqual(0, $count);
     }
 
@@ -61,9 +61,9 @@ abstract class Base extends TestCase
         $this->assertNotEmpty($branches);
     }
 
-    public function testGetRepositoryLanguages(): void
+    public function testListRepositoryLanguages(): void
     {
-        $languages = $this->vcsAdapter->getRepositoryLanguages('vermakhushboo', 'basic-js-crud');
+        $languages = $this->vcsAdapter->listRepositoryLanguages('vermakhushboo', 'basic-js-crud');
 
         $this->assertIsArray($languages);
 

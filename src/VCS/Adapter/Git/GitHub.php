@@ -142,7 +142,7 @@ class GitHub extends Git
      * @param  string  $repositoryName Name of the GitHub repository
      * @return array<mixed> List of repository languages
      */
-    public function getRepositoryLanguages(string $owner, string $repositoryName): array
+    public function listRepositoryLanguages(string $owner, string $repositoryName): array
     {
         $url = "/repos/$owner/$repositoryName/languages";
 
@@ -155,7 +155,7 @@ class GitHub extends Git
         return [];
     }
 
-    public function getTotalReposCount(): int
+    public function getRepositoriesTotalCount(): int
     {
         $url = '/installation/repositories';
 

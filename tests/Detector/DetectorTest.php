@@ -74,7 +74,7 @@ class DetectorTest extends TestCase
 
         foreach ($languageMap as [$owner, $repositoryName, $expectedRuntime]) {
             $files = $this->github->listRepositoryContents($owner, $repositoryName);
-            $languages = $this->github->getRepositoryLanguages($owner, $repositoryName);
+            $languages = $this->github->listRepositoryLanguages($owner, $repositoryName);
             $runtime = $this->detect($files, $languages);
             $this->assertEquals($expectedRuntime, $runtime);
         }

@@ -102,7 +102,7 @@ abstract class Adapter
      *
      * @return int
      */
-    abstract public function getTotalReposCount(): int;
+    abstract public function getRepositoriesTotalCount(): int;
 
     /**
      * Get Pull Request
@@ -193,7 +193,7 @@ abstract class Adapter
      * @param string $repositoryName Name of the repository
      * @return array<mixed> List of repository languages
      */
-    abstract public function getRepositoryLanguages(string $owner, string $repositoryName): array;
+    abstract public function listRepositoryLanguages(string $owner, string $repositoryName): array;
 
     /**
      * List contents of the specified root directory.

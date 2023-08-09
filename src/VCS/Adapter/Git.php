@@ -7,8 +7,6 @@ use Utopia\Cache\Cache;
 
 abstract class Git extends Adapter
 {
-    public const TYPE_GIT = 'git';
-
     protected string $endpoint;
 
     protected string $accessToken;

@@ -163,19 +163,6 @@ class GitHub extends Git
         return [];
     }
 
-    public function getRepositoriesTotalCount(): int
-    {
-        $url = '/installation/repositories';
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        if (!isset($response['body']['total_count'])) {
-            throw new Exception("Total count of repositories missing in the response.");
-        }
-
-        return $response['body']['total_count'];
-    }
-
     /**
      * List contents of the specified root directory.
      *
@@ -350,7 +337,7 @@ class GitHub extends Git
      * Get latest opened pull request with specific base branch
      * @return array<mixed>
      */
-    public function getBranchPullRequest(string $owner, string $repositoryName, string $branch): array
+    public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array
     {
         $head = "{$owner}:{$branch}";
         $url = "/repos/{$owner}/{$repositoryName}/pulls?head={$head}&state=open&sort=updated&per_page=1";
@@ -569,7 +556,7 @@ class GitHub extends Git
 
 
     /**
-     * Parses webhook event payload
+     * Validate webhook event
      *
      * @param  string  $payload Raw body of HTTP request
      * @param  string  $signature Signature provided by GitHub in header

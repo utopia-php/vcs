@@ -25,9 +25,16 @@ abstract class Base extends TestCase
 
     abstract public function testGetRepositoryName(): void;
 
+    abstract public function testGetComment(): void;
+
     abstract public function testGetPullRequest(): void;
 
-    abstract public function testGetComment(): void;
+    public function testGetPullRequestFromBranch(): void
+    {
+        $result = $this->vcsAdapter->getPullRequestFromBranch('vermakhushboo', 'basic-js-crud', 'test');
+        $this->assertIsArray($result);
+        $this->assertNotEmpty($result);
+    }
 
     public function testGetOwnerName(): void
     {
@@ -40,12 +47,6 @@ abstract class Base extends TestCase
     {
         $repos = $this->vcsAdapter->listRepositories(1, 2);
         $this->assertCount(2, $repos);
-    }
-
-    public function testGetRepositoriesTotalCount(): void
-    {
-        $count = $this->vcsAdapter->getRepositoriesTotalCount();
-        $this->assertGreaterThanOrEqual(0, $count);
     }
 
     public function testCreateComment(): void
@@ -77,12 +78,5 @@ abstract class Base extends TestCase
         $contents = $this->vcsAdapter->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
-    }
-
-    public function testGetBranchPullRequest(): void
-    {
-        $result = $this->vcsAdapter->getBranchPullRequest('vermakhushboo', 'basic-js-crud', 'test');
-        $this->assertIsArray($result);
-        $this->assertNotEmpty($result);
     }
 }

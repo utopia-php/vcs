@@ -24,6 +24,10 @@ abstract class Adapter
 
     public const METHOD_TRACE = 'TRACE';
 
+    public const TYPE_GIT = 'git';
+
+    public const TYPE_SVN = 'svn';
+
     protected bool $selfSigned = true;
 
     protected string $endpoint;
@@ -92,12 +96,6 @@ abstract class Adapter
     abstract public function listRepositories($page, $per_page): array;
 
     /**
-     * Get latest opened pull request with specific base branch
-     * @return array<mixed>
-     */
-    abstract public function getBranchPullRequest(string $owner, string $repositoryName, string $branch): array;
-
-    /**
      * Get repository
      *
      * @return array<mixed>
@@ -117,11 +115,10 @@ abstract class Adapter
     abstract public function deleteRepository(string $owner, string $repositoryName): void;
 
     /**
-     * Get total repositories count
-     *
-     * @return int
+     * Get latest opened pull request with specific base branch
+     * @return array<mixed>
      */
-    abstract public function getRepositoriesTotalCount(): int;
+    abstract public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array;
 
     /**
      * Get Pull Request

@@ -38,7 +38,7 @@ abstract class Base extends TestCase
 
     public function testListRepositories(): void
     {
-        $repos = $this->vcsAdapter->listRepositoriesForVCSApp(1, 2);
+        $repos = $this->vcsAdapter->listRepositories(1, 2);
         $this->assertCount(2, $repos);
     }
 

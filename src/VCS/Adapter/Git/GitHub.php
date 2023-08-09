@@ -38,6 +38,16 @@ class GitHub extends Git
     }
 
     /**
+     * Get Adapter Name
+     *
+     * @return string
+     */
+    public function getName(): string
+    {
+        return 'github';
+    }
+
+    /**
      * GitHub Initialisation with access token generation.
      */
     public function initialiseVariables(string $installationId, string $privateKey, string $githubAppId): void
@@ -62,68 +72,20 @@ class GitHub extends Git
     }
 
     /**
-     * Generate Access Token
-     */
-    protected function generateAccessToken(string $privateKey, string $githubAppId): void
-    {
-        /**
-         * @var resource $privateKeyObj
-         */
-        $privateKeyObj = \openssl_pkey_get_private($privateKey);
-
-        $appIdentifier = $githubAppId;
-
-        $iat = time();
-        $exp = $iat + 10 * 60;
-        $payload = [
-            'iat' => $iat,
-            'exp' => $exp,
-            'iss' => $appIdentifier,
-        ];
-
-        // generate access token
-        $jwt = new JWT($privateKeyObj, 'RS256');
-        $token = $jwt->encode($payload);
-        $this->jwtToken = $token;
-        $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
-        $this->accessToken = $res['body']['token'];
-    }
-
-    /**
-     * Get Adapter Name
+     * Create new repository
      *
-     * @return string
+     * @return array<mixed> Details of new repository
      */
-    public function getName(): string
+    public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
-        return 'github';
-    }
+        $url = "/orgs/{$owner}/repos";
 
-    /**
-     * Get user
-     *
-     * @return array<mixed>
-     *
-     * @throws Exception
-     */
-    public function getUser(string $username): array
-    {
-        $response = $this->call(self::METHOD_GET, '/users/' . $username);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], [
+            'name' => $repositoryName,
+            'private' => $private,
+        ]);
 
-        return $response;
-    }
-
-    /**
-     * Get owner name of the GitHub installation
-     *
-     * @return string
-     */
-    public function getOwnerName(string $installationId): string
-    {
-        $url = '/app/installations/' . $installationId;
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->jwtToken"]);
-
-        return $response['body']['account']['login'];
+        return $response['body'];
     }
 
     /**
@@ -134,27 +96,13 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function listRepositoriesForVCSApp($page, $per_page): array
+    public function listRepositories($page, $per_page): array
     {
         $url = '/installation/repositories?page=' . $page . '&per_page=' . $per_page;
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
         return $response['body']['repositories'];
-    }
-
-    /**
-     * Get latest opened pull request with specific base branch
-     * @return array<mixed>
-     */
-    public function getBranchPullRequest(string $owner, string $repositoryName, string $branch): array
-    {
-        $head = "{$owner}:{$branch}";
-        $url = "/repos/{$owner}/{$repositoryName}/pulls?head={$head}&state=open&sort=updated&per_page=1";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        return $response['body'][0] ?? [];
     }
 
     /**
@@ -174,27 +122,37 @@ class GitHub extends Git
     }
 
     /**
-     * Create new repository
+     * Fetches repository name using repository id
      *
-     * @return array<mixed> Details of new repository
+     * @param  string  $repositoryId ID of GitHub Repository
+     * @return string name of GitHub repository
      */
-    public function createRepository(string $owner, string $repositoryName, bool $private): array
+    public function getRepositoryName(string $repositoryId): string
     {
-        $url = "/orgs/{$owner}/repos";
+        $url = "/repositories/$repositoryId";
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], [
-            'name' => $repositoryName,
-            'private' => $private,
-        ]);
-
-        return $response['body'];
+        return $response['body']['name'];
     }
 
-    public function deleteRepository(string $owner, string $repositoryName): void
+    /**
+     * Get repository languages
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @return array<mixed> List of repository languages
+     */
+    public function getRepositoryLanguages(string $owner, string $repositoryName): array
     {
-        $url = "/repos/{$owner}/{$repositoryName}";
+        $url = "/repos/$owner/$repositoryName/languages";
 
-        $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        if (isset($response['body'])) {
+            return array_keys($response['body']);
+        }
+
+        return [];
     }
 
     public function getTotalReposCount(): int
@@ -207,17 +165,32 @@ class GitHub extends Git
     }
 
     /**
-     * Get Pull Request
+     * List contents of the specified root directory.
      *
-     * @return array<mixed> The retrieved pull request
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @param  string  $path Path to list contents from
+     * @return array<mixed> List of contents at the specified path
      */
-    public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array
+    public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array
     {
-        $url = "/repos/{$owner}/{$repositoryName}/pulls/{$pullRequestNumber}";
+        $url = "/repos/$owner/$repositoryName/contents";
+        if (!empty($path)) {
+            $url .= "/$path";
+        }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        return $response['body'];
+        return array_map(static function ($item) {
+            return $item['name'];
+        }, $response['body']);
+    }
+
+    public function deleteRepository(string $owner, string $repositoryName): void
+    {
+        $url = "/repos/{$owner}/{$repositoryName}";
+
+        $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
     }
 
     /**
@@ -279,34 +252,107 @@ class GitHub extends Git
     }
 
     /**
-     * Generates a clone command using app access token
+     * Generate Access Token
      */
-    public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
+    protected function generateAccessToken(string $privateKey, string $githubAppId): void
     {
-        if (empty($rootDirectory)) {
-            $rootDirectory = '*';
-        }
+        /**
+         * @var resource $privateKeyObj
+         */
+        $privateKeyObj = \openssl_pkey_get_private($privateKey);
 
-        // Construct the clone URL with the access token
-        $cloneUrl = "https://{$owner}:{$this->accessToken}@github.com/{$owner}/{$repositoryName}";
+        $appIdentifier = $githubAppId;
 
-        // Construct the Git clone command with the clone URL
-        $command = "mkdir -p {$directory} && cd {$directory} && git config --global init.defaultBranch main && git init && git remote add origin {$cloneUrl} && git config core.sparseCheckout true && echo \"{$rootDirectory}\" >> .git/info/sparse-checkout && if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+        $iat = time();
+        $exp = $iat + 10 * 60;
+        $payload = [
+            'iat' => $iat,
+            'exp' => $exp,
+            'iss' => $appIdentifier,
+        ];
 
-        return $command;
+        // generate access token
+        $jwt = new JWT($privateKeyObj, 'RS256');
+        $token = $jwt->encode($payload);
+        $this->jwtToken = $token;
+        $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
+        $this->accessToken = $res['body']['token'];
     }
 
     /**
-     * Parses webhook event payload
+     * Get user
      *
-     * @param  string  $payload Raw body of HTTP request
-     * @param  string  $signature Signature provided by GitHub in header
-     * @param  string  $signatureKey Webhook secret configured on GitHub
-     * @return bool
+     * @return array<mixed>
+     *
+     * @throws Exception
      */
-    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
+    public function getUser(string $username): array
     {
-        return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
+        $response = $this->call(self::METHOD_GET, '/users/' . $username);
+
+        return $response;
+    }
+
+    /**
+     * Get owner name of the GitHub installation
+     *
+     * @return string
+     */
+    public function getOwnerName(string $installationId): string
+    {
+        $url = '/app/installations/' . $installationId;
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->jwtToken"]);
+
+        return $response['body']['account']['login'];
+    }
+
+    /**
+     * Get Pull Request
+     *
+     * @return array<mixed> The retrieved pull request
+     */
+    public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array
+    {
+        $url = "/repos/{$owner}/{$repositoryName}/pulls/{$pullRequestNumber}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return $response['body'];
+    }
+
+    /**
+     * Get latest opened pull request with specific base branch
+     * @return array<mixed>
+     */
+    public function getBranchPullRequest(string $owner, string $repositoryName, string $branch): array
+    {
+        $head = "{$owner}:{$branch}";
+        $url = "/repos/{$owner}/{$repositoryName}/pulls?head={$head}&state=open&sort=updated&per_page=1";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return $response['body'][0] ?? [];
+    }
+
+    /**
+     * Lists branches for a given repository
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @return array<string> List of branch names as array
+     */
+    public function listBranches(string $owner, string $repositoryName): array
+    {
+        $url = "/repos/$owner/$repositoryName/branches";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $names = [];
+        foreach ($response['body'] as $subarray) {
+            $names[] = $subarray['name'];
+        }
+
+        return $names;
     }
 
     /**
@@ -327,6 +373,64 @@ class GitHub extends Git
             'commitAuthor' => $response['body']['commit']['author']['name'],
             'commitMessage' => $response['body']['commit']['message'],
         ];
+    }
+
+    /**
+     * Get latest commit of a branch
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @param  string  $branch Name of the branch
+     * @return array<mixed> Details of the commit
+     */
+    public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
+    {
+        $url = "/repos/$owner/$repositoryName/commits/$branch?per_page=1";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return [
+            'commitAuthor' => $response['body']['commit']['author']['name'],
+            'commitMessage' => $response['body']['commit']['message'],
+            'commitHash' => $response['body']['sha'],
+            'commitUrl' => $response['body']['html_url']
+        ];
+    }
+
+    /**
+     * Updates status check of each commit
+     * state can be one of: error, failure, pending, success
+     */
+    public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
+    {
+        $url = "/repos/$owner/$repositoryName/statuses/$commitHash";
+
+        $body = [
+            'state' => $state,
+            'target_url' => $target_url,
+            'description' => $description,
+            'context' => $context,
+        ];
+
+        $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+    }
+
+    /**
+     * Generates a clone command using app access token
+     */
+    public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
+    {
+        if (empty($rootDirectory)) {
+            $rootDirectory = '*';
+        }
+
+        // Construct the clone URL with the access token
+        $cloneUrl = "https://{$owner}:{$this->accessToken}@github.com/{$owner}/{$repositoryName}";
+
+        // Construct the Git clone command with the clone URL
+        $command = "mkdir -p {$directory} && cd {$directory} && git config --global init.defaultBranch main && git init && git remote add origin {$cloneUrl} && git config core.sparseCheckout true && echo \"{$rootDirectory}\" >> .git/info/sparse-checkout && if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+
+        return $command;
     }
 
     /**
@@ -412,119 +516,15 @@ class GitHub extends Git
     }
 
     /**
-     * Fetches repository name using repository id
+     * Parses webhook event payload
      *
-     * @param  string  $repositoryId ID of GitHub Repository
-     * @return string name of GitHub repository
+     * @param  string  $payload Raw body of HTTP request
+     * @param  string  $signature Signature provided by GitHub in header
+     * @param  string  $signatureKey Webhook secret configured on GitHub
+     * @return bool
      */
-    public function getRepositoryName(string $repositoryId): string
+    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
-        $url = "/repositories/$repositoryId";
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        return $response['body']['name'];
-    }
-
-    /**
-     * Lists branches for a given repository
-     *
-     * @param  string  $owner Owner name of the repository
-     * @param  string  $repositoryName Name of the GitHub repository
-     * @return array<string> List of branch names as array
-     */
-    public function listBranches(string $owner, string $repositoryName): array
-    {
-        $url = "/repos/$owner/$repositoryName/branches";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        $names = [];
-        foreach ($response['body'] as $subarray) {
-            $names[] = $subarray['name'];
-        }
-
-        return $names;
-    }
-
-    /**
-     * Updates status check of each commit
-     * state can be one of: error, failure, pending, success
-     */
-    public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
-    {
-        $url = "/repos/$owner/$repositoryName/statuses/$commitHash";
-
-        $body = [
-            'state' => $state,
-            'target_url' => $target_url,
-            'description' => $description,
-            'context' => $context,
-        ];
-
-        $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
-    }
-
-    /**
-     * Get repository languages
-     *
-     * @param  string  $owner Owner name of the repository
-     * @param  string  $repositoryName Name of the GitHub repository
-     * @return array<mixed> List of repository languages
-     */
-    public function getRepositoryLanguages(string $owner, string $repositoryName): array
-    {
-        $url = "/repos/$owner/$repositoryName/languages";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        if (isset($response['body'])) {
-            return array_keys($response['body']);
-        }
-
-        return [];
-    }
-
-    /**
-     * List contents of the specified root directory.
-     *
-     * @param  string  $owner Owner name of the repository
-     * @param  string  $repositoryName Name of the GitHub repository
-     * @param  string  $path Path to list contents from
-     * @return array<mixed> List of contents at the specified path
-     */
-    public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array
-    {
-        $url = "/repos/$owner/$repositoryName/contents";
-        if (!empty($path)) {
-            $url .= "/$path";
-        }
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        return array_map(static function ($item) {
-            return $item['name'];
-        }, $response['body']);
-    }
-
-    /**
-     * Get latest commit of a branch
-     *
-     * @param  string  $owner Owner name of the repository
-     * @param  string  $repositoryName Name of the GitHub repository
-     * @param  string  $branch Name of the branch
-     * @return array<mixed> Details of the commit
-     */
-    public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
-    {
-        $url = "/repos/$owner/$repositoryName/commits/$branch?per_page=1";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        return [
-            'commitAuthor' => $response['body']['commit']['author']['name'],
-            'commitMessage' => $response['body']['commit']['message'],
-            'commitHash' => $response['body']['sha'],
-            'commitUrl' => $response['body']['html_url']
-        ];
+        return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
     }
 }

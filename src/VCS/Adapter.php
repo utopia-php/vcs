@@ -70,7 +70,7 @@ abstract class Adapter
      * @param int $per_page number of results per page
      * @return array<mixed>
      */
-    abstract public function listRepositoriesForVCSApp($page, $per_page): array;
+    abstract public function listRepositories($page, $per_page): array;
 
     /**
      * Get latest opened pull request with specific base branch

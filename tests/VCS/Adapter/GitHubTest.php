@@ -28,6 +28,7 @@ class GitHubTest extends Base
     public function testgetEvent(): void
     {
         $payload_push = '{
+            "created": false,
             "ref": "refs/heads/main",
             "before": "1234",
             "after": "4567",

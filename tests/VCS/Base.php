@@ -54,39 +54,6 @@ abstract class Base extends TestCase
         $this->assertNotEmpty($commentId);
     }
 
-    public function testDownloadRepositoryZip(): void
-    {
-        // download the zip archive of the repo
-        $zipContents = $this->vcsAdapter->downloadRepositoryZip('test-kh', 'test2', 'main');
-
-        // Save the ZIP archive to a file
-        file_put_contents('./hello-world.zip', $zipContents);
-
-        // Assert that the file was saved successfully
-        $this->assertFileExists('./hello-world.zip');
-    }
-
-    public function testDownloadRepositoryTar(): void
-    {
-        // download the tar archive of the repo
-        $tarContents = $this->vcsAdapter->downloadRepositoryTar('appwrite', 'demos-for-react', 'main');
-
-        // Save the TAR archive to a file
-        file_put_contents('./hello-world.tar', $tarContents);
-
-        // Assert that the file was saved successfully
-        $this->assertFileExists('./hello-world.tar');
-    }
-
-    public function testForkRepository(): void
-    {
-        // Fork a repository into authenticated user's account with custom name
-        $response = $this->vcsAdapter->forkRepository('appwrite', 'demos-for-astro', name: 'fork-api-test-clone');
-        // Assert that the forked repo has the expected name
-        $this->assertEquals('fork-api-test-clone', $response);
-        $this->vcsAdapter->deleteRepository("test-kh", "fork-api-test-clone");
-    }
-
     public function testListBranches(): void
     {
         $branches = $this->vcsAdapter->listBranches('vermakhushboo', 'basic-js-crud');

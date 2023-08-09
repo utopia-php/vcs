@@ -164,4 +164,10 @@ class GitHubTest extends Base
         $commitDetails = $this->vcsAdapter->getCommit('test-kh', 'test1', '7ae65094d56edafc48596ffbb77950e741e56412');
         $this->assertIsArray($commitDetails);
     }
+
+    public function testGetLatestCommit(): void
+    {
+        $commitDetails = $this->vcsAdapter->getLatestCommit('test-kh', 'test1', 'test');
+        $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
+    }
 }

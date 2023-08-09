@@ -140,39 +140,6 @@ abstract class Adapter
     abstract public function updateComment(string $owner, string $repositoryName, int $commentId, string $comment): string;
 
     /**
-     * Downloads a ZIP archive of a repository.
-     *
-     * @param string $owner The owner of the repository.
-     * @param string $repositoryName The name of the repository.
-     * @param string $ref The name of the commit, branch, or tag to download.
-     * @param string $path The path of the file or directory to download. Optional.
-     * @return string The contents of the ZIP archive as a string.
-     */
-    abstract public function downloadRepositoryZip(string $owner, string $repositoryName, string $ref, string $path = ''): string;
-
-    /**
-     * Downloads a tar archive of a repository.
-     *
-     * @param string $owner The owner of the repository.
-     * @param string $repositoryName The name of the repository.
-     * @param string $ref The name of the commit, branch, or tag to download.
-     * @return string The contents of the tar archive as a string.
-     */
-    abstract public function downloadRepositoryTar(string $owner, string $repositoryName, string $ref): string;
-
-    /**
-     * Forks a repository.
-     *
-     * @param string $owner The owner of the repository to fork.
-     * @param string $repo The name of the repository to fork.
-     * @param string|null $organization The name of the organization to fork the repository into. If not provided, the repository will be forked into the authenticated user's account.
-     * @param string|null $name The name of the new forked repository. If not provided, the name will be the same as the original repository.
-     * @param bool $defaultBranchOnly Whether to include only the default branch in the forked repository. Defaults to false.
-     * @return string The name of the newly forked repository
-     */
-    abstract public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?string;
-
-    /**
      * Generates a clone command using app access token
      */
     abstract public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string;
@@ -239,7 +206,7 @@ abstract class Adapter
     abstract public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array;
 
     /**
-     * Get details of a commit
+     * Get details of a commit using commit hash
      *
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
@@ -247,6 +214,16 @@ abstract class Adapter
      * @return array<mixed> Details of the commit
      */
     abstract public function getCommit(string $owner, string $repositoryName, string $commitHash): array;
+
+    /**
+     * Get latest commit of a branch
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @param  string  $branch Name of the branch
+     * @return array<mixed> Details of the commit
+     */
+    abstract public function getLatestCommit(string $owner, string $repositoryName, string $branch): array;
 
     /**
      * Call

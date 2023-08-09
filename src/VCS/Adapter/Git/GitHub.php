@@ -279,73 +279,6 @@ class GitHub extends Git
     }
 
     /**
-     * Downloads a ZIP archive of a repository.
-     *
-     * @param  string  $repositoryName The name of the repository.
-     * @param  string  $ref The name of the commit, branch, or tag to download.
-     * @param  string  $path The path of the file or directory to download. Optional.
-     * @return string The contents of the ZIP archive as a string.
-     */
-    public function downloadRepositoryZip(string $owner, string $repositoryName, string $ref, string $path = ''): string
-    {
-        // Build the URL for the API request
-        $url = '/repos/' . $owner . "/{$repositoryName}/zipball/{$ref}";
-
-        // Add the path parameter to the URL query parameters, if specified
-        if (!empty($path)) {
-            $url .= "?path={$path}";
-        }
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        // Return the contents of the ZIP archive
-        return $response['body'];
-    }
-
-    /**
-     * Downloads a tar archive of a repository.
-     *
-     * @return string The contents of the tar archive as a string.
-     */
-    public function downloadRepositoryTar(string $owner, string $repositoryName, string $ref): string
-    {
-        // Build the URL for the API request
-        $url = '/repos/' . $owner . "/{$repositoryName}/tarball/{$ref}";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        // Return the contents of the tar archive
-        return $response['body'];
-    }
-
-    /**
-     * Forks a repository on GitHub.
-     *
-     * @param  string  $owner The owner of the repository to fork.
-     * @param  string  $repo The name of the repository to fork.
-     * @param  string|null  $organization The name of the organization to fork the repository into. If not provided, the repository will be forked into the authenticated user's account.
-     * @param  string|null  $name The name of the new forked repository. If not provided, the name will be the same as the original repository.
-     * @param  bool  $defaultBranchOnly Whether to include only the default branch in the forked repository. Defaults to false.
-     * @return string The name of the newly forked repository
-     */
-    public function forkRepository(string $owner, string $repo, ?string $organization = null, ?string $name = null, bool $defaultBranchOnly = false): ?string
-    {
-        $url = "/repos/$owner/$repo/forks";
-
-        // Create the payload data for the API request
-        $data = [
-            'organization' => $organization,
-            'name' => $name,
-            'default_branch_only' => $defaultBranchOnly,
-        ];
-
-        // Send the API request to fork the repository
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $data);
-
-        return $response['body']['name'];
-    }
-
-    /**
      * Generates a clone command using app access token
      */
     public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
@@ -377,7 +310,7 @@ class GitHub extends Git
     }
 
     /**
-     * Get details of a commit
+     * Get details of a commit using commit hash
      *
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
@@ -410,6 +343,7 @@ class GitHub extends Git
 
         switch ($event) {
             case 'push':
+                $branchCreated = $payload['created'];
                 $ref = $payload['ref'];
                 $repositoryId = strval($payload['repository']['id']);
                 $repositoryName = $payload['repository']['name'];
@@ -422,6 +356,7 @@ class GitHub extends Git
                 $headCommitUrl = $payload['head_commit']['url'];
 
                 return [
+                    'branchCreated' => $branchCreated,
                     'branch' => $branch,
                     'repositoryId' => $repositoryId,
                     'repositoryName' => $repositoryName,
@@ -569,5 +504,27 @@ class GitHub extends Git
         return array_map(static function ($item) {
             return $item['name'];
         }, $response['body']);
+    }
+
+    /**
+     * Get latest commit of a branch
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @param  string  $branch Name of the branch
+     * @return array<mixed> Details of the commit
+     */
+    public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
+    {
+        $url = "/repos/$owner/$repositoryName/commits/$branch?per_page=1";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return [
+            'commitAuthor' => $response['body']['commit']['author']['name'],
+            'commitMessage' => $response['body']['commit']['message'],
+            'commitHash' => $response['body']['sha'],
+            'commitUrl' => $response['body']['html_url']
+        ];
     }
 }

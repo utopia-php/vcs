@@ -1,0 +1,30 @@
+name: "Tests"
+
+on: [pull_request]
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v2
+
+    - name: Start Test Stack
+      env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
+      run: |
+        docker compose up -d
+        sleep 15
+
+    - name: Doctor
+      run: |
+        docker compose logs
+        docker ps
+        docker network ls
+
+    - name: Run Tests
+      run: |
+        docker-compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml tests

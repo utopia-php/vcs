@@ -34,7 +34,7 @@ $githubAppId = 'your-github-app-id';
 $installationId = 'your-github-app-installation-id';
 
 // Initialise variables
-$github->initialiseVariables($installationId, $privateKey, $githubAppId);
+$github->initializeVariables($installationId, $privateKey, $githubAppId);
 
 // Perform the actions that you want, ex: create repository
 $owner = '<repository-owner>';

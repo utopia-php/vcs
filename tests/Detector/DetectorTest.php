@@ -54,7 +54,7 @@ class DetectorTest extends TestCase
         $privateKey = App::getEnv('PRIVATE_KEY') ?? '';
         $githubAppId = App::getEnv('APP_IDENTIFIER') ?? '';
         $installationId = App::getEnv('INSTALLATION_ID') ?? '';
-        $this->github->initialiseVariables($installationId, $privateKey, $githubAppId);
+        $this->github->initializeVariables($installationId, $privateKey, $githubAppId);
     }
 
     public function testLanguageDetection(): void

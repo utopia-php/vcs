@@ -50,7 +50,7 @@ class GitHub extends Git
     /**
      * GitHub Initialisation with access token generation.
      */
-    public function initialiseVariables(string $installationId, string $privateKey, string $githubAppId): void
+    public function initializeVariables(string $installationId, string $privateKey, string $githubAppId): void
     {
         $this->installationId = $installationId;
 

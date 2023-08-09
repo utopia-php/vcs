@@ -59,7 +59,7 @@ class NewVCSAdapter extends Adapter
 }
 ```
 
-Once you have created a new VCS adapter class, you can use it with the client by calling the `initialiseVariables()` method on the VCS class.
+Once you have created a new VCS adapter class, you can use it with the client by calling the `initializeVariables()` method on the VCS class.
 ```php
 // Your VCS app private key. You can generate this from your VCS App settings.
 $privateKey = 'your-vcs-app-private-key';
@@ -71,7 +71,7 @@ $appId = 'your-vcs-app-id';
 $installationId = 'your-vcs-app-installation-id';
 
 // Initialise variables
-$vcs->initialiseVariables($installationId, $privateKey, $appId);
+$vcs->initializeVariables($installationId, $privateKey, $appId);
 ```
 
 Only include dependencies strictly necessary for the adapter, preferably official PHP libraries, if available.

@@ -50,6 +50,25 @@ abstract class Adapter
     abstract public function isGitFlow(): bool;
 
     /**
+     * Initialize Variables
+     * 
+     * @param string $installationId    
+     * @param string $privateKey
+     * @param string $githubAppId
+     * @return void
+     */
+    abstract public function initializeVariables(string $installationId, string $privateKey, string $githubAppId): void;
+
+    /**
+     * Generate Access Token
+     * 
+     * @param string $privateKey
+     * @param string $githubAppId
+     * @return void
+     */
+    abstract protected function generateAccessToken(string $privateKey, string $githubAppId): void
+
+    /**
      * Get user
      *
      * @return array<mixed>

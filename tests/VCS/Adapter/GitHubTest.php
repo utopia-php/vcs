@@ -22,7 +22,7 @@ class GitHubTest extends Base
         $privateKey = App::getEnv('PRIVATE_KEY') ?? '';
         $githubAppId = App::getEnv('APP_IDENTIFIER') ?? '';
         $installationId = App::getEnv('INSTALLATION_ID') ?? '';
-        $this->vcsAdapter->initialiseVariables($installationId, $privateKey, $githubAppId);
+        $this->vcsAdapter->initializeVariables($installationId, $privateKey, $githubAppId);
     }
 
     public function testgetEvent(): void

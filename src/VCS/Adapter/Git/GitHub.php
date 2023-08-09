@@ -450,13 +450,30 @@ class GitHub extends Git
             $rootDirectory = '*';
         }
 
-        // Construct the clone URL with the access token
-        $cloneUrl = "https://{$owner}:{$this->accessToken}@github.com/{$owner}/{$repositoryName}";
+        // URL encode the components for the clone URL
+        $owner = urlencode($owner);
+        $repositoryName = urlencode($repositoryName);
+        $accessToken = urlencode($this->accessToken);
+        $cloneUrl = "https://{$owner}:{$accessToken}@github.com/{$owner}/{$repositoryName}";
 
-        // Construct the Git clone command with the clone URL
-        $command = "mkdir -p {$directory} && cd {$directory} && git config --global init.defaultBranch main && git init && git remote add origin {$cloneUrl} && git config core.sparseCheckout true && echo \"{$rootDirectory}\" >> .git/info/sparse-checkout && if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+        $directory = escapeshellarg($directory);
+        $rootDirectory = escapeshellarg($rootDirectory);
+        $branchName = escapeshellarg($branchName);
 
-        return $command;
+        $commands = [
+            "mkdir -p {$directory}",
+            "cd {$directory}",
+            "git config --global init.defaultBranch main",
+            "git init",
+            "git remote add origin {$cloneUrl}",
+            "git config core.sparseCheckout true",
+            "echo {$rootDirectory} >> .git/info/sparse-checkout",
+            "if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi"
+        ];
+
+        $fullCommand = implode(" && ", $commands);
+
+        return $fullCommand;
     }
 
     /**

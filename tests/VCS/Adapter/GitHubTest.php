@@ -155,7 +155,7 @@ class GitHubTest extends Base
 
     public function testGenerateCloneCommand(): void
     {
-        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'main', '', '');
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'main', 'test', '*');
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
     }

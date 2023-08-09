@@ -43,11 +43,11 @@ abstract class Adapter
     abstract public function getName(): string;
 
     /**
-     * Is Git Flow
+     * Get Adapter Type
      *
-     * @return bool
+     * @return string
      */
-    abstract public function isGitFlow(): bool;
+    abstract public function getType(): string;
 
     /**
      * Initialize Variables

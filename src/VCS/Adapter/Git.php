@@ -7,6 +7,8 @@ use Utopia\Cache\Cache;
 
 abstract class Git extends Adapter
 {
+    public const TYPE_GIT = 'git';
+
     protected string $endpoint;
 
     protected string $accessToken;
@@ -26,12 +28,12 @@ abstract class Git extends Adapter
     }
 
     /**
-     * Is Git Flow
+     * Get Adapter Type
      *
-     * @return bool
+     * @return string
      */
-    public function isGitFlow(): bool
+    public function getType(): string
     {
-        return true;
+        return self::TYPE_GIT;
     }
 }

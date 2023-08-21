@@ -459,7 +459,9 @@ class GitHub extends Git
         $directory = escapeshellarg($directory);
         $rootDirectory = escapeshellarg($rootDirectory);
         $branchName = escapeshellarg($branchName);
-        $commitHash = escapeshellarg($commitHash);
+        if (!empty($commitHash)) {
+            $commitHash = escapeshellarg($commitHash);
+        }
 
         $commands = [
             "mkdir -p {$directory}",

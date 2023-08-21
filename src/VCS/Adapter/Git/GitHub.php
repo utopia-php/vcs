@@ -444,7 +444,7 @@ class GitHub extends Git
     /**
      * Generates a clone command using app access token
      */
-    public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string
+    public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory, string $commitHash = null): string
     {
         if (empty($rootDirectory)) {
             $rootDirectory = '*';
@@ -468,8 +468,13 @@ class GitHub extends Git
             "git remote add origin {$cloneUrl}",
             "git config core.sparseCheckout true",
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
-            "if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi"
         ];
+
+        if (empty($commitHash)) {
+            $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+        } else {
+            $commands[] = "git pull origin {$commitHash}";
+        }
 
         $fullCommand = implode(" && ", $commands);
 

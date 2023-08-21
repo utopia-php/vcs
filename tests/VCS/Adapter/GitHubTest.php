@@ -160,6 +160,13 @@ class GitHubTest extends Base
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
     }
 
+    public function testGenerateCloneCommandWithCommitHash(): void
+    {
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'main', 'test', '*', '4fb10447faea8a55c5cad7b5ebdfdbedca349fe4');
+        $this->assertNotEmpty($gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+    }
+
     public function testUpdateComment(): void
     {
         $commentId = $this->vcsAdapter->updateComment('test-kh', 'test2', 1630320767, 'update');

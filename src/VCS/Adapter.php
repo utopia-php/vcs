@@ -158,7 +158,7 @@ abstract class Adapter
     /**
      * Generates a clone command using app access token
      */
-    abstract public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory): string;
+    abstract public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory, string $commitHash = null): string;
 
     /**
      * Parses webhook event payload

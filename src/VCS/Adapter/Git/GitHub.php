@@ -89,24 +89,30 @@ class GitHub extends Git
     }
 
     /**
-     * List repositories for GitHub App
+     * Search repositories for GitHub App
+     * @param string $owner Name of user or org
      * @param int $page page number
      * @param int $per_page number of results per page
+     * @param string $search Query to be searched to filter repo names
      * @return array<mixed>
      *
      * @throws Exception
      */
-    public function listRepositories($page, $per_page): array
+    public function searchRepositories(string $owner, int $page, int $per_page, string $search=''): array
     {
-        $url = '/installation/repositories?page=' . $page . '&per_page=' . $per_page;
+        $url = '/search/repositories';
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+            'q' => "${search} user:${owner} fork:true",
+            'per_page' => $per_page,
+            'sort' => 'updated'
+          ]);
 
-        if (!isset($response['body']['repositories'])) {
+        if (!isset($response['body']['items'])) {
             throw new Exception("Repositories list missing in the response.");
         }
 
-        return $response['body']['repositories'];
+        return $response['body']['items'];
     }
 
     /**

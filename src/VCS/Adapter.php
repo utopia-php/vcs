@@ -88,12 +88,16 @@ abstract class Adapter
     abstract public function getOwnerName(string $installationId): string;
 
     /**
-     * List repositories for Git App
+     * Search repositories for GitHub App
+     * @param string $owner Name of user or org
      * @param int $page page number
      * @param int $per_page number of results per page
+     * @param string $search Query to be searched to filter repo names
      * @return array<mixed>
+     *
+     * @throws Exception
      */
-    abstract public function listRepositories($page, $per_page): array;
+    abstract public function searchRepositories(string $owner, int $page, int $per_page, string $search=''): array;
 
     /**
      * Get repository

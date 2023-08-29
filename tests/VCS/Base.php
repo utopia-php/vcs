@@ -45,9 +45,9 @@ abstract class Base extends TestCase
         $this->assertEquals('test-kh', $owner);
     }
 
-    public function testListRepositories(): void
+    public function testSearchRepositories(): void
     {
-        $repos = $this->vcsAdapter->listRepositories(1, 2);
+        $repos = $this->vcsAdapter->searchRepositories('test-kh', 1, 2);
         $this->assertCount(2, $repos);
     }
 

@@ -33,6 +33,7 @@ class DetectorTest extends TestCase
         $detectorFactory = new Detector($files, $languages);
 
         $detectorFactory
+            ->addDetector(new Bun())
             ->addDetector(new JavaScript())
             ->addDetector(new PHP())
             ->addDetector(new Python())
@@ -41,7 +42,6 @@ class DetectorTest extends TestCase
             ->addDetector(new Ruby())
             ->addDetector(new Java())
             ->addDetector(new CPP())
-            ->addDetector(new Bun())
             ->addDetector(new Deno())
             ->addDetector(new Dotnet());
 

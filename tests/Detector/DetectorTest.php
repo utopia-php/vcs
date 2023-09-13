@@ -72,7 +72,7 @@ class DetectorTest extends TestCase
             ['Dobiasd', 'FunctionalPlus', 'cpp'],
             ['anthonychu', 'azure-functions-deno-worker', 'deno'],
             ['mono', 'mono-basic', 'dotnet'],
-            ['X', 'X', 'bun'],
+            ['Meldiron', 'bun-function', 'bun'],
         ];
 
         foreach ($languageMap as [$owner, $repositoryName, $expectedRuntime]) {

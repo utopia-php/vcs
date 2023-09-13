@@ -87,6 +87,7 @@ Detector Adapters:
 | Python | ✅ |
 | Ruby | ✅ |
 | Swift | ✅ |
+| Bun | ✅ |
 
 `✅  - supported, 🛠  - work in progress`
 

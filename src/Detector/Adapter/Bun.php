@@ -4,7 +4,7 @@ namespace Utopia\Detector\Adapter;
 
 use Utopia\Detector\Adapter;
 
-class JavaScript extends Adapter
+class Bun extends Adapter
 {
     /**
      * @return string[]
@@ -16,7 +16,7 @@ class JavaScript extends Adapter
 
     public function getRuntime(): string
     {
-        return 'node';
+        return 'bun';
     }
 
     /**
@@ -24,7 +24,7 @@ class JavaScript extends Adapter
      */
     public function getFileExtensions(): array
     {
-        return ['js', 'ts'];
+        return ['ts', 'tsx', 'js', 'jsx'];
     }
 
     /**
@@ -32,21 +32,21 @@ class JavaScript extends Adapter
      */
     public function getFiles(): array
     {
-        return ['package-lock.json', 'yarn.lock', 'tsconfig.json'];
+        return ['bun.lockb'];
     }
 
     public function getInstallCommand(): string
     {
-        return 'npm install';
+        return 'bun install';
     }
 
     public function getBuildCommand(): string
     {
-        return 'npm build';
+        return '';
     }
 
-    public function getEntrypoint(): string
+    public function getEntryPoint(): string
     {
-        return 'src/index.js';
+        return 'main.ts';
     }
 }

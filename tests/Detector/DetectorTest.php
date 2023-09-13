@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Utopia\App;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\Detector\Adapter\Bun;
 use Utopia\Detector\Adapter\CPP;
 use Utopia\Detector\Adapter\Dart;
 use Utopia\Detector\Adapter\Deno;
@@ -40,6 +41,7 @@ class DetectorTest extends TestCase
             ->addDetector(new Ruby())
             ->addDetector(new Java())
             ->addDetector(new CPP())
+            ->addDetector(new Bun())
             ->addDetector(new Deno())
             ->addDetector(new Dotnet());
 
@@ -70,6 +72,7 @@ class DetectorTest extends TestCase
             ['Dobiasd', 'FunctionalPlus', 'cpp'],
             ['anthonychu', 'azure-functions-deno-worker', 'deno'],
             ['mono', 'mono-basic', 'dotnet'],
+            ['X', 'X', 'bun'],
         ];
 
         foreach ($languageMap as [$owner, $repositoryName, $expectedRuntime]) {

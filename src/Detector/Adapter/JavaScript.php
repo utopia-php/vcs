@@ -32,7 +32,7 @@ class JavaScript extends Adapter
      */
     public function getFiles(): array
     {
-        return ['package.json', 'package-lock.json', 'yarn.lock', 'tsconfig.json'];
+        return ['package-lock.json', 'yarn.lock', 'tsconfig.json'];
     }
 
     public function getInstallCommand(): string

@@ -33,8 +33,8 @@ class DetectorTest extends TestCase
         $detectorFactory = new Detector($files, $languages);
 
         $detectorFactory
-            ->addDetector(new Bun())
             ->addDetector(new JavaScript())
+            ->addDetector(new Bun())
             ->addDetector(new PHP())
             ->addDetector(new Python())
             ->addDetector(new Dart())
@@ -73,6 +73,7 @@ class DetectorTest extends TestCase
             ['anthonychu', 'azure-functions-deno-worker', 'deno'],
             ['mono', 'mono-basic', 'dotnet'],
             ['Meldiron', 'bun-function', 'bun'],
+            ['cytoscape', 'cytoscape.js', 'node']
         ];
 
         foreach ($languageMap as [$owner, $repositoryName, $expectedRuntime]) {

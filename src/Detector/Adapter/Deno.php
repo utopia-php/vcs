@@ -37,7 +37,7 @@ class Deno extends Adapter
 
     public function getInstallCommand(): string
     {
-        return 'deno install';
+        return 'deno vendor';
     }
 
     public function getBuildCommand(): string

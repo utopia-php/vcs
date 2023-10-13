@@ -72,7 +72,7 @@ class DetectorTest extends TestCase
             ['Dobiasd', 'FunctionalPlus', 'cpp'],
             ['anthonychu', 'azure-functions-deno-worker', 'deno'],
             ['mono', 'mono-basic', 'dotnet'],
-            ['Meldiron', 'bun-function', 'bun'],
+            ['vermakhushboo', 'bun-function', 'bun'],
             ['cytoscape', 'cytoscape.js', 'node']
         ];
 

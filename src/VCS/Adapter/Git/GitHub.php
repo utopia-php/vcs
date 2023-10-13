@@ -6,6 +6,7 @@ use Ahc\Jwt\JWT;
 use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
+use Utopia\VCS\Exception\RepositoryNotFound;
 
 class GitHub extends Git
 {
@@ -143,7 +144,7 @@ class GitHub extends Git
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
         if (!isset($response['body']['name'])) {
-            throw new Exception("Repository name not found");
+            throw new RepositoryNotFound("Repository not found");
         }
 
         return $response['body']['name'];

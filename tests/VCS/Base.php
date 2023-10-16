@@ -81,4 +81,17 @@ abstract class Base extends TestCase
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
     }
+
+    public function testCreateRepository(): void
+    {
+        $repository = $this->vcsAdapter->createRepository('test-kh', 'new-repo', true);
+        $this->assertIsArray($repository);
+        $this->assertEquals('test-kh/new-repo', $repository['full_name']);
+    }
+
+    public function testDeleteRepository(): void
+    {
+        $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo');
+        $this->assertEquals($result, true);
+    }
 }

@@ -192,11 +192,13 @@ class GitHub extends Git
         }, $response['body']);
     }
 
-    public function deleteRepository(string $owner, string $repositoryName): void
+    public function deleteRepository(string $owner, string $repositoryName): bool
     {
         $url = "/repos/{$owner}/{$repositoryName}";
 
         $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return true;
     }
 
     /**

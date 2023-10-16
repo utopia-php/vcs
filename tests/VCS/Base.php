@@ -89,6 +89,9 @@ abstract class Base extends TestCase
         $this->assertEquals('test-kh/new-repo', $repository['full_name']);
     }
 
+    /**
+     * @depends testCreateRepository
+     */
     public function testDeleteRepository(): void
     {
         $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo');

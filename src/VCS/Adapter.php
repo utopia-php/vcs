@@ -116,7 +116,7 @@ abstract class Adapter
     /**
      * Delete repository
      */
-    abstract public function deleteRepository(string $owner, string $repositoryName): bool;
+    abstract public function deleteRepository(string $owner, string $repositoryName): int;
 
     /**
      * Get latest opened pull request with specific base branch

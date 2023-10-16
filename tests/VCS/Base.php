@@ -96,5 +96,8 @@ abstract class Base extends TestCase
     {
         $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo');
         $this->assertEquals(204, $result);
+
+        $result = $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo-2');
+        $this->assertEquals(404, $result);
     }
 }

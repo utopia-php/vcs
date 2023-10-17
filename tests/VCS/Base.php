@@ -5,6 +5,7 @@ namespace Utopia\Tests;
 use PHPUnit\Framework\TestCase;
 use Utopia\App;
 use Utopia\VCS\Adapter\Git;
+use Utopia\VCS\Exception\RepositoryNotFound;
 
 abstract class Base extends TestCase
 {
@@ -95,9 +96,8 @@ abstract class Base extends TestCase
     public function testDeleteRepository(): void
     {
         $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo');
-        $this->assertEquals(204, $result);
-
-        $result = $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo-2');
-        $this->assertEquals(404, $result);
+        $this->assertEquals(true, $result);
+        $this->expectException(RepositoryNotFound::class);
+        $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo-2');
     }
 }

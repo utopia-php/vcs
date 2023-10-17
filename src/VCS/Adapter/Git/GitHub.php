@@ -198,11 +198,12 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        if ($response['headers']['status-code'] == 204) {
-            return true;
-        } else {
-            throw new RepositoryNotFound("Repository not found");
+        $statusCode = $response['headers']['status-code'];
+
+        if ($statusCode >= 400) {
+            throw new Exception("Deleting repository $repositoryName failed with status code $statusCode");
         }
+        return true;
     }
 
     /**

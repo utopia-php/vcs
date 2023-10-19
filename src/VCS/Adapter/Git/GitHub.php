@@ -192,11 +192,18 @@ class GitHub extends Git
         }, $response['body']);
     }
 
-    public function deleteRepository(string $owner, string $repositoryName): void
+    public function deleteRepository(string $owner, string $repositoryName): bool
     {
         $url = "/repos/{$owner}/{$repositoryName}";
 
-        $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $statusCode = $response['headers']['status-code'];
+
+        if ($statusCode >= 400) {
+            throw new Exception("Deleting repository $repositoryName failed with status code $statusCode");
+        }
+        return true;
     }
 
     /**

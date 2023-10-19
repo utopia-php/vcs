@@ -2,6 +2,7 @@
 
 namespace Utopia\Tests;
 
+use Exception;
 use PHPUnit\Framework\TestCase;
 use Utopia\App;
 use Utopia\VCS\Adapter\Git;
@@ -80,5 +81,23 @@ abstract class Base extends TestCase
         $contents = $this->vcsAdapter->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
+    }
+
+    public function testCreateRepository(): void
+    {
+        $repository = $this->vcsAdapter->createRepository('test-kh', 'new-repo', true);
+        $this->assertIsArray($repository);
+        $this->assertEquals('test-kh/new-repo', $repository['full_name']);
+    }
+
+    /**
+     * @depends testCreateRepository
+     */
+    public function testDeleteRepository(): void
+    {
+        $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo');
+        $this->assertEquals(true, $result);
+        $this->expectException(Exception::class);
+        $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo-2');
     }
 }

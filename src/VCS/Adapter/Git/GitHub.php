@@ -187,6 +187,10 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
+        if (!is_array($response['body'])) {
+            return [];
+        }
+
         return array_map(static function ($item) {
             return $item['name'];
         }, $response['body']);

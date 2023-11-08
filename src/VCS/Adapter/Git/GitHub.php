@@ -104,7 +104,7 @@ class GitHub extends Git
         $url = '/search/repositories';
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
-            'q' => "${search} user:${owner} fork:true",
+            'q' => "{$search} user:{$owner} fork:true",
             'per_page' => $per_page,
             'sort' => 'updated'
           ]);

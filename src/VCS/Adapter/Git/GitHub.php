@@ -187,6 +187,10 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
+        if (($response['headers']['status-code'] == 404)) {
+            return [];
+        }
+
         return array_map(static function ($item) {
             return $item['name'];
         }, $response['body']);

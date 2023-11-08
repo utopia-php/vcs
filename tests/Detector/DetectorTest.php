@@ -61,6 +61,7 @@ class DetectorTest extends TestCase
 
     public function testLanguageDetection(): void
     {
+        // test for SUCCESS
         $languageMap = [
             ['vermakhushboo', 'basic-js-crud', 'node'],
             ['appwrite', 'appwrite', 'php'],
@@ -82,5 +83,11 @@ class DetectorTest extends TestCase
             $runtime = $this->detect($files, $languages);
             $this->assertEquals($expectedRuntime, $runtime);
         }
+
+        // test for FAILURE
+        $files = $this->github->listRepositoryContents('', '');
+        $languages = $this->github->listRepositoryLanguages('', '');
+        $runtime = $this->detect($files, $languages);
+        $this->assertEquals(null, $runtime);
     }
 }

@@ -99,7 +99,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function searchRepositories(string $owner, int $page, int $per_page, string $search=''): array
+    public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $url = '/search/repositories';
 
@@ -107,7 +107,7 @@ class GitHub extends Git
             'q' => "{$search} user:{$owner} fork:true",
             'per_page' => $per_page,
             'sort' => 'updated'
-          ]);
+        ]);
 
         if (!isset($response['body']['items'])) {
             throw new Exception("Repositories list missing in the response.");
@@ -488,6 +488,7 @@ class GitHub extends Git
             "git init",
             "git remote add origin {$cloneUrl}",
             "git config core.sparseCheckout true",
+            "echo '{$rootDirectory}/.gitignore' >> .git/info/sparse-checkout",
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
         ];
 

@@ -67,8 +67,8 @@ class GitHub extends Git
             $this->cache->save($installationId, $tokens);
         } else {
             $parsed = \json_decode($response, true);
-            $this->jwtToken = $parsed['jwtToken'];
-            $this->accessToken = $parsed['accessToken'];
+            $this->jwtToken = $parsed['jwtToken'] ?? '';
+            $this->accessToken = $parsed['accessToken'] ?? '';
         }
     }
 
@@ -303,7 +303,7 @@ class GitHub extends Git
         $token = $jwt->encode($payload);
         $this->jwtToken = $token;
         $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
-        $this->accessToken = $res['body']['token'];
+        $this->accessToken = $res['body']['token'] ?? '';
     }
 
     /**

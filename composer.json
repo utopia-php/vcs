@@ -30,7 +30,7 @@
   "require": {
     "php": ">=8.0",
     "adhocore/jwt": "^1.1",
-    "utopia-php/framework": "0.31.*",
+    "utopia-php/framework": "0.*.*",
     "utopia-php/cache": "^0.8.0"
   },
   "require-dev": {

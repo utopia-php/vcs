@@ -173,6 +173,13 @@ class GitHubTest extends Base
         $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
         $this->assertIsArray($contents);
         $this->assertEmpty($contents);
+
+        // test for an absolute path
+        $repositoryName = 'test1';
+        $path = 'README.md';
+        $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
+        $this->assertIsArray($contents);
+        $this->assertNotEmpty($contents);
     }
 
     public function testGetPullRequest(): void

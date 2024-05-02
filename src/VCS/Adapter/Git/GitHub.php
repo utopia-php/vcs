@@ -99,7 +99,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function searchRepositories(string $owner, int $page, int $per_page, string $search=''): array
+    public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $url = '/search/repositories';
 
@@ -107,7 +107,7 @@ class GitHub extends Git
             'q' => "{$search} user:{$owner} fork:true",
             'per_page' => $per_page,
             'sort' => 'updated'
-          ]);
+        ]);
 
         if (!isset($response['body']['items'])) {
             throw new Exception("Repositories list missing in the response.");
@@ -191,9 +191,13 @@ class GitHub extends Git
             return [];
         }
 
-        return array_map(static function ($item) {
-            return $item['name'];
-        }, $response['body']);
+        if (isset($response['body'][0])) {
+            return array_column($response['body'], 'name');
+        } elseif (isset($response['body']['name'])) {
+            return [$response['body']['name']];
+        }
+
+        return [];
     }
 
     public function deleteRepository(string $owner, string $repositoryName): bool

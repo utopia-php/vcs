@@ -193,10 +193,12 @@ class GitHub extends Git
 
         if (isset($response['body'][0])) {
             return array_column($response['body'], 'name');
-        } elseif (isset($response['body']['name'])) {
+        } 
+        
+        if (isset($response['body']['name'])) {
             return [$response['body']['name']];
         }
-
+        
         return [];
     }
 

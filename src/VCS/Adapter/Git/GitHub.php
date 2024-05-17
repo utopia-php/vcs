@@ -99,7 +99,7 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function searchRepositories(string $owner, int $page, int $per_page, string $search=''): array
+    public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $url = '/search/repositories';
 
@@ -107,7 +107,7 @@ class GitHub extends Git
             'q' => "{$search} user:{$owner} fork:true",
             'per_page' => $per_page,
             'sort' => 'updated'
-          ]);
+        ]);
 
         if (!isset($response['body']['items'])) {
             throw new Exception("Repositories list missing in the response.");
@@ -191,9 +191,15 @@ class GitHub extends Git
             return [];
         }
 
-        return array_map(static function ($item) {
-            return $item['name'];
-        }, $response['body']);
+        if (isset($response['body'][0])) {
+            return array_column($response['body'], 'name');
+        }
+
+        if (isset($response['body']['name'])) {
+            return [$response['body']['name']];
+        }
+
+        return [];
     }
 
     public function deleteRepository(string $owner, string $repositoryName): bool
@@ -303,7 +309,10 @@ class GitHub extends Git
         $token = $jwt->encode($payload);
         $this->jwtToken = $token;
         $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
-        $this->accessToken = $res['body']['token'] ?? '';
+        if (!isset($res['body']['token'])) {
+            throw new Exception('Failed to retrieve access token from GitHub API.');
+        }
+        $this->accessToken = $res['body']['token'];
     }
 
     /**

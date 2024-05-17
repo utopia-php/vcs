@@ -138,6 +138,50 @@ class GitHubTest extends Base
         $this->assertEquals('basic-js-crud', $repositoryName);
     }
 
+    public function testListRepositoryContents(): void
+    {
+        $owner = 'test-kh';
+        $repositoryName = 'test1';
+        $path = '';
+        $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
+
+        $this->assertIsArray($contents);
+        $this->assertNotEmpty($contents);
+
+        // test for non-existent path
+        $path = 'non-existent-path';
+        $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
+        $this->assertIsArray($contents);
+        $this->assertEmpty($contents);
+
+        // test for a valid folder
+        $path = 'src';
+        $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
+        $this->assertIsArray($contents);
+        $this->assertNotEmpty($contents);
+
+        // test for an invalid repo
+        $repositoryName = 'test3';
+        $path = '';
+        $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
+        $this->assertIsArray($contents);
+        $this->assertEmpty($contents);
+
+        // test for an empty repository
+        $repositoryName = 'test2';
+        $path = '';
+        $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
+        $this->assertIsArray($contents);
+        $this->assertEmpty($contents);
+
+        // test for an absolute path
+        $repositoryName = 'test1';
+        $path = 'README.md';
+        $contents = $this->vcsAdapter->listRepositoryContents($owner, $repositoryName, $path);
+        $this->assertIsArray($contents);
+        $this->assertNotEmpty($contents);
+    }
+
     public function testGetPullRequest(): void
     {
         $owner = 'vermakhushboo';

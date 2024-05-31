@@ -32,6 +32,8 @@ abstract class Base extends TestCase
 
     abstract public function testGetPullRequest(): void;
 
+    abstract public function testGetRepositoryTree(): void;
+
     public function testGetPullRequestFromBranch(): void
     {
         $result = $this->vcsAdapter->getPullRequestFromBranch('vermakhushboo', 'basic-js-crud', 'test');

@@ -3,7 +3,7 @@
 namespace Utopia\Tests;
 
 use PHPUnit\Framework\TestCase;
-use Utopia\App;
+use Utopia\Http\Http;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\Detector\Adapter\Bun;
@@ -53,9 +53,9 @@ class DetectorTest extends TestCase
     public function setUp(): void
     {
         $this->github = new GitHub(new Cache(new None()));
-        $privateKey = App::getEnv('PRIVATE_KEY') ?? '';
-        $githubAppId = App::getEnv('APP_IDENTIFIER') ?? '';
-        $installationId = App::getEnv('INSTALLATION_ID') ?? '';
+        $privateKey = Http::getEnv('PRIVATE_KEY') ?? '';
+        $githubAppId = Http::getEnv('APP_IDENTIFIER') ?? '';
+        $installationId = Http::getEnv('INSTALLATION_ID') ?? '';
         $this->github->initializeVariables($installationId, $privateKey, $githubAppId);
     }
 

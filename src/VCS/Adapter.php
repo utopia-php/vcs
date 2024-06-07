@@ -207,6 +207,17 @@ abstract class Adapter
     abstract public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void;
 
     /**
+     * Get repository tree
+     *
+     * @param string $owner Owner name of the repository
+     * @param string $repositoryName Name of the GitHub repository
+     * @param string $branch Name of the branch
+     * @param bool $recursive Whether to fetch the tree recursively
+     * @return array<string> List of files in the repository
+     */
+    abstract public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array;
+
+    /**
      * Get repository languages
      *
      * @param string $owner Owner name of the repository

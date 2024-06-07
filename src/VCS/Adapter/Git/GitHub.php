@@ -151,6 +151,28 @@ class GitHub extends Git
     }
 
     /**
+     * Get repository tree
+     *
+     * @param string $owner Owner name of the repository
+     * @param string $repositoryName Name of the GitHub repository
+     * @param string $branch Name of the branch
+     * @param bool $recursive Whether to fetch the tree recursively
+     * @return array<string> List of files in the repository
+     */
+    public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
+    {
+        // if recursive is true, add optional query param to url
+        $url = "/repos/$owner/$repositoryName/git/trees/$branch" . ($recursive ? '?recursive=1' : '');
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        if ($response['headers']['status-code'] == 404) {
+            return [];
+        }
+
+        return array_column($response['body']['tree'], 'path');
+    }
+
+    /**
      * Get repository languages
      *
      * @param  string  $owner Owner name of the repository

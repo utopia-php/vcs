@@ -138,6 +138,43 @@ class GitHubTest extends Base
         $this->assertEquals('basic-js-crud', $repositoryName);
     }
 
+    public function testGetRepositoryTree(): void
+    {
+        $owner = 'test-kh';
+        $repositoryName = 'test1';
+        $branch = 'main';
+        $tree = $this->vcsAdapter->getRepositoryTree($owner, $repositoryName, $branch);
+
+        $this->assertIsArray($tree);
+        $this->assertNotEmpty($tree);
+
+        // test for an invalid repo
+        $repositoryName = 'test3';
+        $tree = $this->vcsAdapter->getRepositoryTree($owner, $repositoryName, $branch);
+        $this->assertIsArray($tree);
+        $this->assertEmpty($tree);
+
+        // test for an empty repository
+        $repositoryName = 'test2';
+        $tree = $this->vcsAdapter->getRepositoryTree($owner, $repositoryName, $branch);
+        $this->assertIsArray($tree);
+        $this->assertEmpty($tree);
+
+        // test for recursive tree
+        $repositoryName = 'test4';
+        $tree = $this->vcsAdapter->getRepositoryTree($owner, $repositoryName, $branch, true);
+        $this->assertIsArray($tree);
+        $this->assertNotEmpty($tree);
+        $this->assertEquals('src/folder/README.md', $tree[2]);
+
+        // test for recursive false
+        $repositoryName = 'test4';
+        $tree = $this->vcsAdapter->getRepositoryTree($owner, $repositoryName, $branch);
+        $this->assertIsArray($tree);
+        $this->assertNotEmpty($tree);
+        $this->assertEquals(1, count($tree));
+    }
+
     public function testListRepositoryContents(): void
     {
         $owner = 'test-kh';

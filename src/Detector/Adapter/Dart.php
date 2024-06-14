@@ -37,12 +37,12 @@ class Dart extends Adapter
 
     public function getInstallCommand(): string
     {
-        return 'flutter pub get';
+        return 'dart pub get';
     }
 
     public function getBuildCommand(): string
     {
-        return 'flutter build';
+        return 'dart build';
     }
 
     public function getEntryPoint(): string

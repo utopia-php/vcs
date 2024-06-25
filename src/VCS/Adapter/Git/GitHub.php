@@ -55,7 +55,7 @@ class GitHub extends Git
     {
         $this->installationId = $installationId;
 
-        $response = $this->cache->load($installationId, 60 * 9); // 10 minutes, but 1 minute earlier to be safe
+        $response = $this->cache->load($installationId, 60 * 9, $installationId); // 10 minutes, but 1 minute earlier to be safe
         if ($response == false) {
             $this->generateAccessToken($privateKey, $githubAppId);
 
@@ -64,7 +64,7 @@ class GitHub extends Git
                 'accessToken' => $this->accessToken,
             ]) ?: '{}';
 
-            $this->cache->save($installationId, $tokens);
+            $this->cache->save($installationId, $tokens, $installationId);
         } else {
             $parsed = \json_decode($response, true);
             $this->jwtToken = $parsed['jwtToken'] ?? '';

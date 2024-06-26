@@ -100,6 +100,8 @@ abstract class Base extends TestCase
         }
         $this->assertNotNull($fileContent);
         $this->assertStringContainsString('.', $fileContent['name']);
+        $this->assertIsNumeric($fileContent['size']);
+        $this->assertGreaterThan(0, $fileContent['size']);
 
         $directoryContent = null;
         foreach ($contents as $content) {
@@ -109,6 +111,7 @@ abstract class Base extends TestCase
             }
         }
         $this->assertNotNull($directoryContent);
+        $this->assertIsNumeric($fileContent['size']);
         $this->assertEquals(0, $directoryContent['size']);
     }
 

@@ -16,6 +16,10 @@ class GitHub extends Git
 
     public const EVENT_INSTALLATION = 'installation';
 
+    public const CONTENTS_DIRECTORY = 'dir';
+
+    public const CONTENTS_FILE = 'file';
+
     protected string $endpoint = 'https://api.github.com';
 
     protected string $accessToken;
@@ -213,15 +217,25 @@ class GitHub extends Git
             return [];
         }
 
+        $items = [];
+
         if (isset($response['body'][0])) {
-            return array_column($response['body'], 'name');
+            $items = $response['body'];
+        } else {
+            $items = [$response['body']];
         }
 
-        if (isset($response['body']['name'])) {
-            return [$response['body']['name']];
+        $contents = [];
+        foreach ($items as $item) {
+            $type = $item['type'] ?? 'file';
+            $contents[] = [
+                'name' => $item['name'] ?? '',
+                'size' => $item['size'] ?? 0,
+                'type' => $type === 'file' ? self::CONTENTS_FILE : self::CONTENTS_DIRECTORY
+            ];
         }
 
-        return [];
+        return $contents;
     }
 
     public function deleteRepository(string $owner, string $repositoryName): bool

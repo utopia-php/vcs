@@ -79,6 +79,7 @@ class DetectorTest extends TestCase
 
         foreach ($languageMap as [$owner, $repositoryName, $expectedRuntime]) {
             $files = $this->github->listRepositoryContents($owner, $repositoryName);
+            $files = \array_column($files, 'name');
             $languages = $this->github->listRepositoryLanguages($owner, $repositoryName);
             $runtime = $this->detect($files, $languages);
             $this->assertEquals($expectedRuntime, $runtime);
@@ -86,6 +87,7 @@ class DetectorTest extends TestCase
 
         // test for FAILURE
         $files = $this->github->listRepositoryContents('', '');
+        $files = \array_column($files, 'name');
         $languages = $this->github->listRepositoryLanguages('', '');
         $runtime = $this->detect($files, $languages);
         $this->assertEquals(null, $runtime);

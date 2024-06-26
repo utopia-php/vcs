@@ -6,6 +6,7 @@ use Exception;
 use PHPUnit\Framework\TestCase;
 use Utopia\Http\Http;
 use Utopia\VCS\Adapter\Git;
+use Utopia\VCS\Adapter\Git\GitHub;
 
 abstract class Base extends TestCase
 {
@@ -83,6 +84,37 @@ abstract class Base extends TestCase
         $contents = $this->vcsAdapter->listRepositoryContents('appwrite', 'appwrite', 'src/Appwrite');
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
+
+
+        $contents = $this->vcsAdapter->listRepositoryContents('appwrite', 'appwrite', '');
+        $this->assertIsArray($contents);
+        $this->assertNotEmpty($contents);
+        $this->assertGreaterThan(0, \count($contents));
+
+        $fileContent = null;
+        foreach ($contents as $content) {
+            if ($content['type'] === GitHub::CONTENTS_FILE) {
+                $fileContent = $content;
+                break;
+            }
+        }
+        $this->assertNotNull($fileContent);
+        $this->assertNotEmpty($fileContent['name']);
+        $this->assertStringContainsString('.', $fileContent['name']);
+        $this->assertIsNumeric($fileContent['size']);
+        $this->assertGreaterThan(0, $fileContent['size']);
+
+        $directoryContent = null;
+        foreach ($contents as $content) {
+            if ($content['type'] === GitHub::CONTENTS_DIRECTORY) {
+                $directoryContent = $content;
+                break;
+            }
+        }
+        $this->assertNotNull($directoryContent);
+        $this->assertNotEmpty($directoryContent['name']);
+        $this->assertIsNumeric($directoryContent['size']);
+        $this->assertEquals(0, $directoryContent['size']);
     }
 
     public function testCreateRepository(): void

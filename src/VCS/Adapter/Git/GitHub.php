@@ -219,9 +219,9 @@ class GitHub extends Git
 
         $items = [];
 
-        if (isset($response['body'][0])) {
+        if (!empty($response['body'][0])) {
             $items = $response['body'];
-        } else {
+        } elseif (!empty($response['body'])) {
             $items = [$response['body']];
         }
 

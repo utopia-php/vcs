@@ -99,6 +99,7 @@ abstract class Base extends TestCase
             }
         }
         $this->assertNotNull($fileContent);
+        $this->assertNotEmpty($fileContent['name']);
         $this->assertStringContainsString('.', $fileContent['name']);
         $this->assertIsNumeric($fileContent['size']);
         $this->assertGreaterThan(0, $fileContent['size']);
@@ -111,7 +112,8 @@ abstract class Base extends TestCase
             }
         }
         $this->assertNotNull($directoryContent);
-        $this->assertIsNumeric($fileContent['size']);
+        $this->assertNotEmpty($directoryContent['name']);
+        $this->assertIsNumeric($directoryContent['size']);
         $this->assertEquals(0, $directoryContent['size']);
     }
 

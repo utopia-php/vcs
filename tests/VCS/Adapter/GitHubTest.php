@@ -267,6 +267,7 @@ class GitHubTest extends Base
     {
         $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.1.0', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag', '*');
         $this->assertNotEmpty($gitCloneCommand);
+        \var_dump($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
 
         $output = '';

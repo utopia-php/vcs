@@ -305,7 +305,7 @@ class GitHubTest extends Base
         $output = '';
         $resultCode = null;
         \exec($gitCloneCommand, $output, $resultCode);
-        $this->assertEquals(0, $resultCode);
+        $this->assertNotEquals(0, $resultCode);
 
         $this->assertFileDoesNotExist('/tmp/clone-tag4/README.md');
     }

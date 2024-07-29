@@ -19,6 +19,8 @@ FROM php:8.0-cli-alpine
 
 WORKDIR /usr/local/src/
 
+RUN apk update && apk add git
+
 COPY --from=composer /usr/local/src/vendor /usr/local/src/vendor
 COPY . /usr/local/src/
 

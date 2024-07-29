@@ -507,7 +507,7 @@ class GitHub extends Git
     /**
      * Generates a clone command using app access token
      */
-    public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory, string $commitHash = null): string
+    public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
     {
         if (empty($rootDirectory)) {
             $rootDirectory = '*';
@@ -521,10 +521,6 @@ class GitHub extends Git
 
         $directory = escapeshellarg($directory);
         $rootDirectory = escapeshellarg($rootDirectory);
-        $branchName = escapeshellarg($branchName);
-        if (!empty($commitHash)) {
-            $commitHash = escapeshellarg($commitHash);
-        }
 
         $commands = [
             "mkdir -p {$directory}",
@@ -536,10 +532,19 @@ class GitHub extends Git
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
         ];
 
-        if (empty($commitHash)) {
-            $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
-        } else {
-            $commands[] = "git pull origin {$commitHash}";
+        switch ($versionType) {
+            case self::CLONE_TYPE_BRANCH:
+                $branchName = escapeshellarg($version);
+                $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+                break;
+            case self::CLONE_TYPE_COMMIT:
+                $commitHash = escapeshellarg($version);
+                $commands[] = "git pull origin {$commitHash}";
+                break;
+            case self::CLONE_TYPE_TAG:
+                $tagName = escapeshellarg($version);
+                $commands[] = "git pull origin {$tagName}";
+                break;
         }
 
         $fullCommand = implode(" && ", $commands);

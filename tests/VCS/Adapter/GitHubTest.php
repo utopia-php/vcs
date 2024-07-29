@@ -236,16 +236,45 @@ class GitHubTest extends Base
 
     public function testGenerateCloneCommand(): void
     {
-        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'main', 'test', '*');
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'test', GitHub::CLONE_TYPE_BRANCH, '/tmp/clone-branch', '*');
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+
+        $output = '';
+        $resultCode = null;
+        \exec($gitCloneCommand, $output, $resultCode);
+        \var_dump($output);
+        $this->assertEquals(0, $resultCode);
+
+        $this->assertFileExists('/tmp/clone-branch/README.md');
     }
 
     public function testGenerateCloneCommandWithCommitHash(): void
     {
-        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'main', 'test', '*', '4fb10447faea8a55c5cad7b5ebdfdbedca349fe4');
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '4fb10447faea8a55c5cad7b5ebdfdbedca349fe4', GitHub::CLONE_TYPE_COMMIT, '/tmp/clone-commit', '*');
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+
+        $output = '';
+        $resultCode = null;
+        \exec($gitCloneCommand, $output, $resultCode);
+        $this->assertEquals(0, $resultCode);
+
+        $this->assertFileExists('/tmp/clone-commit/README.md');
+    }
+
+    public function testGenerateCloneCommandWithTag(): void
+    {
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.1.0', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag', '*');
+        $this->assertNotEmpty($gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+
+        $output = '';
+        $resultCode = null;
+        \exec($gitCloneCommand, $output, $resultCode);
+        $this->assertEquals(0, $resultCode);
+
+        $this->assertFileExists('/tmp/clone-tag/README.md');
     }
 
     public function testUpdateComment(): void

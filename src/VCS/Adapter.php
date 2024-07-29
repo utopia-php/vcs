@@ -6,26 +6,21 @@ use Exception;
 
 abstract class Adapter
 {
+    public const CLONE_TYPE_BRANCH = 'branch';
+    public const CLONE_TYPE_TAG = 'tag';
+    public const CLONE_TYPE_COMMIT = 'commit';
+
     public const METHOD_GET = 'GET';
-
     public const METHOD_POST = 'POST';
-
     public const METHOD_PUT = 'PUT';
-
     public const METHOD_PATCH = 'PATCH';
-
     public const METHOD_DELETE = 'DELETE';
-
     public const METHOD_HEAD = 'HEAD';
-
     public const METHOD_OPTIONS = 'OPTIONS';
-
     public const METHOD_CONNECT = 'CONNECT';
-
     public const METHOD_TRACE = 'TRACE';
 
     public const TYPE_GIT = 'git';
-
     public const TYPE_SVN = 'svn';
 
     protected bool $selfSigned = true;
@@ -162,7 +157,7 @@ abstract class Adapter
     /**
      * Generates a clone command using app access token
      */
-    abstract public function generateCloneCommand(string $owner, string $repositoryName, string $branchName, string $directory, string $rootDirectory, string $commitHash = null): string;
+    abstract public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string;
 
     /**
      * Parses webhook event payload

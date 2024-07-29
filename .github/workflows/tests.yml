@@ -10,11 +10,6 @@ jobs:
     - name: Check out the repo
       uses: actions/checkout@v2
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install lcov git
-
     - name: Start Test Stack
       env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

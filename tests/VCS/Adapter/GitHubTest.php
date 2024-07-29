@@ -275,6 +275,28 @@ class GitHubTest extends Base
         $this->assertEquals(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-tag/README.md');
+
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.1.*', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag2', '*');
+        $this->assertNotEmpty($gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+
+        $output = '';
+        $resultCode = null;
+        \exec($gitCloneCommand, $output, $resultCode);
+        $this->assertEquals(0, $resultCode);
+
+        $this->assertFileExists('/tmp/clone-tag2/README.md');
+
+        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.*.*', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag3', '*');
+        $this->assertNotEmpty($gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+
+        $output = '';
+        $resultCode = null;
+        \exec($gitCloneCommand, $output, $resultCode);
+        $this->assertEquals(0, $resultCode);
+
+        $this->assertFileExists('/tmp/clone-tag3/README.md');
     }
 
     public function testUpdateComment(): void

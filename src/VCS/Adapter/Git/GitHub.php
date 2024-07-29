@@ -542,10 +542,8 @@ class GitHub extends Git
                 $commands[] = "git pull origin {$commitHash}";
                 break;
             case self::CLONE_TYPE_TAG:
-                $version = \implode('[0-9]*', \explode('*', $version));
-                $version = \implode('\\.', \explode('.', $version));
-                $tagRegex = escapeshellarg($version);
-                $commands[] = "git pull origin $(git describe --tags --match={$tagRegex} --abbrev=0 HEAD)";
+                $tagName = escapeshellarg($version);
+                $commands[] = "git pull origin $(git ls-remote --tags origin {$tagName} | tail -n 1 | awk -F '/' '{print $3}')";
                 break;
         }
 

@@ -516,8 +516,9 @@ class GitHub extends Git
         // URL encode the components for the clone URL
         $owner = urlencode($owner);
         $repositoryName = urlencode($repositoryName);
-        $accessToken = urlencode($this->accessToken);
-        $cloneUrl = "https://{$owner}:{$accessToken}@github.com/{$owner}/{$repositoryName}";
+        $accessToken = !empty($this->accessToken) ? ':' . urlencode($this->accessToken) : '';
+
+        $cloneUrl = "https://{$owner}{$accessToken}@github.com/{$owner}/{$repositoryName}";
 
         $directory = escapeshellarg($directory);
         $rootDirectory = escapeshellarg($rootDirectory);

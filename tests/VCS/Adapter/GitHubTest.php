@@ -2,9 +2,9 @@
 
 namespace Utopia\Tests\VCS\Adapter;
 
-use Utopia\Http\Http;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitHub;
@@ -19,9 +19,9 @@ class GitHubTest extends Base
     public function setUp(): void
     {
         $this->vcsAdapter = new GitHub(new Cache(new None()));
-        $privateKey = Http::getEnv('PRIVATE_KEY') ?? '';
-        $githubAppId = Http::getEnv('APP_IDENTIFIER') ?? '';
-        $installationId = Http::getEnv('INSTALLATION_ID') ?? '';
+        $privateKey = System::getEnv('PRIVATE_KEY') ?? '';
+        $githubAppId = System::getEnv('APP_IDENTIFIER') ?? '';
+        $installationId = System::getEnv('INSTALLATION_ID') ?? '';
         $this->vcsAdapter->initializeVariables($installationId, $privateKey, $githubAppId);
     }
 

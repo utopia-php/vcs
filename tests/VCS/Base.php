@@ -4,7 +4,7 @@ namespace Utopia\Tests;
 
 use Exception;
 use PHPUnit\Framework\TestCase;
-use Utopia\Http\Http;
+use Utopia\System\System;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitHub;
 
@@ -44,7 +44,7 @@ abstract class Base extends TestCase
 
     public function testGetOwnerName(): void
     {
-        $installationId = Http::getEnv('INSTALLATION_ID') ?? '';
+        $installationId = System::getEnv('INSTALLATION_ID') ?? '';
         $owner = $this->vcsAdapter->getOwnerName($installationId);
         $this->assertEquals('test-kh', $owner);
     }

@@ -9,7 +9,7 @@
     "vcs"
   ],
   "license": "MIT",
-  "minimum-stability": "RC",
+  "minimum-stability": "stable",
   "scripts": {
     "lint": "./vendor/bin/pint --test --config pint.json",
     "format": "./vendor/bin/pint --config pint.json",

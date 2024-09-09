@@ -177,6 +177,29 @@ class GitHub extends Git
     }
 
     /**
+     * List repositories accessible to the GitHub app
+     *
+     * @param int $page page number
+     * @param int $per_page number of results per page
+     * @return array<mixed> List of repositories
+     */
+    public function listRepositoriesForGitHubApp(int $page, int $per_page): array
+    {
+        $url = '/installation/repositories';
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+            'per_page' => $per_page,
+            'page' => $page,
+        ]);
+
+        if (!isset($response['body']['repositories'])) {
+            throw new Exception("Repositories list missing in the response.");
+        }
+
+        return $response['body']['repositories'];
+    }
+
+    /**
      * Get repository languages
      *
      * @param  string  $owner Owner name of the repository

@@ -327,4 +327,11 @@ class GitHubTest extends Base
         $commitDetails = $this->vcsAdapter->getLatestCommit('test-kh', 'test1', 'test');
         $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
     }
+
+    public function testListRepositoriesForGitHubApp(): void
+    {
+        $repositories = $this->vcsAdapter->listRepositoriesForGitHubApp(1, 10);
+        $this->assertIsArray($repositories);
+        $this->assertCount(4, $repositories);
+    }
 }

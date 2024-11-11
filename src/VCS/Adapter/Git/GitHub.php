@@ -582,6 +582,7 @@ class GitHub extends Git
                 $commitHash = $payload['after'] ?? '';
                 $owner = $payload['repository']['owner']['name'] ?? '';
                 $authorUrl = $payload['sender']['html_url'];
+                $authorAvatarUrl = $payload['sender']['avatar_url'] ?? '';
                 $headCommitAuthor = $payload['head_commit']['author']['name'] ?? '';
                 $headCommitMessage = $payload['head_commit']['message'] ?? '';
                 $headCommitUrl = $payload['head_commit']['url'] ?? '';
@@ -597,6 +598,7 @@ class GitHub extends Git
                     'commitHash' => $commitHash,
                     'owner' => $owner,
                     'authorUrl' => $authorUrl,
+                    'authorAvatarUrl' => $authorAvatarUrl,
                     'headCommitAuthor' => $headCommitAuthor,
                     'headCommitMessage' => $headCommitMessage,
                     'headCommitUrl' => $headCommitUrl,
@@ -614,6 +616,7 @@ class GitHub extends Git
                 $action = $payload['action'] ?? '';
                 $owner = $payload['repository']['owner']['login'] ?? '';
                 $authorUrl = $payload['sender']['html_url'];
+                $authorAvatarUrl = $payload['pull_request']['user']['avatar_url'] ?? '';
                 $commitHash = $payload['pull_request']['head']['sha'] ?? '';
                 $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
                 $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
@@ -628,6 +631,7 @@ class GitHub extends Git
                     'commitHash' => $commitHash,
                     'owner' => $owner,
                     'authorUrl' => $authorUrl,
+                    'authorAvatarUrl' => $authorAvatarUrl,
                     'headCommitUrl' => $headCommitUrl,
                     'external' => $external,
                     'pullRequestNumber' => $pullRequestNumber,

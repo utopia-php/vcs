@@ -54,7 +54,8 @@ class GitHubTest extends Base
                 "url": "https://github.com/vermakhushboo/g4-node-function/commit/b787f03343171ff5a477627796140bfa1d02da09"
             },
             "sender": {
-                "html_url": "https://github.com/vermakhushboo"
+                "html_url": "https://github.com/vermakhushboo",
+                "avatar_url": "https://avatars.githubusercontent.com/u/43381712?v=4"
             }
         }';
 
@@ -78,6 +79,10 @@ class GitHubTest extends Base
                     "user": {
                         "login": "vermakhushboo"
                     }
+                },
+                "user" : {
+                    "login": "vermakhushboo",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/43381712?v=4"
                 }
             },
             "repository": {

@@ -180,6 +180,13 @@ class GitHubTest extends Base
         $this->assertEquals(1, count($tree));
     }
 
+    public function testListRepositoriesForGitHubApp(): void
+    {
+        $repositories = $this->vcsAdapter->listRepositoriesForGitHubApp(1, 10);
+        $this->assertIsArray($repositories);
+        $this->assertCount(4, $repositories);
+    }
+
     public function testListRepositoryContents(): void
     {
         $owner = 'test-kh';

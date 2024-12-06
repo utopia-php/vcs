@@ -245,8 +245,6 @@ class GitHubTest extends Base
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
 
-        fwrite(STDOUT, 'Executing command: ' . $gitCloneCommand . PHP_EOL);
-
         $output = '';
         $resultCode = null;
         \exec($gitCloneCommand, $output, $resultCode);
@@ -274,8 +272,6 @@ class GitHubTest extends Base
         $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.1.0', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag', '*');
         $this->assertNotEmpty($gitCloneCommand);
         $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
-
-        fwrite(STDOUT, 'Executing command: ' . $gitCloneCommand . PHP_EOL);
 
         $output = '';
         $resultCode = null;

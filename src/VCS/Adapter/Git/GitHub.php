@@ -549,7 +549,7 @@ class GitHub extends Git
                 break;
             case self::CLONE_TYPE_TAG:
                 $tagName = escapeshellarg($version);
-                $commands[] = "git fetch --depth=1 origin refs/tags/{$tagName}:refs/tags/{$tagName} && git checkout refs/tags/{$tagName}";
+                $commands[] = "git fetch --depth=1 origin refs/tags/$(git ls-remote --tags origin {$tagName} | tail -n 1 | awk -F '/' '{print $3}') && git checkout FETCH_HEAD";
                 break;
         }
 

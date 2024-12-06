@@ -523,6 +523,7 @@ class GitHub extends Git
         $directory = escapeshellarg($directory);
         $rootDirectory = escapeshellarg($rootDirectory);
 
+        # test scommit
         $commands = [
             "mkdir -p {$directory}",
             "cd {$directory}",

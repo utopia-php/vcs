@@ -534,23 +534,22 @@ class GitHub extends Git
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
             // Disable fetching of refs we don't need
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
+            // Disable fetching of tags
+            "git config remote.origin.tagopt --no-tags",
         ];
 
         switch ($versionType) {
             case self::CLONE_TYPE_BRANCH:
                 $branchName = escapeshellarg($version);
-                $commands[] = "git config remote.origin.tagopt --no-tags";
                 $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull --depth=1 origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
                 break;
             case self::CLONE_TYPE_COMMIT:
                 $commitHash = escapeshellarg($version);
-                $commands[] = "git config remote.origin.tagopt --no-tags";
                 $commands[] = "git fetch --depth=1 origin {$commitHash} && git checkout {$commitHash}";
                 break;
             case self::CLONE_TYPE_TAG:
-                $commands[] = "git config --unset remote.origin.tagopt";
                 $tagName = escapeshellarg($version);
-                $commands[] = "git fetch --depth=1 origin && git checkout tags/{$tagName}";
+                $commands[] = "git fetch --depth=1 origin refs/tags/{$tagName}:refs/tags/{$tagName} && git checkout refs/tags/{$tagName}";
                 break;
         }
 

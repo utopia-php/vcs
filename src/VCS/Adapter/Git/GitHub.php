@@ -532,8 +532,6 @@ class GitHub extends Git
             // Enable sparse checkout
             "git config core.sparseCheckout true",
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
-            // Disable fetching of tags to save space
-            "git config remote.origin.tagopt --no-tags",
             // Disable fetching of refs we don't need
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
         ];
@@ -541,20 +539,21 @@ class GitHub extends Git
         switch ($versionType) {
             case self::CLONE_TYPE_BRANCH:
                 $branchName = escapeshellarg($version);
-                // Use --depth 1 for shallow clone and --single-branch to fetch only the needed branch
-                $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull --depth=1 --single-branch origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+                $commands[] = "git config remote.origin.tagopt --no-tags";
+                $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull --depth=1 origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
                 break;
             case self::CLONE_TYPE_COMMIT:
                 $commitHash = escapeshellarg($version);
-                // For specific commit, fetch only that commit and its direct parent
+                $commands[] = "git config remote.origin.tagopt --no-tags";
                 $commands[] = "git fetch --depth=1 origin {$commitHash} && git checkout {$commitHash}";
                 break;
             case self::CLONE_TYPE_TAG:
+                $commands[] = "git config --unset remote.origin.tagopt";
                 $tagName = escapeshellarg($version);
-                // For tags, fetch only the specific tag with minimal history
-                $commands[] = "git fetch --depth=1 --no-tags origin 'refs/tags/{$tagName}:refs/tags/{$tagName}' && git checkout tags/{$tagName}";
+                $commands[] = "git fetch --depth=1 origin && git checkout tags/{$tagName}";
                 break;
         }
+
         $fullCommand = implode(" && ", $commands);
 
         return $fullCommand;

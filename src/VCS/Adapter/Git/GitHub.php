@@ -532,22 +532,27 @@ class GitHub extends Git
             "git config --global init.defaultBranch main",
             "git init",
             "git remote add origin {$cloneUrl}",
+            // Enable sparse checkout
             "git config core.sparseCheckout true",
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
+            // Disable fetching of refs we don't need
+            "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
+            // Disable fetching of tags
+            "git config remote.origin.tagopt --no-tags",
         ];
 
         switch ($versionType) {
             case self::CLONE_TYPE_BRANCH:
                 $branchName = escapeshellarg($version);
-                $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+                $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull --depth=1 origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
                 break;
             case self::CLONE_TYPE_COMMIT:
                 $commitHash = escapeshellarg($version);
-                $commands[] = "git pull origin {$commitHash}";
+                $commands[] = "git fetch --depth=1 origin {$commitHash} && git checkout {$commitHash}";
                 break;
             case self::CLONE_TYPE_TAG:
                 $tagName = escapeshellarg($version);
-                $commands[] = "git pull origin $(git ls-remote --tags origin {$tagName} | tail -n 1 | awk -F '/' '{print $3}')";
+                $commands[] = "git fetch --depth=1 origin refs/tags/$(git ls-remote --tags origin {$tagName} | tail -n 1 | awk -F '/' '{print $3}') && git checkout FETCH_HEAD";
                 break;
         }
 

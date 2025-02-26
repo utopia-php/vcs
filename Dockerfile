@@ -1,4 +1,4 @@
-FROM composer:2.0 as composer
+FROM composer:2.6 as composer
 
 ARG TESTING=false
 ENV TESTING=$TESTING
@@ -15,7 +15,7 @@ RUN composer install \
     --no-scripts \
     --prefer-dist
 
-FROM php:8.0-cli-alpine
+FROM php:8.3-cli-alpine
 
 WORKDIR /usr/local/src/
 

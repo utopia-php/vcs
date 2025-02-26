@@ -626,7 +626,6 @@ class GitHub extends Git
                 $authorUrl = $payload['sender']['html_url'];
                 $authorAvatarUrl = $payload['pull_request']['user']['avatar_url'] ?? '';
                 $commitHash = $payload['pull_request']['head']['sha'] ?? '';
-                $authorAvatarUrl = $payload['pull_request']['user']['avatar_url'] ?? '';
                 $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
                 $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
 

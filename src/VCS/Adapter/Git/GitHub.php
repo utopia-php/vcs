@@ -606,6 +606,7 @@ class GitHub extends Git
                     'commitHash' => $commitHash,
                     'owner' => $owner,
                     'authorUrl' => $authorUrl,
+                    'authorAvatarUrl' => $authorAvatarUrl,
                     'headCommitAuthor' => $headCommitAuthor,
                     'authorAvatarUrl' => $authorAvatarUrl,
                     'headCommitMessage' => $headCommitMessage,
@@ -624,6 +625,7 @@ class GitHub extends Git
                 $action = $payload['action'] ?? '';
                 $owner = $payload['repository']['owner']['login'] ?? '';
                 $authorUrl = $payload['sender']['html_url'];
+                $authorAvatarUrl = $payload['pull_request']['user']['avatar_url'] ?? '';
                 $commitHash = $payload['pull_request']['head']['sha'] ?? '';
                 $authorAvatarUrl = $payload['pull_request']['user']['avatar_url'] ?? '';
                 $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
@@ -639,6 +641,7 @@ class GitHub extends Git
                     'commitHash' => $commitHash,
                     'owner' => $owner,
                     'authorUrl' => $authorUrl,
+                    'authorAvatarUrl' => $authorAvatarUrl,
                     'headCommitUrl' => $headCommitUrl,
                     'authorAvatarUrl' => $authorAvatarUrl,
                     'external' => $external,

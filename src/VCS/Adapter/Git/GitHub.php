@@ -608,7 +608,6 @@ class GitHub extends Git
                     'authorUrl' => $authorUrl,
                     'authorAvatarUrl' => $authorAvatarUrl,
                     'headCommitAuthor' => $headCommitAuthor,
-                    'authorAvatarUrl' => $authorAvatarUrl,
                     'headCommitMessage' => $headCommitMessage,
                     'headCommitUrl' => $headCommitUrl,
                     'external' => false,

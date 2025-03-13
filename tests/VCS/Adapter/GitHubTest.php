@@ -327,8 +327,9 @@ class GitHubTest extends Base
         $this->assertIsArray($commitDetails);
         $this->assertEquals('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
         $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
-        $this->assertEquals('Initial commit', $commitDetails['commcommitHashitMessage']);
+        $this->assertEquals('Initial commit', $commitDetails['commitMessage']);
         $this->assertEquals('https://github.com/test-kh/test1/commit/7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitUrl']);
+        $this->assertEquals('7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitHash']);
     }
 
     public function testGetLatestCommit(): void

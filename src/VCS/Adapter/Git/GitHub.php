@@ -477,7 +477,8 @@ class GitHub extends Git
             !isset($response['body']['commit']['message']) ||
             !isset($response['body']['sha']) ||
             !isset($response['body']['html_url']) ||
-            !isset($response['body']['author']['avatar_url'])
+            !isset($response['body']['committer']['avatar_url']) ||
+            !isset($response['body']['committer']['html_url'])
         ) {
             throw new Exception("Latest commit response is missing required information.");
         }
@@ -487,7 +488,8 @@ class GitHub extends Git
             'commitMessage' => $response['body']['commit']['message'],
             'commitHash' => $response['body']['sha'],
             'commitUrl' => $response['body']['html_url'],
-            'commitAuthorAvatar' => $response['body']['author']['avatar_url'],
+            'commitAuthorAvatar' => $response['body']['committer']['avatar_url'],
+            'commitAuthorUrl' => $response['body']['committer']['html_url'],
         ];
     }
 

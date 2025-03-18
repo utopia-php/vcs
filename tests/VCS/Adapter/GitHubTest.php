@@ -337,5 +337,6 @@ class GitHubTest extends Base
         $commitDetails = $this->vcsAdapter->getLatestCommit('test-kh', 'test1', 'test');
         $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
         $this->assertEquals('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
+        $this->assertEquals('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
     }
 }

@@ -18,8 +18,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Utopia\\VCS\\": "src/VCS",
-      "Utopia\\Detector\\": "src/Detector"
+      "Utopia\\VCS\\": "src/VCS"
     }
   },
   "autoload-dev": {

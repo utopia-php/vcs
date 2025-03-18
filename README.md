@@ -73,22 +73,6 @@ VCS Adapters:
 | Bitbucket |  |
 | Azure DevOps |  |
 
-Detector Adapters:
-
-| Adapter | Status |
-|---------|---------|
-| CPP | ✅ |
-| Dart | ✅ |
-| Deno | ✅ |
-| Dotnet | ✅ |
-| Java | ✅ |
-| JavaScript | ✅ |
-| PHP | ✅ |
-| Python | ✅ |
-| Ruby | ✅ |
-| Swift | ✅ |
-| Bun | ✅ |
-
 `✅  - supported, 🛠  - work in progress`
 
 ## System Requirements

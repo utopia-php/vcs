@@ -326,6 +326,7 @@ class GitHubTest extends Base
         $commitDetails = $this->vcsAdapter->getCommit('test-kh', 'test1', '7ae65094d56edafc48596ffbb77950e741e56412');
         $this->assertIsArray($commitDetails);
         $this->assertEquals('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
+        $this->assertEquals('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
         $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
         $this->assertEquals('Initial commit', $commitDetails['commitMessage']);
         $this->assertEquals('https://github.com/test-kh/test1/commit/7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitUrl']);
@@ -337,5 +338,6 @@ class GitHubTest extends Base
         $commitDetails = $this->vcsAdapter->getLatestCommit('test-kh', 'test1', 'test');
         $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
         $this->assertEquals('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
+        $this->assertEquals('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
     }
 }

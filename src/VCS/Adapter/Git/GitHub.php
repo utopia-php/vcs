@@ -453,6 +453,7 @@ class GitHub extends Git
             'commitAuthor' => $response['body']['commit']['author']['name'],
             'commitMessage' => $response['body']['commit']['message'],
             'commitAuthorAvatar' => $response['body']['author']['avatar_url'],
+            'commitAuthorUrl' => $response['body']['author']['html_url'],
             'commitHash' => $response['body']['sha'],
             'commitUrl' => $response['body']['html_url'],
         ];

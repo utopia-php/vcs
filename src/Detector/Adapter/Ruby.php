@@ -1,8 +1,8 @@
 <?php
 
-namespace Utopia\Detector\Adapter;
+namespace Utopia\VCS\Detector\Adapter;
 
-use Utopia\Detector\Adapter;
+use Utopia\VCS\Detector\Adapter;
 
 class Ruby extends Adapter
 {

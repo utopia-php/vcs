@@ -1,6 +1,6 @@
 <?php
 
-namespace Utopia\Detector;
+namespace Utopia\VCS\Detector;
 
 class Detector
 {

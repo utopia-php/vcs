@@ -38,9 +38,9 @@ Create your `NewDetector.php` file in `src/Detector/Adapter/` and extend the par
 ```php
 <?php
 
-namespace Utopia\Detector\Adapter;
+namespace Utopia\VCS\Detector\Adapter;
 
-use Utopia\Detector\Adapter;
+use Utopia\VCS\Detector\Adapter;
 
 class NewDetector extends Adapter
 {

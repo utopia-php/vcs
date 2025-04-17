@@ -92,7 +92,7 @@ abstract class Adapter
      *
      * @throws Exception
      */
-    abstract public function searchRepositories(string $owner, int $page, int $per_page, string $search=''): array;
+    abstract public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array;
 
     /**
      * Get repository

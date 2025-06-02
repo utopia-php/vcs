@@ -586,6 +586,7 @@ class GitHub extends Git
         switch ($event) {
             case 'push':
                 $branchCreated = isset($payload['created']) ? $payload['created'] : false;
+                $branchDeleted = isset($payload['deleted']) ? $payload['deleted'] : false;
                 $ref = $payload['ref'] ?? '';
                 $repositoryId = strval($payload['repository']['id'] ?? '');
                 $repositoryName = $payload['repository']['name'] ?? '';
@@ -602,6 +603,7 @@ class GitHub extends Git
 
                 return [
                     'branchCreated' => $branchCreated,
+                    'branchDeleted' => $branchDeleted,
                     'branch' => $branch,
                     'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,

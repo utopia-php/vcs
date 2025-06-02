@@ -591,8 +591,8 @@ class GitHub extends Git
                 $repositoryId = strval($payload['repository']['id'] ?? '');
                 $repositoryName = $payload['repository']['name'] ?? '';
                 $branch = str_replace('refs/heads/', '', $ref);
-                $branchUrl = $payload['repository']['url'] . "/tree/" . $branch;
-                $repositoryUrl = $payload['repository']['url'];
+                $branchUrl = $payload['repository']['html_url'] . "/tree/" . $branch;
+                $repositoryUrl = $payload['repository']['html_url'];
                 $commitHash = $payload['after'] ?? '';
                 $owner = $payload['repository']['owner']['name'] ?? '';
                 $authorUrl = $payload['sender']['html_url'];

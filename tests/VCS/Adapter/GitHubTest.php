@@ -38,7 +38,7 @@ class GitHubTest extends Base
                 "name": "testing-fork",
                 "full_name": "vermakhushboo/testing-fork",
                 "private": true,
-                "url": "https://github.com/vermakhushboo/g4-node-function",
+                "html_url": "https://github.com/vermakhushboo/g4-node-function",
                 "owner": {
                     "name": "vermakhushboo"
                 }

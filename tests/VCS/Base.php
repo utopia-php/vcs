@@ -85,8 +85,13 @@ abstract class Base extends TestCase
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
 
-
         $contents = $this->vcsAdapter->listRepositoryContents('appwrite', 'appwrite', '');
+        $this->assertIsArray($contents);
+        $this->assertNotEmpty($contents);
+        $this->assertGreaterThan(0, \count($contents));
+
+        // Test with ref parameter
+        $contents = $this->vcsAdapter->listRepositoryContents('appwrite', 'appwrite', '', 'main');
         $this->assertIsArray($contents);
         $this->assertNotEmpty($contents);
         $this->assertGreaterThan(0, \count($contents));

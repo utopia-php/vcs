@@ -202,13 +202,17 @@ class GitHub extends Git
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
      * @param  string  $path Path to list contents from
+     * @param  string  $ref The name of the commit/branch/tag
      * @return array<mixed> List of contents at the specified path
      */
-    public function listRepositoryContents(string $owner, string $repositoryName, string $path = ''): array
+    public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
         $url = "/repos/$owner/$repositoryName/contents";
         if (!empty($path)) {
             $url .= "/$path";
+        }
+        if (!empty($ref)) {
+            $url .= "?ref=$ref";
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);

@@ -601,7 +601,8 @@ class GitHub extends Git
                 $owner = $payload['repository']['owner']['name'] ?? '';
                 $authorUrl = $payload['sender']['html_url'];
                 $authorAvatarUrl = $payload['sender']['avatar_url'] ?? '';
-                $headCommitAuthor = $payload['head_commit']['author']['name'] ?? '';
+                $headCommitAuthorName = $payload['head_commit']['author']['name'] ?? '';
+                $headCommitAuthorEmail = $payload['head_commit']['author']['email'] ?? '';
                 $headCommitMessage = $payload['head_commit']['message'] ?? '';
                 $headCommitUrl = $payload['head_commit']['url'] ?? '';
 
@@ -618,7 +619,8 @@ class GitHub extends Git
                     'owner' => $owner,
                     'authorUrl' => $authorUrl,
                     'authorAvatarUrl' => $authorAvatarUrl,
-                    'headCommitAuthor' => $headCommitAuthor,
+                    'headCommitAuthorName' => $headCommitAuthorName,
+                    'headCommitAuthorEmail' => $headCommitAuthorEmail,
                     'headCommitMessage' => $headCommitMessage,
                     'headCommitUrl' => $headCommitUrl,
                     'external' => false,

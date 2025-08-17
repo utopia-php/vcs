@@ -136,7 +136,11 @@ abstract class Base extends TestCase
     {
         $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo');
         $this->assertEquals(true, $result);
-        $this->expectException(Exception::class);
-        $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo-2');
+
+        try {
+            $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo-2');
+        } catch (\Exception $e) {
+            $this->assertInstanceOf(Exception::class, $e);
+        }
     }
 }

@@ -252,6 +252,8 @@ abstract class Adapter
      */
     abstract public function getLatestCommit(string $owner, string $repositoryName, string $branch): array;
 
+    abstract public function isUserMemberOfOrganization(string $username, string $organization): bool;
+
     /**
      * Call
      *

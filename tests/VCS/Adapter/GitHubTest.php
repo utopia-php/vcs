@@ -343,10 +343,10 @@ class GitHubTest extends Base
 
     public function testIsUserMemberOfOrganization(): void
     {
-        $isMember = $this->vcsAdapter->isUserMemberOfOrganization('hmacr', 'test-org-hmacr');
+        $isMember = $this->vcsAdapter->isUserMemberOfOrganization('vermakhushboo', 'test-kh');
         $this->assertTrue($isMember);
 
-        $isNotMember = $this->vcsAdapter->isUserMemberOfOrganization('test-user', 'test-org-hmacr');
+        $isNotMember = $this->vcsAdapter->isUserMemberOfOrganization('test-user', 'test-kh');
         $this->assertFalse($isNotMember);
     }
 }

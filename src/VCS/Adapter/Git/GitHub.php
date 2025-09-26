@@ -641,11 +641,12 @@ class GitHub extends Git
                 $commitHash = $payload['pull_request']['head']['sha'] ?? '';
                 $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
 
+                $authorUsername = $payload['pull_request']['user']['login'] ?? ($payload['pull_request']['head']['user']['login'] ?? '');
                 $isOrgRepository = ($payload['repository']['owner']['type'] ?? '') === 'Organization';
                 if ($isOrgRepository) {
-                    $external = !$this->isUserMemberOfOrganization($owner, $owner);
+                    $external = !$this->isUserMemberOfOrganization($authorUsername, $owner);
                 } else {
-                    $external = $payload['pull_request']['head']['user']['login'] !== $payload['repository']['owner']['login'];
+                    $external = $authorUsername !== $owner;
                 }
 
                 return [

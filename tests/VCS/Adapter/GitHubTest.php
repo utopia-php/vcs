@@ -8,6 +8,7 @@ use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitHub;
+use Utopia\VCS\Exception\FileNotFound;
 
 class GitHubTest extends Base
 {
@@ -178,6 +179,56 @@ class GitHubTest extends Base
         $this->assertIsArray($tree);
         $this->assertNotEmpty($tree);
         $this->assertEquals(1, count($tree));
+    }
+
+    public function testGetRepositoryContent(): void
+    {
+        $owner = 'test-kh';
+        $repositoryName = 'test1';
+
+        // Basic usage
+        $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'README.md');
+        $this->assertEquals('# test1', $response['content']);
+
+        $sha = \hash('sha1', "blob " . $response['size'] . "\0" .  $response['content']);
+        $this->assertEquals(7, $response['size']);
+        $this->assertEquals($sha, $response['sha']);
+
+        $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'src/index.md');
+        $this->assertEquals("Hello\n", $response['content']);
+
+        // Branches
+        $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'README.md', 'main');
+        $this->assertEquals('# test1', $response['content']);
+
+        $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'README.md', 'test');
+        $this->assertEquals("# test1 from test branch\n", $response['content']);
+
+        $threw = false;
+        try {
+            $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'README.md', 'non-existing-branch');
+        } catch (FileNotFound $e) {
+            $threw = true;
+        }
+        $this->assertTrue($threw);
+
+        // Missing files
+        $threw = false;
+        try {
+            $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'readme.md');
+        } catch (FileNotFound $e) {
+            $threw = true;
+        }
+        $this->assertTrue($threw);
+
+        $threw = false;
+        try {
+            $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'non-existing.md');
+        } catch (FileNotFound $e) {
+            $threw = true;
+        }
+        $this->assertTrue($threw);
+
     }
 
     public function testListRepositoryContents(): void

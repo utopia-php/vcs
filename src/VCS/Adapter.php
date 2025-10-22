@@ -233,6 +233,17 @@ abstract class Adapter
     abstract public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array;
 
     /**
+     * Get contents of the specified file.
+     *
+     * @param  string  $owner Owner name
+     * @param  string  $repositoryName Name of the repository
+     * @param  string  $path Path to the file
+     * @param  string  $ref The name of the commit/branch/tag
+     * @return array<string, mixed> File details
+     */
+    abstract public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array;
+
+    /**
      * Get details of a commit using commit hash
      *
      * @param  string  $owner Owner name of the repository

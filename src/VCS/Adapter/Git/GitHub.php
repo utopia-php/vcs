@@ -6,6 +6,7 @@ use Ahc\Jwt\JWT;
 use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
+use Utopia\VCS\Exception\FileNotFound;
 use Utopia\VCS\Exception\RepositoryNotFound;
 
 class GitHub extends Git
@@ -194,6 +195,46 @@ class GitHub extends Git
         }
 
         return [];
+    }
+
+    /**
+     * Get contents of the specified file.
+     *
+     * @param  string  $owner Owner name
+     * @param  string  $repositoryName Name of the repository
+     * @param  string  $path Path to the file
+     * @param  string  $ref The name of the commit/branch/tag
+     * @return array<string, mixed> File details
+     */
+    public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array
+    {
+        $url = "/repos/$owner/$repositoryName/contents/" . $path;
+        if (!empty($ref)) {
+            $url .= "?ref=$ref";
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        if ($response['headers']['status-code'] !== 200) {
+            throw new FileNotFound();
+        }
+
+        $encoding = $response['body']['encoding'];
+
+        $content = '';
+        if ($encoding === 'base64') {
+            $content = base64_decode($response['body']['content']);
+        } else {
+            throw new FileNotFound();
+        }
+
+        $output = [
+           'sha' => $response['body']['sha'],
+           'size' => $response['body']['size'],
+           'content' => $content
+        ];
+
+        return $output;
     }
 
     /**

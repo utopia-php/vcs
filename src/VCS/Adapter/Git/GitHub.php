@@ -118,7 +118,10 @@ class GitHub extends Git
             throw new Exception("Repositories list missing in the response.");
         }
 
-        return $response['body']['items'];
+        return [
+            'items' => $response['body']['items'],
+            'total' => $response['body']['total_count'],
+        ];
     }
 
     /**

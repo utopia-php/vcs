@@ -46,7 +46,7 @@ abstract class Base extends TestCase
     {
         $installationId = System::getEnv('INSTALLATION_ID') ?? '';
         $owner = $this->vcsAdapter->getOwnerName($installationId);
-        $this->assertEquals('test-kh', $owner);
+        $this->assertSame('test-kh', $owner);
     }
 
     public function testSearchRepositories(): void
@@ -119,14 +119,14 @@ abstract class Base extends TestCase
         $this->assertNotNull($directoryContent);
         $this->assertNotEmpty($directoryContent['name']);
         $this->assertIsNumeric($directoryContent['size']);
-        $this->assertEquals(0, $directoryContent['size']);
+        $this->assertSame(0, $directoryContent['size']);
     }
 
     public function testCreateRepository(): void
     {
         $repository = $this->vcsAdapter->createRepository('test-kh', 'new-repo', true);
         $this->assertIsArray($repository);
-        $this->assertEquals('test-kh/new-repo', $repository['full_name']);
+        $this->assertSame('test-kh/new-repo', $repository['full_name']);
     }
 
     /**
@@ -135,7 +135,7 @@ abstract class Base extends TestCase
     public function testDeleteRepository(): void
     {
         $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo');
-        $this->assertEquals(true, $result);
+        $this->assertSame(true, $result);
         $this->expectException(Exception::class);
         $result = $this->vcsAdapter->deleteRepository('test-kh', 'new-repo-2');
     }

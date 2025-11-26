@@ -114,16 +114,16 @@ class GitHubTest extends Base
         ';
 
         $pushResult = $this->vcsAdapter->getEvent('push', $payload_push);
-        $this->assertEquals('main', $pushResult['branch']);
-        $this->assertEquals('603754812', $pushResult['repositoryId']);
+        $this->assertSame('main', $pushResult['branch']);
+        $this->assertSame('603754812', $pushResult['repositoryId']);
 
         $pullRequestResult = $this->vcsAdapter->getEvent('pull_request', $payload_pull_request);
-        $this->assertEquals('opened', $pullRequestResult['action']);
-        $this->assertEquals(1, $pullRequestResult['pullRequestNumber']);
+        $this->assertSame('opened', $pullRequestResult['action']);
+        $this->assertSame(1, $pullRequestResult['pullRequestNumber']);
 
         $uninstallResult = $this->vcsAdapter->getEvent('installation', $payload_uninstall);
-        $this->assertEquals('deleted', $uninstallResult['action']);
-        $this->assertEquals(1234, $uninstallResult['installationId']);
+        $this->assertSame('deleted', $uninstallResult['action']);
+        $this->assertSame('1234', $uninstallResult['installationId']);
     }
 
     public function testGetComment(): void
@@ -141,7 +141,7 @@ class GitHubTest extends Base
     public function testGetRepositoryName(): void
     {
         $repositoryName = $this->vcsAdapter->getRepositoryName('432284323');
-        $this->assertEquals('basic-js-crud', $repositoryName);
+        $this->assertSame('basic-js-crud', $repositoryName);
     }
 
     public function testGetRepositoryTree(): void
@@ -171,14 +171,14 @@ class GitHubTest extends Base
         $tree = $this->vcsAdapter->getRepositoryTree($owner, $repositoryName, $branch, true);
         $this->assertIsArray($tree);
         $this->assertNotEmpty($tree);
-        $this->assertEquals('src/folder/README.md', $tree[2]);
+        $this->assertSame('src/folder/README.md', $tree[2]);
 
         // test for recursive false
         $repositoryName = 'test4';
         $tree = $this->vcsAdapter->getRepositoryTree($owner, $repositoryName, $branch);
         $this->assertIsArray($tree);
         $this->assertNotEmpty($tree);
-        $this->assertEquals(1, count($tree));
+        $this->assertSame(1, count($tree));
     }
 
     public function testGetRepositoryContent(): void
@@ -188,21 +188,21 @@ class GitHubTest extends Base
 
         // Basic usage
         $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'README.md');
-        $this->assertEquals('# test1', $response['content']);
+        $this->assertSame('# test1', $response['content']);
 
         $sha = \hash('sha1', "blob " . $response['size'] . "\0" .  $response['content']);
-        $this->assertEquals(7, $response['size']);
-        $this->assertEquals($sha, $response['sha']);
+        $this->assertSame(7, $response['size']);
+        $this->assertSame($sha, $response['sha']);
 
         $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'src/index.md');
-        $this->assertEquals("Hello\n", $response['content']);
+        $this->assertSame("Hello\n", $response['content']);
 
         // Branches
         $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'README.md', 'main');
-        $this->assertEquals('# test1', $response['content']);
+        $this->assertSame('# test1', $response['content']);
 
         $response = $this->vcsAdapter->getRepositoryContent($owner, $repositoryName, 'README.md', 'test');
-        $this->assertEquals("# test1 from test branch\n", $response['content']);
+        $this->assertSame("# test1 from test branch\n", $response['content']);
 
         $threw = false;
         try {
@@ -285,9 +285,9 @@ class GitHubTest extends Base
 
         $this->assertIsArray($result);
         $this->assertNotEmpty($result);
-        $this->assertEquals($pullRequestNumber, $result['number']);
-        $this->assertEquals($owner, $result['base']['user']['login']);
-        $this->assertEquals($repositoryName, $result['base']['repo']['name']);
+        $this->assertSame($pullRequestNumber, $result['number']);
+        $this->assertSame($owner, $result['base']['user']['login']);
+        $this->assertSame($repositoryName, $result['base']['repo']['name']);
     }
 
     public function testGenerateCloneCommand(): void
@@ -299,7 +299,7 @@ class GitHubTest extends Base
         $output = '';
         $resultCode = null;
         \exec($gitCloneCommand, $output, $resultCode);
-        $this->assertEquals(0, $resultCode);
+        $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-branch/README.md');
     }
@@ -313,7 +313,7 @@ class GitHubTest extends Base
         $output = '';
         $resultCode = null;
         \exec($gitCloneCommand, $output, $resultCode);
-        $this->assertEquals(0, $resultCode);
+        $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-commit/README.md');
     }
@@ -327,7 +327,7 @@ class GitHubTest extends Base
         $output = '';
         $resultCode = null;
         \exec($gitCloneCommand, $output, $resultCode);
-        $this->assertEquals(0, $resultCode);
+        $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-tag/README.md');
 
@@ -338,7 +338,7 @@ class GitHubTest extends Base
         $output = '';
         $resultCode = null;
         \exec($gitCloneCommand, $output, $resultCode);
-        $this->assertEquals(0, $resultCode);
+        $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-tag2/README.md');
 
@@ -349,7 +349,7 @@ class GitHubTest extends Base
         $output = '';
         $resultCode = null;
         \exec($gitCloneCommand, $output, $resultCode);
-        $this->assertEquals(0, $resultCode);
+        $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-tag3/README.md');
 
@@ -376,19 +376,19 @@ class GitHubTest extends Base
     {
         $commitDetails = $this->vcsAdapter->getCommit('test-kh', 'test1', '7ae65094d56edafc48596ffbb77950e741e56412');
         $this->assertIsArray($commitDetails);
-        $this->assertEquals('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
-        $this->assertEquals('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
-        $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
-        $this->assertEquals('Initial commit', $commitDetails['commitMessage']);
-        $this->assertEquals('https://github.com/test-kh/test1/commit/7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitUrl']);
-        $this->assertEquals('7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitHash']);
+        $this->assertSame('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
+        $this->assertSame('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
+        $this->assertSame('Khushboo Verma', $commitDetails['commitAuthor']);
+        $this->assertSame('Initial commit', $commitDetails['commitMessage']);
+        $this->assertSame('https://github.com/test-kh/test1/commit/7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitUrl']);
+        $this->assertSame('7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitHash']);
     }
 
     public function testGetLatestCommit(): void
     {
         $commitDetails = $this->vcsAdapter->getLatestCommit('test-kh', 'test1', 'test');
-        $this->assertEquals('Khushboo Verma', $commitDetails['commitAuthor']);
-        $this->assertEquals('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
-        $this->assertEquals('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
+        $this->assertSame('Khushboo Verma', $commitDetails['commitAuthor']);
+        $this->assertSame('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
+        $this->assertSame('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
     }
 }

@@ -123,7 +123,7 @@ class GitHubTest extends Base
 
         $uninstallResult = $this->vcsAdapter->getEvent('installation', $payload_uninstall);
         $this->assertSame('deleted', $uninstallResult['action']);
-        $this->assertSame(1234, $uninstallResult['installationId']);
+        $this->assertSame('1234', $uninstallResult['installationId']);
     }
 
     public function testGetComment(): void

@@ -110,6 +110,7 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
             'q' => "{$search} user:{$owner} fork:true",
+            'page' => $page,
             'per_page' => $per_page,
             'sort' => 'updated'
         ]);
@@ -118,7 +119,10 @@ class GitHub extends Git
             throw new Exception("Repositories list missing in the response.");
         }
 
-        return $response['body']['items'];
+        return [
+            'items' => $response['body']['items'],
+            'total' => $response['body']['total_count'],
+        ];
     }
 
     /**

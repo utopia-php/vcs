@@ -51,8 +51,9 @@ abstract class Base extends TestCase
 
     public function testSearchRepositories(): void
     {
-        $repos = $this->vcsAdapter->searchRepositories('test-kh', 1, 2);
+        ['items' => $repos, 'total' => $total] = $this->vcsAdapter->searchRepositories('test-kh', 1, 2);
         $this->assertCount(2, $repos);
+        $this->assertSame(6, $total);
     }
 
     public function testCreateComment(): void

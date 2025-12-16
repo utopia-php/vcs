@@ -654,21 +654,15 @@ class GitHub extends Git
                 $affectedFiles = [];
                 foreach (($payload['commits'] ?? []) as $commit) {
                     foreach (($commit['added'] ?? []) as $added) {
-                        if (!\in_array($added, $affectedFiles)) {
-                            $affectedFiles[] = $added;
-                        }
+                        $affectedFiles[$added] = true;
                     }
 
                     foreach (($commit['removed'] ?? []) as $removed) {
-                        if (!\in_array($removed, $affectedFiles)) {
-                            $affectedFiles[] = $removed;
-                        }
+                        $affectedFiles[$removed] = true;
                     }
 
                     foreach (($commit['modified'] ?? []) as $modified) {
-                        if (!\in_array($modified, $affectedFiles)) {
-                            $affectedFiles[] = $modified;
-                        }
+                        $affectedFiles[$modified] = true;
                     }
                 }
 
@@ -692,7 +686,7 @@ class GitHub extends Git
                     'external' => false,
                     'pullRequestNumber' => '',
                     'action' => '',
-                    'affectedFiles' => $affectedFiles
+                    'affectedFiles' => \array_keys($affectedFiles),
                 ];
             case 'pull_request':
                 $repositoryId = strval($payload['repository']['id'] ?? '');

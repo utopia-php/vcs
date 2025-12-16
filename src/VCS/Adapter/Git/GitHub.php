@@ -651,6 +651,27 @@ class GitHub extends Git
                 $headCommitMessage = $payload['head_commit']['message'] ?? '';
                 $headCommitUrl = $payload['head_commit']['url'] ?? '';
 
+                $affectedFiles = [];
+                foreach ($payload['commits'] as $commit) {
+                    foreach ($commit['added'] as $added) {
+                        if (!\in_array($added, $affectedFiles)) {
+                            $affectedFiles[] = $added;
+                        }
+                    }
+
+                    foreach ($commit['removed'] as $added) {
+                        if (!\in_array($added, $affectedFiles)) {
+                            $affectedFiles[] = $added;
+                        }
+                    }
+
+                    foreach ($commit['modified'] as $added) {
+                        if (!\in_array($added, $affectedFiles)) {
+                            $affectedFiles[] = $added;
+                        }
+                    }
+                }
+
                 return [
                     'branchCreated' => $branchCreated,
                     'branchDeleted' => $branchDeleted,
@@ -671,6 +692,7 @@ class GitHub extends Git
                     'external' => false,
                     'pullRequestNumber' => '',
                     'action' => '',
+                    'affectedFiles' => $affectedFiles
                 ];
             case 'pull_request':
                 $repositoryId = strval($payload['repository']['id'] ?? '');

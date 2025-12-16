@@ -652,22 +652,22 @@ class GitHub extends Git
                 $headCommitUrl = $payload['head_commit']['url'] ?? '';
 
                 $affectedFiles = [];
-                foreach ($payload['commits'] as $commit) {
-                    foreach ($commit['added'] as $added) {
+                foreach (($payload['commits'] ?? []) as $commit) {
+                    foreach (($commit['added'] ?? []) as $added) {
                         if (!\in_array($added, $affectedFiles)) {
                             $affectedFiles[] = $added;
                         }
                     }
 
-                    foreach ($commit['removed'] as $added) {
-                        if (!\in_array($added, $affectedFiles)) {
-                            $affectedFiles[] = $added;
+                    foreach (($commit['removed'] ?? []) as $removed) {
+                        if (!\in_array($removed, $affectedFiles)) {
+                            $affectedFiles[] = $removed;
                         }
                     }
 
-                    foreach ($commit['modified'] as $added) {
-                        if (!\in_array($added, $affectedFiles)) {
-                            $affectedFiles[] = $added;
+                    foreach (($commit['modified'] ?? []) as $modified) {
+                        if (!\in_array($modified, $affectedFiles)) {
+                            $affectedFiles[] = $modified;
                         }
                     }
                 }

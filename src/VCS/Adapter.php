@@ -196,6 +196,15 @@ abstract class Adapter
     abstract public function listBranches(string $owner, string $repositoryName): array;
 
     /**
+     * Lists all branches for a given repository by paginating through all pages
+     *
+     * @param string $owner Owner name of the repository
+     * @param string $repositoryName Name of the repository
+     * @return array<string> List of all branch names as array
+     */
+    abstract public function listAllBranches(string $owner, string $repositoryName): array;
+
+    /**
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */

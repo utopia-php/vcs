@@ -464,11 +464,13 @@ class GitHub extends Git
      *
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
+     * @param  int  $page Page number for pagination
+     * @param  int  $perPage Number of results per page
      * @return array<string> List of branch names as array
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $page = 1, int $perPage = 30): array
     {
-        $url = "/repos/$owner/$repositoryName/branches";
+        $url = "/repos/$owner/$repositoryName/branches?page=$page&per_page=$perPage";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
@@ -478,6 +480,28 @@ class GitHub extends Git
         }
 
         return $names;
+    }
+
+    /**
+     * Lists all branches for a given repository by paginating through all pages
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the GitHub repository
+     * @return array<string> List of all branch names as array
+     */
+    public function listAllBranches(string $owner, string $repositoryName): array
+    {
+        $allBranches = [];
+        $page = 1;
+        $perPage = 100;
+
+        do {
+            $branches = $this->listBranches($owner, $repositoryName, $page, $perPage);
+            $allBranches = array_merge($allBranches, $branches);
+            $page++;
+        } while (count($branches) === $perPage);
+
+        return $allBranches;
     }
 
     /**

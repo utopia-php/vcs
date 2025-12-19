@@ -54,6 +54,37 @@ class GitHubTest extends Base
                 "message": "Update index.js",
                 "url": "https://github.com/vermakhushboo/g4-node-function/commit/b787f03343171ff5a477627796140bfa1d02da09"
             },
+            "commits": [
+              {
+                "id": "ee8bc1b01518f1e4ec326438231ff2b44e752dd3",
+                "tree_id": "589ff083b5cf40f409a085e736da301b2f4f8853",
+                "distinct": true,
+                "message": "Update main.js",
+                "timestamp": "2025-12-16T15:34:43+01:00",
+                "url": "https://github.com/Meldiron/starter-function-locally-december/commit/ee8bc1b01518f1e4ec326438231ff2b44e752dd3",
+                "author": {
+                  "name": "Matej Bačo",
+                  "email": "matejbaco2000@gmail.com",
+                  "date": "2025-12-16T15:34:43+01:00",
+                  "username": "Meldiron"
+                },
+                "committer": {
+                  "name": "GitHub",
+                  "email": "noreply@github.com",
+                  "date": "2025-12-16T15:34:43+01:00",
+                  "username": "web-flow"
+                },
+                "added": [
+                    "src/lib.js"
+                ],
+                "removed": [
+                    "README.md"
+                ],
+                "modified": [
+                  "src/main.js"
+                ]
+              }
+            ],
             "sender": {
                 "html_url": "https://github.com/vermakhushboo",
                 "avatar_url": "https://avatars.githubusercontent.com/u/43381712?v=4"
@@ -116,6 +147,10 @@ class GitHubTest extends Base
         $pushResult = $this->vcsAdapter->getEvent('push', $payload_push);
         $this->assertSame('main', $pushResult['branch']);
         $this->assertSame('603754812', $pushResult['repositoryId']);
+        $this->assertCount(3, $pushResult['affectedFiles']);
+        $this->assertSame('src/lib.js', $pushResult['affectedFiles'][0]);
+        $this->assertSame('README.md', $pushResult['affectedFiles'][1]);
+        $this->assertSame('src/main.js', $pushResult['affectedFiles'][2]);
 
         $pullRequestResult = $this->vcsAdapter->getEvent('pull_request', $payload_pull_request);
         $this->assertSame('opened', $pullRequestResult['action']);

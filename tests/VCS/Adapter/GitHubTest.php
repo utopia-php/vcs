@@ -426,4 +426,13 @@ class GitHubTest extends Base
         $this->assertSame('https://avatars.githubusercontent.com/u/43381712?v=4', $commitDetails['commitAuthorAvatar']);
         $this->assertSame('https://github.com/vermakhushboo', $commitDetails['commitAuthorUrl']);
     }
+
+    public function testIsUserMemberOfOrganization(): void
+    {
+        $isMember = $this->vcsAdapter->isUserMemberOfOrganization('vermakhushboo', 'test-kh');
+        $this->assertTrue($isMember);
+
+        $isNotMember = $this->vcsAdapter->isUserMemberOfOrganization('test-user', 'test-kh');
+        $this->assertFalse($isNotMember);
+    }
 }

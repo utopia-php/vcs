@@ -494,17 +494,18 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        if (!isset($response['body']['commit']['author']['name']) || !isset($response['body']['commit']['message'])) {
-            throw new Exception("Commit author or message information missing.");
-        }
+        $body = $response['body'] ?? [];
+        $author = $body['author'] ?? [];
+        $commit = $body['commit'] ?? [];
+        $commitAuthor = $commit['author'] ?? [];
 
         return [
-            'commitAuthor' => $response['body']['commit']['author']['name'],
-            'commitMessage' => $response['body']['commit']['message'],
-            'commitAuthorAvatar' => $response['body']['author']['avatar_url'],
-            'commitAuthorUrl' => $response['body']['author']['html_url'],
-            'commitHash' => $response['body']['sha'],
-            'commitUrl' => $response['body']['html_url'],
+            'commitAuthor' => $commitAuthor['name'] ?? 'Unknown',
+            'commitMessage' => $commit['message'] ?? 'No message',
+            'commitAuthorAvatar' => $author['avatar_url'] ?? '',
+            'commitAuthorUrl' => $author['html_url'] ?? '',
+            'commitHash' => $body['sha'] ?? '',
+            'commitUrl' => $body['html_url'] ?? '',
         ];
     }
 

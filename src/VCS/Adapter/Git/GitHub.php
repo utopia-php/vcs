@@ -495,11 +495,12 @@ class GitHub extends Git
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
         $body = $response['body'] ?? [];
+        $author = $body['author'] ?? [];
         $commit = $body['commit'] ?? [];
-        $author = $commit['author'] ?? [];
+        $commitAuthor = $commit['author'] ?? [];
 
         return [
-            'commitAuthor' => $author['name'] ?? 'Unknown',
+            'commitAuthor' => $commitAuthor['name'] ?? 'Unknown',
             'commitMessage' => $commit['message'] ?? 'No message',
             'commitAuthorAvatar' => $author['avatar_url'] ?? '',
             'commitAuthorUrl' => $author['html_url'] ?? '',

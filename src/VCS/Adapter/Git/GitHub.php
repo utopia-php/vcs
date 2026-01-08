@@ -464,11 +464,13 @@ class GitHub extends Git
      *
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
+     * @param  int  $page Page number for pagination
+     * @param  int  $perPage Number of results per page
      * @return array<string> List of branch names as array
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $page = 1, int $perPage = 30): array
     {
-        $url = "/repos/$owner/$repositoryName/branches";
+        $url = "/repos/$owner/$repositoryName/branches?page=$page&per_page=$perPage";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 

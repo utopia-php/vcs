@@ -107,7 +107,7 @@ class GitHub extends Git
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $repositories = [];
-        
+
         $currentPage = 1;
         while (true) {
             $url = '/installation/repositories';

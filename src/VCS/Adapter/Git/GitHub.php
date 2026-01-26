@@ -106,22 +106,22 @@ class GitHub extends Git
      */
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
-        $url = '/search/repositories';
+        $url = '/installation/repositories';
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
-            'q' => "{$search} user:{$owner} fork:true",
             'page' => $page,
             'per_page' => $per_page,
-            'sort' => 'updated'
         ]);
 
-        if (!isset($response['body']['items'])) {
+        if (!isset($response['body']['repositories'])) {
             throw new Exception("Repositories list missing in the response.");
         }
 
+        $repositories = array_filter($response['body']['repositories'] ?? [], fn ($repo) => str_contains($repo['name'], $search));
+
         return [
-            'items' => $response['body']['items'],
-            'total' => $response['body']['total_count'],
+            'items' => $repositories,
+            'total' => \count($repositories),
         ];
     }
 

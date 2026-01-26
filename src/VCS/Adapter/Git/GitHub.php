@@ -117,7 +117,7 @@ class GitHub extends Git
             ]);
 
             if (!isset($response['body']['repositories'])) {
-                break;
+                throw new Exception("Repositories list missing in the response.");
             }
 
             // Filter repositories to only include those that match the search query.

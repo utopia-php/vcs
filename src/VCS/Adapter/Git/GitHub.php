@@ -106,22 +106,40 @@ class GitHub extends Git
      */
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
-        $url = '/search/repositories';
+        $repositories = [];
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
-            'q' => "{$search} user:{$owner} fork:true",
-            'page' => $page,
-            'per_page' => $per_page,
-            'sort' => 'updated'
-        ]);
+        $currentPage = 1;
+        while (true) {
+            $url = '/installation/repositories';
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+                'page' => $currentPage,
+                'per_page' => 100, // Maximum allowed by GitHub API
+            ]);
 
-        if (!isset($response['body']['items'])) {
-            throw new Exception("Repositories list missing in the response.");
+            if (!isset($response['body']['repositories'])) {
+                throw new Exception("Repositories list missing in the response.");
+            }
+
+            // Filter repositories to only include those that match the search query.
+            $filteredRepositories = array_filter($response['body']['repositories'], fn ($repo) => empty($search) || stripos($repo['name'], $search) !== false);
+
+            // Merge with result so far.
+            $repositories = array_merge($repositories, $filteredRepositories);
+
+            // If less than 100 repositories are returned, we have fetched all repositories.
+            if (\count($response['body']['repositories']) < 100) {
+                break;
+            }
+
+            // Increment page number to fetch next page.
+            $currentPage++;
         }
 
+        $repositoriesInRequestedPage = \array_slice($repositories, ($page - 1) * $per_page, $per_page);
+
         return [
-            'items' => $response['body']['items'],
-            'total' => $response['body']['total_count'],
+            'items' => $repositoriesInRequestedPage,
+            'total' => \count($repositories),
         ];
     }
 

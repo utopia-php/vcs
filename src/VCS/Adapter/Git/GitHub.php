@@ -127,7 +127,7 @@ class GitHub extends Git
             $repositories = array_merge($repositories, $filteredRepositories);
 
             // If less than 100 repositories are returned, we have fetched all repositories.
-            if (\count($filteredRepositories) < 100) {
+            if (\count($response['body']['repositories']) < 100) {
                 break;
             }
 

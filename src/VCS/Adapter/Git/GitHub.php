@@ -106,11 +106,29 @@ class GitHub extends Git
      */
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
+        $url = '/installation/repositories';
         $repositories = [];
 
+        // When no search query is provided, delegate pagination to the GitHub API.
+        if (empty($search)) {
+            $repositories = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+                'page' => $page,
+                'per_page' => $per_page,
+            ]);
+
+            if (!isset($repositories['body']['repositories'])) {
+                throw new Exception("Repositories list missing in the response.");
+            }
+
+            return [
+                'items' => $repositories['body']['repositories'],
+                'total' => $repositories['body']['total_count'],
+            ];
+        }
+
+        // When search query is provided, fetch all repositories accessible by the installation and filter them locally.
         $currentPage = 1;
         while (true) {
-            $url = '/installation/repositories';
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
                 'page' => $currentPage,
                 'per_page' => 100, // Maximum allowed by GitHub API
@@ -121,7 +139,7 @@ class GitHub extends Git
             }
 
             // Filter repositories to only include those that match the search query.
-            $filteredRepositories = array_filter($response['body']['repositories'], fn ($repo) => empty($search) || stripos($repo['name'], $search) !== false);
+            $filteredRepositories = array_filter($response['body']['repositories'], fn ($repo) => stripos($repo['name'], $search) !== false);
 
             // Merge with result so far.
             $repositories = array_merge($repositories, $filteredRepositories);

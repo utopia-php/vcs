@@ -10,3 +10,21 @@ services:
       - PRIVATE_KEY
       - APP_IDENTIFIER
       - INSTALLATION_ID
+      - GITEA_ACCESS_TOKEN
+      - GITEA_REFRESH_TOKEN
+      - GITEA_URL
+      - GITEA_TEST_OWNER
+  gitea:
+    image: gitea/gitea:1.21.5
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=sqlite3
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://gitea:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s

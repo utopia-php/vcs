@@ -30,6 +30,12 @@ class Gitea extends Git
         $this->cache = $cache;
     }
 
+    public function setEndpoint(string $endpoint): void
+    {
+        $this->giteaUrl = rtrim($endpoint, '/');
+        $this->endpoint = $this->giteaUrl . '/api/v1';
+    }
+
     /**
      * Get Adapter Name
      *
@@ -49,12 +55,15 @@ class Gitea extends Git
      * - $privateKey is used to pass the refresh token
      * - $githubAppId is used to pass the Gitea instance URL
      */
-    public function initializeVariables(string $installationId, string $privateKey, string $githubAppId): void
+    public function initializeVariables(string $installationId, string $privateKey, string $appId, string $accessToken, string $refreshToken): void
     {
-        $this->accessToken = $installationId;
-        $this->refreshToken = $privateKey;
-        $this->giteaUrl = rtrim($githubAppId, '/');
-        $this->endpoint = $this->giteaUrl . '/api/v1';
+        if (!empty($accessToken)) {
+            $this->accessToken = $accessToken;
+            $this->refreshToken = $refreshToken;
+            return;
+        }
+
+        throw new Exception("accessToken is required for Gitea adapter.");
     }
 
     /**

@@ -45,10 +45,14 @@ services:
       gitea:
         condition: service_healthy
     entrypoint: /bin/sh
+    environment:
+      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-jayesh}
+      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-jayesh123}
+      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-jayesh@gmail.com}
     command: >
       -c "
-        su git -c 'gitea admin user create --username jayesh --password jayesh123 --email jayesh@gmail.com --admin --must-change-password=false' || true &&
-        TOKEN=$$(su git -c 'gitea admin user generate-access-token --username jayesh --token-name jayesh-token --scopes all --raw') &&
+        su git -c \"gitea admin user create --username $$GITEA_ADMIN_USERNAME --password $$GITEA_ADMIN_PASSWORD --email $$GITEA_ADMIN_EMAIL --admin --must-change-password=false\" || true &&
+        TOKEN=$$(su git -c \"gitea admin user generate-access-token --username $$GITEA_ADMIN_USERNAME --token-name $$GITEA_ADMIN_USERNAME-token --scopes all --raw\") &&
         echo $$TOKEN > /data/gitea/token.txt
       "
 

@@ -27,7 +27,16 @@ class GiteaTest extends Base
         }
 
         $this->vcsAdapter = new Gitea(new Cache(new None()));
-        $this->vcsAdapter->initializeVariables(self::$accessToken, '', System::getEnv('GITEA_URL') ?? 'http://gitea:3000');
+        $giteaUrl = System::getEnv('GITEA_URL') ?? 'http://gitea:3000';
+
+        $this->vcsAdapter->initializeVariables(
+            '',                  // installationId
+            '',                  // privateKey
+            '',                  // appId
+            self::$accessToken,  // accessToken
+            ''                   // refreshToken
+        );
+        $this->vcsAdapter->setEndpoint($giteaUrl);
     }
 
     private function setupGitea(): void
@@ -114,6 +123,40 @@ class GiteaTest extends Base
     }
 
     public function testgetEvent(): void
+    {
+        $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+    public function testSearchRepositories(): void
+    {
+        $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testDeleteRepository(): void
+    {
+        $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testGetOwnerName(): void
+    {
+        $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testGetPullRequestFromBranch(): void
+    {
+        $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testCreateComment(): void
+    {
+        $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testListBranches(): void
+    {
+        $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testListRepositoryLanguages(): void
     {
         $this->markTestSkipped('Will be implemented in follow-up PR');
     }

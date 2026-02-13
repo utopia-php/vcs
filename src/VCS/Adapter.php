@@ -56,7 +56,7 @@ abstract class Adapter
      * @param string $githubAppId
      * @return void
      */
-    abstract public function initializeVariables(string $installationId, string $privateKey, string $githubAppId): void;
+    abstract public function initializeVariables(string $installationId, string $privateKey, string $appId, string $accessToken, string $refreshToken): void;
 
     /**
      * Generate Access Token

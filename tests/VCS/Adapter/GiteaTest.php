@@ -11,6 +11,9 @@ use Utopia\VCS\Adapter\Git\Gitea;
 
 class GiteaTest extends Base
 {
+    private static bool $setupDone = false;
+    private static string $accessToken = '';
+
     protected function createVCSAdapter(): Git
     {
         return new Gitea(new Cache(new None()));
@@ -18,41 +21,38 @@ class GiteaTest extends Base
 
     public function setUp(): void
     {
+        if (!self::$setupDone) {
+            $this->setupGitea();
+            self::$setupDone = true;
+        }
+
         $this->vcsAdapter = new Gitea(new Cache(new None()));
-        
-        // Gitea uses OAuth2 tokens instead of GitHub's installation flow
-        // Parameters are mapped for interface compatibility:
-        // - GITEA_ACCESS_TOKEN -> installationId parameter
-        // - GITEA_REFRESH_TOKEN -> privateKey parameter  
-        // - GITEA_URL -> githubAppId parameter
-        $accessToken = System::getEnv('GITEA_ACCESS_TOKEN') ?? '';
-        $refreshToken = System::getEnv('GITEA_REFRESH_TOKEN') ?? '';
-        $giteaUrl = System::getEnv('GITEA_URL') ?? 'http://gitea:3000';
-        
-        $this->vcsAdapter->initializeVariables($accessToken, $refreshToken, $giteaUrl);
+        $this->vcsAdapter->initializeVariables(self::$accessToken, '', System::getEnv('GITEA_URL') ?? 'http://gitea:3000');
+    }
+
+    private function setupGitea(): void
+    {
+        $tokenFile = '/data/gitea/token.txt';
+
+        if (file_exists($tokenFile)) {
+            self::$accessToken = trim(file_get_contents($tokenFile));
+        }
     }
 
     public function testCreateRepository(): void
     {
-        $owner = System::getEnv('GITEA_TEST_OWNER') ?? 'jayesh-vcs';
-        $repositoryName = 'test-create-repo-' . time();
-        
-        // Create repository
+        $owner = System::getEnv('GITEA_TEST_OWNER');
+        $repositoryName = 'test-repo-' . time();
+
         $result = $this->vcsAdapter->createRepository($owner, $repositoryName, false);
-        // Assertions
+
         $this->assertIsArray($result);
         $this->assertArrayHasKey('name', $result);
         $this->assertSame($repositoryName, $result['name']);
         $this->assertArrayHasKey('owner', $result);
         $this->assertSame($owner, $result['owner']['login']);
-        
-        // Cleanup: delete the repository
-        // Note: deleteRepository will be implemented in follow-up PR
-        // For now, repositories will need to be manually cleaned up
     }
 
-    // Stub methods required by Base class - will be implemented in follow-up PRs
-    
     public function testGetComment(): void
     {
         $this->markTestSkipped('Will be implemented in follow-up PR');

@@ -42,7 +42,7 @@ class Gitea extends Git
 
     /**
      * Gitea Initialisation with access token from OAuth2 flow.
-     * 
+     *
      * Note: Gitea uses OAuth2 instead of GitHub's App Installation flow.
      * The parameters are adapted to maintain interface compatibility:
      * - $installationId is used to pass the access token
@@ -59,7 +59,7 @@ class Gitea extends Git
 
     /**
      * Generate Access Token
-     * 
+     *
      * Note: This method is required by the Adapter interface but is not used for Gitea.
      * Gitea uses OAuth2 tokens that are provided directly via initializeVariables().
      */
@@ -76,7 +76,7 @@ class Gitea extends Git
      */
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
-        $url = "/orgs/{$owner}/repos";
+        $url = "/user/repos";
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "token $this->accessToken"], [
             'name' => $repositoryName,

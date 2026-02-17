@@ -12,7 +12,7 @@ class Gitea extends Git
 
     protected string $accessToken;
 
-    protected string $refreshToken;
+    protected ?string $refreshToken = null;
 
     protected string $giteaUrl;
 
@@ -53,9 +53,11 @@ class Gitea extends Git
      * The parameters are adapted to maintain interface compatibility:
      * - $installationId is used to pass the access token
      * - $privateKey is used to pass the refresh token
-     * - $githubAppId is used to pass the Gitea instance URL
+     * - $appId is used to pass the Gitea instance URL
+     * - $accessToken is used to pass the access token
+     * - $refreshToken is used to pass the refresh token
      */
-    public function initializeVariables(string $installationId, string $privateKey, string $appId, string $accessToken, string $refreshToken): void
+    public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
         if (!empty($accessToken)) {
             $this->accessToken = $accessToken;
@@ -72,7 +74,7 @@ class Gitea extends Git
      * Note: This method is required by the Adapter interface but is not used for Gitea.
      * Gitea uses OAuth2 tokens that are provided directly via initializeVariables().
      */
-    protected function generateAccessToken(string $privateKey, string $githubAppId): void
+    protected function generateAccessToken(string $privateKey, string $appId): void
     {
         // Not applicable for Gitea - OAuth2 tokens are passed directly
         return;
@@ -85,7 +87,7 @@ class Gitea extends Git
      */
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
-        $url = "/user/repos";
+        $url = "/org/{$owner}/repos";
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "token $this->accessToken"], [
             'name' => $repositoryName,
@@ -93,6 +95,18 @@ class Gitea extends Git
         ]);
 
         return $response['body'] ?? [];
+    }
+
+    public function createOrganization(string $orgName): string
+    {
+        $url = "/orgs";
+
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "token $this->accessToken"], [
+            'username' => $orgName,
+            'visibility' => 'public',
+        ]);
+
+        return $response['body']['name'] ?? '';
     }
 
     // Stub methods to satisfy abstract class requirements

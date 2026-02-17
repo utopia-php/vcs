@@ -11,8 +11,8 @@ use Utopia\VCS\Adapter\Git\Gitea;
 
 class GiteaTest extends Base
 {
-    private static bool $setupDone = false;
     private static string $accessToken = '';
+    private static string $owner = '';
 
     protected function createVCSAdapter(): Git
     {
@@ -21,22 +21,25 @@ class GiteaTest extends Base
 
     public function setUp(): void
     {
-        if (!self::$setupDone) {
+        if (empty(self::$accessToken)) {
             $this->setupGitea();
-            self::$setupDone = true;
         }
 
         $this->vcsAdapter = new Gitea(new Cache(new None()));
         $giteaUrl = System::getEnv('GITEA_URL') ?? 'http://gitea:3000';
 
         $this->vcsAdapter->initializeVariables(
-            '',                  // installationId
-            '',                  // privateKey
-            '',                  // appId
-            self::$accessToken,  // accessToken
-            ''                   // refreshToken
+            installationId: '',
+            privateKey: '',
+            appId: '',
+            accessToken: self::$accessToken,
+            refreshToken: ''
         );
         $this->vcsAdapter->setEndpoint($giteaUrl);
+        if (empty(self::$owner)) {
+            $orgName = 'test-org-' . \uniqid();
+            self::$owner = $this->vcsAdapter->createOrganization($orgName);
+        }
     }
 
     private function setupGitea(): void
@@ -44,13 +47,16 @@ class GiteaTest extends Base
         $tokenFile = '/data/gitea/token.txt';
 
         if (file_exists($tokenFile)) {
-            self::$accessToken = trim(file_get_contents($tokenFile));
+            $contents = file_get_contents($tokenFile);
+            if ($contents !== false) {
+                self::$accessToken = trim($contents);
+            }
         }
     }
 
     public function testCreateRepository(): void
     {
-        $owner = System::getEnv('GITEA_TEST_OWNER');
+        $owner = self::$owner;
         $repositoryName = 'test-repo-' . time();
 
         $result = $this->vcsAdapter->createRepository($owner, $repositoryName, false);
@@ -122,7 +128,7 @@ class GiteaTest extends Base
         $this->markTestSkipped('Will be implemented in follow-up PR');
     }
 
-    public function testgetEvent(): void
+    public function testGetEvent(): void
     {
         $this->markTestSkipped('Will be implemented in follow-up PR');
     }

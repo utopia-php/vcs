@@ -12,7 +12,7 @@ services:
       - APP_IDENTIFIER
       - INSTALLATION_ID
       - GITEA_URL=http://gitea:3000
-      - GITEA_TEST_OWNER=jayesh
+      - GITEA_TEST_OWNER=utopia
     depends_on:
       gitea:
         condition: service_healthy
@@ -46,9 +46,9 @@ services:
         condition: service_healthy
     entrypoint: /bin/sh
     environment:
-      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-jayesh}
-      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-jayesh123}
-      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-jayesh@gmail.com}
+      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-utopia}
+      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-password}
+      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-utopia@example.com}
     command: >
       -c "
         su git -c \"gitea admin user create --username $$GITEA_ADMIN_USERNAME --password $$GITEA_ADMIN_PASSWORD --email $$GITEA_ADMIN_EMAIL --admin --must-change-password=false\" || true &&

@@ -56,7 +56,7 @@ class GitHub extends Git
     /**
      * GitHub Initialisation with access token generation.
      */
-    public function initializeVariables(string $installationId, string $privateKey, string $appId, string $accessToken, string $refreshToken): void
+    public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
         $this->installationId = $installationId;
 
@@ -372,7 +372,7 @@ class GitHub extends Git
     /**
      * Generate Access Token
      */
-    protected function generateAccessToken(string $privateKey, string $appId): void
+    protected function generateAccessToken(string $privateKey, ?string $appId): void
     {
         /**
          * @var resource $privateKeyObj

@@ -91,10 +91,10 @@ class GiteaTest extends Base
     {
         $repositoryName = 'test-repo-' . time();
         $created = $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
-    
+
         $repositoryId = (string) $created['id'];
         $result = $this->vcsAdapter->getRepositoryName($repositoryId);
-    
+
         $this->assertSame($repositoryName, $result);
         $this->assertTrue($this->vcsAdapter->deleteRepository(self::$owner, $repositoryName));
     }
@@ -162,9 +162,9 @@ class GiteaTest extends Base
     {
         $repositoryName = 'test-repo-' . time();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
-    
+
         $result = $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
-    
+
         $this->assertTrue($result);
     }
 

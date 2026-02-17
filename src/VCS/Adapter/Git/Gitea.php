@@ -129,13 +129,13 @@ class Gitea extends Git
     public function getRepositoryName(string $repositoryId): string
     {
         $url = "/repositories/{$repositoryId}";
-    
+
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
-    
+
         if (empty($response['body']['name'])) {
             throw new Exception("Repository not found.");
         }
-    
+
         return $response['body']['name'];
     }
 
@@ -162,15 +162,15 @@ class Gitea extends Git
     public function deleteRepository(string $owner, string $repositoryName): bool
     {
         $url = "/repos/{$owner}/{$repositoryName}";
-    
+
         $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "token $this->accessToken"]);
-    
+
         $statusCode = $response['headers']['status-code'];
-    
+
         if ($statusCode >= 400) {
             throw new Exception("Deleting repository {$repositoryName} failed with status code {$statusCode}");
         }
-    
+
         return true;
     }
 

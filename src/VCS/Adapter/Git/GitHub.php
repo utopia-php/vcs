@@ -56,13 +56,13 @@ class GitHub extends Git
     /**
      * GitHub Initialisation with access token generation.
      */
-    public function initializeVariables(string $installationId, string $privateKey, string $githubAppId): void
+    public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
         $this->installationId = $installationId;
 
         $response = $this->cache->load($installationId, 60 * 9); // 10 minutes, but 1 minute earlier to be safe
         if ($response == false) {
-            $this->generateAccessToken($privateKey, $githubAppId);
+            $this->generateAccessToken($privateKey, $appId);
 
             $tokens = \json_encode([
                 'jwtToken' => $this->jwtToken,
@@ -372,14 +372,14 @@ class GitHub extends Git
     /**
      * Generate Access Token
      */
-    protected function generateAccessToken(string $privateKey, string $githubAppId): void
+    protected function generateAccessToken(string $privateKey, ?string $appId): void
     {
         /**
          * @var resource $privateKeyObj
          */
         $privateKeyObj = \openssl_pkey_get_private($privateKey);
 
-        $appIdentifier = $githubAppId;
+        $appIdentifier = $appId;
 
         $iat = time();
         $exp = $iat + 10 * 60;

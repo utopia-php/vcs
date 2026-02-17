@@ -53,19 +53,21 @@ abstract class Adapter
      *
      * @param string $installationId
      * @param string $privateKey
-     * @param string $githubAppId
+     * @param string|null $appId
+     * @param string|null $accessToken
+     * @param string|null $refreshToken
      * @return void
      */
-    abstract public function initializeVariables(string $installationId, string $privateKey, string $githubAppId): void;
+    abstract public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void;
 
     /**
      * Generate Access Token
      *
      * @param string $privateKey
-     * @param string $githubAppId
+     * @param string $appId
      * @return void
      */
-    abstract protected function generateAccessToken(string $privateKey, string $githubAppId): void;
+    abstract protected function generateAccessToken(string $privateKey, string $appId): void;
 
     /**
      * Get user

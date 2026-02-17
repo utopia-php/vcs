@@ -6,7 +6,55 @@ services:
       - ./src:/usr/local/src/src
       - ./tests:/usr/local/src/tests
       - ./phpunit.xml:/usr/local/src/phpunit.xml
+      - gitea-data:/data:ro
     environment:
       - PRIVATE_KEY
       - APP_IDENTIFIER
       - INSTALLATION_ID
+      - GITEA_URL=http://gitea:3000
+      - GITEA_TEST_OWNER=utopia
+    depends_on:
+      gitea:
+        condition: service_healthy
+      gitea-bootstrap:
+        condition: service_completed_successfully
+
+  gitea:
+    image: gitea/gitea:1.21.5
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__security__INSTALL_LOCK=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - gitea-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  gitea-bootstrap:
+    image: gitea/gitea:1.21.5
+    volumes:
+      - gitea-data:/data
+    depends_on:
+      gitea:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    environment:
+      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-utopia}
+      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-password}
+      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-utopia@example.com}
+    command: >
+      -c "
+        su git -c \"gitea admin user create --username $$GITEA_ADMIN_USERNAME --password $$GITEA_ADMIN_PASSWORD --email $$GITEA_ADMIN_EMAIL --admin --must-change-password=false\" || true &&
+        TOKEN=$$(su git -c \"gitea admin user generate-access-token --username $$GITEA_ADMIN_USERNAME --token-name $$GITEA_ADMIN_USERNAME-token --scopes all --raw\") &&
+        echo $$TOKEN > /data/gitea/token.txt
+      "
+
+volumes:
+  gitea-data:

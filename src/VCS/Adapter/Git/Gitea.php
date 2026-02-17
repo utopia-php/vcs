@@ -5,6 +5,7 @@ namespace Utopia\VCS\Adapter\Git;
 use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
+use Utopia\VCS\Exception\RepositoryNotFound;
 
 class Gitea extends Git
 {
@@ -132,8 +133,8 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        if (empty($response['body']['name'])) {
-            throw new Exception("Repository not found.");
+        if (!isset($response['body']['name'])) {
+            throw new RepositoryNotFound("Repository not found.");
         }
 
         return $response['body']['name'];

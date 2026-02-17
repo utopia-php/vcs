@@ -66,6 +66,7 @@ class GiteaTest extends Base
         $this->assertSame($repositoryName, $result['name']);
         $this->assertArrayHasKey('owner', $result);
         $this->assertSame($owner, $result['owner']['login']);
+        $this->assertTrue($this->vcsAdapter->deleteRepository(self::$owner, $repositoryName));
     }
 
     public function testGetComment(): void
@@ -73,9 +74,29 @@ class GiteaTest extends Base
         $this->markTestSkipped('Will be implemented in follow-up PR');
     }
 
+    public function testGetRepository(): void
+    {
+        $repositoryName = 'test-repo-' . time();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $result = $this->vcsAdapter->getRepository(self::$owner, $repositoryName);
+
+        $this->assertIsArray($result);
+        $this->assertSame($repositoryName, $result['name']);
+        $this->assertSame(self::$owner, $result['owner']['login']);
+        $this->assertTrue($this->vcsAdapter->deleteRepository(self::$owner, $repositoryName));
+    }
+
     public function testGetRepositoryName(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-repo-' . time();
+        $created = $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+    
+        $repositoryId = (string) $created['id'];
+        $result = $this->vcsAdapter->getRepositoryName($repositoryId);
+    
+        $this->assertSame($repositoryName, $result);
+        $this->assertTrue($this->vcsAdapter->deleteRepository(self::$owner, $repositoryName));
     }
 
     public function testGetRepositoryTree(): void
@@ -139,7 +160,12 @@ class GiteaTest extends Base
 
     public function testDeleteRepository(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-repo-' . time();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+    
+        $result = $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    
+        $this->assertTrue($result);
     }
 
     public function testGetOwnerName(): void

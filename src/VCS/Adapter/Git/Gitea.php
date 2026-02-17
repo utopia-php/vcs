@@ -87,7 +87,7 @@ class Gitea extends Git
      */
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
-        $url = "/org/{$owner}/repos";
+        $url = "/orgs/{$owner}/repos";
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "token $this->accessToken"], [
             'name' => $repositoryName,

@@ -25,21 +25,23 @@ class GiteaTest extends Base
             $this->setupGitea();
         }
 
-        $this->vcsAdapter = new Gitea(new Cache(new None()));
-        $giteaUrl = System::getEnv('GITEA_URL') ?? 'http://gitea:3000';
+        $adapter = new Gitea(new Cache(new None()));
+        $giteaUrl = System::getEnv('TESTS_GITEA_URL', 'http://gitea:3000') ?? '';
 
-        $this->vcsAdapter->initializeVariables(
+        $adapter->initializeVariables(
             installationId: '',
             privateKey: '',
             appId: '',
             accessToken: self::$accessToken,
             refreshToken: ''
         );
-        $this->vcsAdapter->setEndpoint($giteaUrl);
+        $adapter->setEndpoint($giteaUrl);
         if (empty(self::$owner)) {
             $orgName = 'test-org-' . \uniqid();
-            self::$owner = $this->vcsAdapter->createOrganization($orgName);
+            self::$owner = $adapter->createOrganization($orgName);
         }
+
+        $this->vcsAdapter = $adapter;
     }
 
     private function setupGitea(): void

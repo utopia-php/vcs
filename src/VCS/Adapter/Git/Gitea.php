@@ -134,7 +134,7 @@ class Gitea extends Git
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
         if (!isset($response['body']['name'])) {
-            throw new RepositoryNotFound("Repository not found.");
+            throw new RepositoryNotFound("Repository not found");
         }
 
         return $response['body']['name'];

@@ -424,8 +424,6 @@ class GitHub extends Git
         $url = '/app/installations/' . $installationId;
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->jwtToken"]);
 
-        \var_dump($response);
-
         if (!isset($response['body']['account']['login'])) {
             throw new Exception("Owner name retrieval response is missing account login.");
         }

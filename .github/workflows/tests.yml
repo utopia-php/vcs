@@ -12,9 +12,9 @@ jobs:
 
     - name: Start Test Stack
       env:
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
-          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
+          TESTS_GITHUB_PRIVATE_KEY: ${{ secrets.TESTS_GITHUB_PRIVATE_KEY }}
+          TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
+          TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
       run: |
         docker compose up -d
         sleep 15

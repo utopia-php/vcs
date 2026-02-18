@@ -165,7 +165,7 @@ class GiteaTest extends Base
 
     public function testDeleteRepository(): void
     {
-        $repositoryName = 'test-repo-' . time();
+        $repositoryName = uniqid('test-repo-', true);
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $result = $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);

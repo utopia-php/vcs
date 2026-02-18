@@ -8,11 +8,10 @@ services:
       - ./phpunit.xml:/usr/local/src/phpunit.xml
       - gitea-data:/data:ro
     environment:
-      - PRIVATE_KEY
-      - APP_IDENTIFIER
-      - INSTALLATION_ID
-      - GITEA_URL=http://gitea:3000
-      - GITEA_TEST_OWNER=utopia
+      - TESTS_GITHUB_PRIVATE_KEY
+      - TESTS_GITHUB_APP_IDENTIFIER
+      - TESTS_GITHUB_INSTALLATION_ID
+      - TESTS_GITEA_URL=http://gitea:3000
     depends_on:
       gitea:
         condition: service_healthy

@@ -44,7 +44,7 @@ abstract class Base extends TestCase
 
     public function testGetOwnerName(): void
     {
-        $installationId = System::getEnv('INSTALLATION_ID') ?? '';
+        $installationId = System::getEnv('TESTS_GITHUB_INSTALLATION_ID') ?? '';
         $owner = $this->vcsAdapter->getOwnerName($installationId);
         $this->assertSame('test-kh', $owner);
     }

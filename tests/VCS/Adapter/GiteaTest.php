@@ -59,7 +59,7 @@ class GiteaTest extends Base
     public function testCreateRepository(): void
     {
         $owner = self::$owner;
-        $repositoryName = 'test-repo-' . time();
+        $repositoryName = 'test-repo-' . \uniqid();
 
         $result = $this->vcsAdapter->createRepository($owner, $repositoryName, false);
 
@@ -78,7 +78,7 @@ class GiteaTest extends Base
 
     public function testGetRepository(): void
     {
-        $repositoryName = 'test-repo-' . time();
+        $repositoryName = 'test-repo-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $result = $this->vcsAdapter->getRepository(self::$owner, $repositoryName);
@@ -91,7 +91,7 @@ class GiteaTest extends Base
 
     public function testGetRepositoryName(): void
     {
-        $repositoryName = 'test-repo-' . time();
+        $repositoryName = 'test-repo-' . \uniqid();
         $created = $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $this->assertIsArray($created);
@@ -165,7 +165,7 @@ class GiteaTest extends Base
 
     public function testDeleteRepository(): void
     {
-        $repositoryName = uniqid('test-repo-', true);
+        $repositoryName = 'test-repo-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $result = $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);

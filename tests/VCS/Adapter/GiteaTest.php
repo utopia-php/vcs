@@ -94,6 +94,9 @@ class GiteaTest extends Base
         $repositoryName = 'test-repo-' . time();
         $created = $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
+        $this->assertIsArray($created);
+        $this->assertArrayHasKey('id', $created);
+        $this->assertIsScalar($created['id']);
         $repositoryId = (string) $created['id'];
         $result = $this->vcsAdapter->getRepositoryName($repositoryId);
 

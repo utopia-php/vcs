@@ -5,6 +5,7 @@ namespace Utopia\VCS\Adapter\Git;
 use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
+use Utopia\VCS\Exception\RepositoryNotFound;
 
 class Gitea extends Git
 {
@@ -119,12 +120,29 @@ class Gitea extends Git
 
     public function getRepository(string $owner, string $repositoryName): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new RepositoryNotFound("Repository not found");
+        }
+
+        return $response['body'];
     }
 
     public function getRepositoryName(string $repositoryId): string
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repositories/{$repositoryId}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (!isset($response['body']['name'])) {
+            throw new RepositoryNotFound("Repository not found");
+        }
+
+        return $response['body']['name'];
     }
 
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
@@ -149,7 +167,17 @@ class Gitea extends Git
 
     public function deleteRepository(string $owner, string $repositoryName): bool
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}";
+
+        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $statusCode = $response['headers']['status-code'];
+
+        if ($statusCode >= 400) {
+            throw new Exception("Deleting repository {$repositoryName} failed with status code {$statusCode}");
+        }
+
+        return true;
     }
 
     public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string

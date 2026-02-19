@@ -6,9 +6,14 @@ use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Exception\RepositoryNotFound;
+use Utopia\VCS\Exception\FileNotFound;
 
 class Gitea extends Git
 {
+    public const CONTENTS_FILE = 'file';
+
+    public const CONTENTS_DIRECTORY = 'dir';
+    
     protected string $endpoint = 'http://gitea:3000/api/v1';
 
     protected string $accessToken;
@@ -147,24 +152,94 @@ class Gitea extends Git
 
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/git/trees/{$branch}" . ($recursive ? '?recursive=1' : '');
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (($response['headers']['status-code'] ?? 0) === 404) {
+            return [];
+        }
+
+        return array_column($response['body']['tree'] ?? [], 'path');
     }
 
     public function listRepositoryLanguages(string $owner, string $repositoryName): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/languages";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (isset($response['body'])) {
+            return array_keys($response['body']);
+        }
+
+        return [];
     }
 
     public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/contents/{$path}";
+        if (!empty($ref)) {
+            $url .= "?ref={$ref}";
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (($response['headers']['status-code'] ?? 0) !== 200) {
+            throw new FileNotFound();
+        }
+
+        $encoding = $response['body']['encoding'] ?? '';
+        $content = '';
+
+        if ($encoding === 'base64') {
+            $content = base64_decode($response['body']['content'] ?? '');
+        } else {
+            throw new FileNotFound();
+        }
+
+        return [
+            'sha' => $response['body']['sha'] ?? '',
+            'size' => $response['body']['size'] ?? 0,
+            'content' => $content
+        ];
     }
 
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
-        throw new Exception("Not implemented yet");
-    }
+        $url = "/repos/{$owner}/{$repositoryName}/contents";
+        if (!empty($path)) {
+            $url .= "/{$path}";
+        }
+        if (!empty($ref)) {
+            $url .= "?ref={$ref}";
+        }
 
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (($response['headers']['status-code'] ?? 0) === 404) {
+            return [];
+        }
+
+        $items = [];
+        if (!empty($response['body'][0])) {
+            $items = $response['body'];
+        } elseif (!empty($response['body'])) {
+            $items = [$response['body']];
+        }
+
+        $contents = [];
+        foreach ($items as $item) {
+            $type = $item['type'] ?? 'file';
+            $contents[] = [
+                'name' => $item['name'] ?? '',
+                'size' => $item['size'] ?? 0,
+                'type' => $type === 'file' ? self::CONTENTS_FILE : self::CONTENTS_DIRECTORY
+            ];
+        }
+
+        return $contents;
+    }
     public function deleteRepository(string $owner, string $repositoryName): bool
     {
         $url = "/repos/{$owner}/{$repositoryName}";

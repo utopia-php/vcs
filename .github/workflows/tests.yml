@@ -1,14 +1,22 @@
 name: "Tests"
 
-on: [pull_request_target]
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+
 jobs:
   tests:
     name: Tests
     runs-on: ubuntu-latest
 
+    if: github.event.label.name == 'test'
+
     steps:
     - name: Check out the repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 

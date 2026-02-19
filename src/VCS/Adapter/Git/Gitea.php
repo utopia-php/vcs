@@ -13,7 +13,7 @@ class Gitea extends Git
     public const CONTENTS_FILE = 'file';
 
     public const CONTENTS_DIRECTORY = 'dir';
-    
+
     protected string $endpoint = 'http://gitea:3000/api/v1';
 
     protected string $accessToken;
@@ -152,7 +152,7 @@ class Gitea extends Git
 
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
     {
-        $url = "/repos/{$owner}/{$repositoryName}/git/trees/{$branch}" . ($recursive ? '?recursive=1' : '');
+        $url = "/repos/{$owner}/{$repositoryName}/git/trees/" . urlencode($branch) . ($recursive ? '?recursive=1' : '');
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
@@ -180,7 +180,7 @@ class Gitea extends Git
     {
         $url = "/repos/{$owner}/{$repositoryName}/contents/{$path}";
         if (!empty($ref)) {
-            $url .= "?ref={$ref}";
+            $url .= "?ref=" . urlencode($ref);
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -212,7 +212,7 @@ class Gitea extends Git
             $url .= "/{$path}";
         }
         if (!empty($ref)) {
-            $url .= "?ref={$ref}";
+            $url .= "?ref=" . urlencode($ref);
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);

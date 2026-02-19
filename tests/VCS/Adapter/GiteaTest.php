@@ -63,7 +63,7 @@ class GiteaTest extends Base
     {
         $giteaUrl = System::getEnv('TESTS_GITEA_URL', 'http://gitea:3000') ?? '';
         $url = "{$giteaUrl}/api/v1/repos/{$owner}/{$repo}/contents/{$filepath}";
-        
+
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
@@ -75,9 +75,14 @@ class GiteaTest extends Base
             'content' => base64_encode($content),
             'message' => $message
         ]));
-        
-        curl_exec($ch);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+
+        if ($httpCode >= 400) {
+            throw new \Exception("Failed to create file {$filepath}: HTTP {$httpCode}");
+        }
     }
 
     public function testCreateRepository(): void
@@ -126,6 +131,42 @@ class GiteaTest extends Base
     public function testGetComment(): void
     {
         $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testGetRepositoryTreeWithSlashInBranchName(): void
+    {
+        $repositoryName = 'test-branch-with-slash-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        // Create a file on main branch first
+        $this->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        // Create a branch with a slash in the name using curl
+        $giteaUrl = System::getEnv('TESTS_GITEA_URL', 'http://gitea:3000') ?? '';
+        $url = "{$giteaUrl}/api/v1/repos/" . self::$owner . "/{$repositoryName}/branches";
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: token ' . self::$accessToken,
+            'Content-Type: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+            'new_branch_name' => 'feature/test-branch',
+            'old_branch_name' => 'main'
+        ]));
+        curl_exec($ch);
+        curl_close($ch);
+
+        // Now try to get tree from the branch with slash
+        $tree = $this->vcsAdapter->getRepositoryTree(self::$owner, $repositoryName, 'feature/test-branch');
+
+        $this->assertIsArray($tree);
+        $this->assertNotEmpty($tree); // Should have README.md
+        $this->assertContains('README.md', $tree);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testGetRepository(): void
@@ -280,7 +321,6 @@ class GiteaTest extends Base
         $this->expectException(\Utopia\VCS\Exception\FileNotFound::class);
         $this->vcsAdapter->getRepositoryContent(self::$owner, $repositoryName, 'non-existing.txt');
 
-        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testListRepositoryContents(): void
@@ -445,6 +485,8 @@ class GiteaTest extends Base
         $this->createFile(self::$owner, $repositoryName, 'main.php', '<?php echo "test";');
         $this->createFile(self::$owner, $repositoryName, 'script.js', 'console.log("test");');
         $this->createFile(self::$owner, $repositoryName, 'style.css', 'body { margin: 0; }');
+
+        sleep(2);
 
         $languages = $this->vcsAdapter->listRepositoryLanguages(self::$owner, $repositoryName);
 

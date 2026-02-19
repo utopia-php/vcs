@@ -1,6 +1,6 @@
 name: "Tests"
 
-on: [pull_request]
+on: [pull_request_target]
 jobs:
   tests:
     name: Tests
@@ -9,6 +9,8 @@ jobs:
     steps:
     - name: Check out the repo
       uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Start Test Stack
       env:

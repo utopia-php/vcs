@@ -59,7 +59,7 @@ class GiteaTest extends Base
     public function testCreateRepository(): void
     {
         $owner = self::$owner;
-        $repositoryName = 'test-repo-' . \uniqid();
+        $repositoryName = 'test-create-repository-' . \uniqid();
 
         $result = $this->vcsAdapter->createRepository($owner, $repositoryName, false);
 
@@ -68,7 +68,32 @@ class GiteaTest extends Base
         $this->assertSame($repositoryName, $result['name']);
         $this->assertArrayHasKey('owner', $result);
         $this->assertSame($owner, $result['owner']['login']);
+        $this->assertFalse($result['private']);
+
         $this->assertTrue($this->vcsAdapter->deleteRepository(self::$owner, $repositoryName));
+
+        try {
+            $this->vcsAdapter->getRepository(self::$owner, $repositoryName);
+            $this->fail('Expected exception when getting deleted repository');
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
+        }
+    }
+
+    public function testCreatePrivateRepository(): void
+    {
+        $repositoryName = 'test-create-private-repository-' . \uniqid();
+
+        $result = $this->vcsAdapter->createRepository(self::$owner, $repositoryName, true);
+
+        $this->assertIsArray($result);
+        $this->assertTrue($result['private']);
+
+        // Verify with getRepository
+        $fetched = $this->vcsAdapter->getRepository(self::$owner, $repositoryName);
+        $this->assertTrue($fetched['private']);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testGetComment(): void
@@ -78,7 +103,7 @@ class GiteaTest extends Base
 
     public function testGetRepository(): void
     {
-        $repositoryName = 'test-repo-' . \uniqid();
+        $repositoryName = 'test-get-repository-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $result = $this->vcsAdapter->getRepository(self::$owner, $repositoryName);
@@ -91,7 +116,7 @@ class GiteaTest extends Base
 
     public function testGetRepositoryName(): void
     {
-        $repositoryName = 'test-repo-' . \uniqid();
+        $repositoryName = 'test-get-repository-name-' . \uniqid();
         $created = $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $this->assertIsArray($created);
@@ -102,6 +127,40 @@ class GiteaTest extends Base
 
         $this->assertSame($repositoryName, $result);
         $this->assertTrue($this->vcsAdapter->deleteRepository(self::$owner, $repositoryName));
+    }
+
+    public function testGetRepositoryNameWithInvalidId(): void
+    {
+        try {
+            $this->vcsAdapter->getRepositoryName('999999999');
+            $this->fail('Expected exception for non-existing repository ID');
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
+        }
+    }
+
+    public function testCreateRepositoryWithInvalidName(): void
+    {
+        $repositoryName = 'invalid name with spaces';
+
+        try {
+            $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+            $this->fail('Expected exception for invalid repository name');
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
+        }
+    }
+
+    public function testGetRepositoryWithNonExistingOwner(): void
+    {
+        $repositoryName = 'test-non-existing-owner-' . \uniqid();
+
+        try {
+            $this->vcsAdapter->getRepository('non-existing-owner-' . \uniqid(), $repositoryName);
+            $this->fail('Expected exception for non-existing owner');
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
+        }
     }
 
     public function testGetRepositoryTree(): void
@@ -165,12 +224,27 @@ class GiteaTest extends Base
 
     public function testDeleteRepository(): void
     {
-        $repositoryName = 'test-repo-' . \uniqid();
+        $repositoryName = 'test-delete-repository-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $result = $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
-
         $this->assertTrue($result);
+
+        // Test: Cannot delete same repository twice
+        try {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+            $this->fail('Expected exception when deleting same repository twice');
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
+        }
+
+        // Test: Cannot delete non-existing repository
+        try {
+            $this->vcsAdapter->deleteRepository(self::$owner, 'non-existing-repo-' . \uniqid());
+            $this->fail('Expected exception when deleting non-existing repository');
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
+        }
     }
 
     public function testGetOwnerName(): void

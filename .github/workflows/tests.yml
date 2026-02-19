@@ -13,7 +13,7 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
 
-    if: github.event.label.name == 'test'
+    if: github.event_name == 'pull_request' || github.event.label.name == 'test'
 
     steps:
     - name: Check out the repo

@@ -702,7 +702,14 @@ class GitHub extends Git
                 $authorAvatarUrl = $payload['pull_request']['user']['avatar_url'] ?? '';
                 $commitHash = $payload['pull_request']['head']['sha'] ?? '';
                 $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
-                $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
+
+                $authorUsername = $payload['pull_request']['user']['login'] ?? ($payload['pull_request']['head']['user']['login'] ?? '');
+                $isOrgRepository = ($payload['repository']['owner']['type'] ?? '') === 'Organization';
+                if ($isOrgRepository) {
+                    $external = !$this->isUserMemberOfOrganization($authorUsername, $owner);
+                } else {
+                    $external = $authorUsername !== $owner;
+                }
 
                 return [
                     'branch' => $branch,
@@ -747,5 +754,12 @@ class GitHub extends Git
     public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
         return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
+    }
+
+    public function isUserMemberOfOrganization(string $username, string $organization): bool
+    {
+        $url = "/orgs/{$organization}/memberships/{$username}";
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        return $response['headers']['status-code'] >= 200 && $response['headers']['status-code'] < 300;
     }
 }

@@ -266,6 +266,15 @@ abstract class Adapter
     abstract public function getLatestCommit(string $owner, string $repositoryName, string $branch): array;
 
     /**
+     * Check if user is a member of an organization
+     *
+     * @param  string  $username Username of the user
+     * @param  string  $organization Name of the organization
+     * @return bool True if user is a member of the organization, false otherwise
+     */
+    abstract public function isUserMemberOfOrganization(string $username, string $organization): bool;
+
+    /**
      * Call
      *
      * Make an API call

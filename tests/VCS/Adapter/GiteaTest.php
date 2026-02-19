@@ -71,13 +71,16 @@ class GiteaTest extends Base
         $this->assertFalse($result['private']);
 
         $this->assertTrue($this->vcsAdapter->deleteRepository(self::$owner, $repositoryName));
+    }
 
-        try {
-            $this->vcsAdapter->getRepository(self::$owner, $repositoryName);
-            $this->fail('Expected exception when getting deleted repository');
-        } catch (\Exception $e) {
-            $this->assertTrue(true);
-        }
+    public function testGetDeletedRepositoryFails(): void
+    {
+        $repositoryName = 'test-get-deleted-repository-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->getRepository(self::$owner, $repositoryName);
     }
 
     public function testCreatePrivateRepository(): void
@@ -228,23 +231,24 @@ class GiteaTest extends Base
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
         $result = $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+
         $this->assertTrue($result);
+    }
 
-        // Test: Cannot delete same repository twice
-        try {
-            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
-            $this->fail('Expected exception when deleting same repository twice');
-        } catch (\Exception $e) {
-            $this->assertTrue(true);
-        }
+    public function testDeleteRepositoryTwiceFails(): void
+    {
+        $repositoryName = 'test-delete-repository-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
 
-        // Test: Cannot delete non-existing repository
-        try {
-            $this->vcsAdapter->deleteRepository(self::$owner, 'non-existing-repo-' . \uniqid());
-            $this->fail('Expected exception when deleting non-existing repository');
-        } catch (\Exception $e) {
-            $this->assertTrue(true);
-        }
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testDeleteNonExistingRepositoryFails(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->deleteRepository(self::$owner, 'non-existing-repo-' . \uniqid());
     }
 
     public function testGetOwnerName(): void

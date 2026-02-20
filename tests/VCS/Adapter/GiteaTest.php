@@ -81,7 +81,7 @@ class GiteaTest extends Base
         curl_close($ch);
 
         if ($httpCode >= 400) {
-            throw new \Exception("Failed to create file {$filepath}: HTTP {$httpCode}");
+            throw new \Exception("Failed to create file {$filepath}: HTTP {$httpCode} - {$response}");
         }
     }
 
@@ -160,7 +160,7 @@ class GiteaTest extends Base
         curl_close($ch);
 
         if ($httpCode >= 400) {
-            throw new \Exception("Failed to create branch: HTTP {$httpCode}");
+            throw new \Exception("Failed to create branch: HTTP {$httpCode} - {$response}");
         }
 
         $tree = $this->vcsAdapter->getRepositoryTree(self::$owner, $repositoryName, 'feature/test-branch');

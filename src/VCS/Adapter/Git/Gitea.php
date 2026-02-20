@@ -240,6 +240,7 @@ class Gitea extends Git
 
         return $contents;
     }
+
     public function deleteRepository(string $owner, string $repositoryName): bool
     {
         $url = "/repos/{$owner}/{$repositoryName}";

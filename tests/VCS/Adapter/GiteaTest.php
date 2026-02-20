@@ -138,10 +138,8 @@ class GiteaTest extends Base
         $repositoryName = 'test-branch-with-slash-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
-        // Create a file on main branch first
         $this->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
 
-        // Create a branch with a slash in the name using curl
         $giteaUrl = System::getEnv('TESTS_GITEA_URL', 'http://gitea:3000') ?? '';
         $url = "{$giteaUrl}/api/v1/repos/" . self::$owner . "/{$repositoryName}/branches";
 
@@ -156,14 +154,19 @@ class GiteaTest extends Base
             'new_branch_name' => 'feature/test-branch',
             'old_branch_name' => 'main'
         ]));
-        curl_exec($ch);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        // Now try to get tree from the branch with slash
+        if ($httpCode >= 400) {
+            throw new \Exception("Failed to create branch: HTTP {$httpCode}");
+        }
+
         $tree = $this->vcsAdapter->getRepositoryTree(self::$owner, $repositoryName, 'feature/test-branch');
 
         $this->assertIsArray($tree);
-        $this->assertNotEmpty($tree); // Should have README.md
+        $this->assertNotEmpty($tree);
         $this->assertContains('README.md', $tree);
 
         $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);

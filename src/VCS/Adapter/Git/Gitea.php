@@ -124,7 +124,7 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
+        $statusCode = isset($response['headers']['status-code']) ? $response['headers']['status-code'] : 0;
         if ($statusCode >= 400) {
             throw new RepositoryNotFound("Repository not found");
         }
@@ -171,7 +171,7 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = $response['headers']['status-code'];
+        $statusCode = isset($response['headers']['status-code']) ? $response['headers']['status-code'] : 0;
 
         if ($statusCode >= 400) {
             throw new Exception("Deleting repository {$repositoryName} failed with status code {$statusCode}");

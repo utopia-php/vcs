@@ -638,19 +638,19 @@ class GitHub extends Git
                 $branchCreated = isset($payload['created']) ? $payload['created'] : false;
                 $branchDeleted = isset($payload['deleted']) ? $payload['deleted'] : false;
                 $ref = $payload['ref'] ?? '';
-                $repositoryId = strval($payload['repository']['id'] ?? '');
-                $repositoryName = $payload['repository']['name'] ?? '';
+                $repositoryId = strval(isset($payload['repository']['id']) ? $payload['repository']['id'] : '');
+                $repositoryName = isset($payload['repository']['name']) ? $payload['repository']['name'] : '';
                 $branch = str_replace('refs/heads/', '', $ref);
-                $branchUrl = $payload['repository']['html_url'] . "/tree/" . $branch;
-                $repositoryUrl = $payload['repository']['html_url'];
+                $repositoryUrl = isset($payload['repository']['html_url']) ? $payload['repository']['html_url'] : '';
+                $branchUrl = $repositoryUrl ? $repositoryUrl . "/tree/" . $branch : '';
                 $commitHash = $payload['after'] ?? '';
-                $owner = $payload['repository']['owner']['name'] ?? '';
-                $authorUrl = $payload['sender']['html_url'];
-                $authorAvatarUrl = $payload['sender']['avatar_url'] ?? '';
-                $headCommitAuthorName = $payload['head_commit']['author']['name'] ?? '';
-                $headCommitAuthorEmail = $payload['head_commit']['author']['email'] ?? '';
-                $headCommitMessage = $payload['head_commit']['message'] ?? '';
-                $headCommitUrl = $payload['head_commit']['url'] ?? '';
+                $owner = isset($payload['repository']['owner']['name']) ? $payload['repository']['owner']['name'] : '';
+                $authorUrl = isset($payload['sender']['html_url']) ? $payload['sender']['html_url'] : '';
+                $authorAvatarUrl = isset($payload['sender']['avatar_url']) ? $payload['sender']['avatar_url'] : '';
+                $headCommitAuthorName = isset($payload['head_commit']['author']['name']) ? $payload['head_commit']['author']['name'] : '';
+                $headCommitAuthorEmail = isset($payload['head_commit']['author']['email']) ? $payload['head_commit']['author']['email'] : '';
+                $headCommitMessage = isset($payload['head_commit']['message']) ? $payload['head_commit']['message'] : '';
+                $headCommitUrl = isset($payload['head_commit']['url']) ? $payload['head_commit']['url'] : '';
 
                 $affectedFiles = [];
                 foreach (($payload['commits'] ?? []) as $commit) {
@@ -690,19 +690,21 @@ class GitHub extends Git
                     'affectedFiles' => \array_keys($affectedFiles),
                 ];
             case 'pull_request':
-                $repositoryId = strval($payload['repository']['id'] ?? '');
-                $branch = $payload['pull_request']['head']['ref'] ?? '';
-                $repositoryName = $payload['repository']['name'] ?? '';
-                $repositoryUrl = $payload['repository']['html_url'] ?? '';
-                $branchUrl = "$repositoryUrl/tree/$branch";
+                $repositoryId = strval(isset($payload['repository']['id']) ? $payload['repository']['id'] : '');
+                $branch = isset($payload['pull_request']['head']['ref']) ? $payload['pull_request']['head']['ref'] : '';
+                $repositoryName = isset($payload['repository']['name']) ? $payload['repository']['name'] : '';
+                $repositoryUrl = isset($payload['repository']['html_url']) ? $payload['repository']['html_url'] : '';
+                $branchUrl = $repositoryUrl ? "$repositoryUrl/tree/$branch" : '';
                 $pullRequestNumber = $payload['number'] ?? '';
                 $action = $payload['action'] ?? '';
-                $owner = $payload['repository']['owner']['login'] ?? '';
-                $authorUrl = $payload['sender']['html_url'];
-                $authorAvatarUrl = $payload['pull_request']['user']['avatar_url'] ?? '';
-                $commitHash = $payload['pull_request']['head']['sha'] ?? '';
-                $headCommitUrl = $repositoryUrl . "/commits/" . $commitHash;
-                $external = $payload['pull_request']['head']['user']['login'] !== $payload['pull_request']['base']['user']['login'];
+                $owner = isset($payload['repository']['owner']['login']) ? $payload['repository']['owner']['login'] : '';
+                $authorUrl = isset($payload['sender']['html_url']) ? $payload['sender']['html_url'] : '';
+                $authorAvatarUrl = isset($payload['pull_request']['user']['avatar_url']) ? $payload['pull_request']['user']['avatar_url'] : '';
+                $commitHash = isset($payload['pull_request']['head']['sha']) ? $payload['pull_request']['head']['sha'] : '';
+                $headCommitUrl = $repositoryUrl ? $repositoryUrl . "/commits/" . $commitHash : '';
+                $headLogin = isset($payload['pull_request']['head']['user']['login']) ? $payload['pull_request']['head']['user']['login'] : '';
+                $baseLogin = isset($payload['pull_request']['base']['user']['login']) ? $payload['pull_request']['base']['user']['login'] : '';
+                $external = $headLogin !== $baseLogin;
 
                 return [
                     'branch' => $branch,
@@ -723,7 +725,7 @@ class GitHub extends Git
             case 'installation':
             case 'installation_repositories':
                 $action = $payload['action'] ?? '';
-                $userName = $payload['installation']['account']['login'] ?? '';
+                $userName = isset($payload['installation']['account']['login']) ? $payload['installation']['account']['login'] : '';
 
                 return [
                     'action' => $action,

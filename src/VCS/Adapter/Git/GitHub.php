@@ -631,7 +631,7 @@ class GitHub extends Git
             throw new Exception("Invalid payload.");
         }
 
-        $installationId = strval($payload['installation']['id']);
+        $installationId = strval(isset($payload['installation']['id']) ? $payload['installation']['id'] : '');
 
         switch ($event) {
             case 'push':

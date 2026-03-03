@@ -368,14 +368,11 @@ class GiteaTest extends Base
         $repositoryName = 'test-get-commit-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
-        // Create a file to generate a commit
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test Commit');
 
-        // Get the latest commit to get its SHA
         $latestCommit = $this->vcsAdapter->getLatestCommit(self::$owner, $repositoryName, 'main');
         $commitHash = $latestCommit['commitHash'];
 
-        // Now test getCommit with that SHA
         $result = $this->vcsAdapter->getCommit(self::$owner, $repositoryName, $commitHash);
 
         $this->assertIsArray($result);
@@ -397,7 +394,6 @@ class GiteaTest extends Base
         $repositoryName = 'test-get-latest-commit-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
-        // Create files to generate commits
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test content');
 
@@ -423,8 +419,12 @@ class GiteaTest extends Base
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
 
-        $this->expectException(\Exception::class);
-        $this->vcsAdapter->getCommit(self::$owner, $repositoryName, 'invalid-sha-12345');
+        try {
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->getCommit(self::$owner, $repositoryName, 'invalid-sha-12345');
+        } finally {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+        }
     }
 
     public function testGetLatestCommitWithInvalidBranch(): void
@@ -433,8 +433,12 @@ class GiteaTest extends Base
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
 
-        $this->expectException(\Exception::class);
-        $this->vcsAdapter->getLatestCommit(self::$owner, $repositoryName, 'non-existing-branch');
+        try {
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->getLatestCommit(self::$owner, $repositoryName, 'non-existing-branch');
+        } finally {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+        }
     }
 
     public function testGetCommitVerifyMessageContent(): void

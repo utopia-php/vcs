@@ -374,6 +374,7 @@ class Gitea extends Git
      */
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array
     {
+        // Use /git/commits endpoint which works with SHA
         $url = "/repos/{$owner}/{$repositoryName}/git/commits/{$commitHash}";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -384,14 +385,16 @@ class Gitea extends Git
         }
 
         $body = $response['body'] ?? [];
-        $commit = $body['commit'] ?? [];
+
+        // /git/commits has different structure - commit data is at top level
         $author = $body['author'] ?? [];
+        $committer = $body['committer'] ?? [];
 
         return [
-            'commitAuthor' => $commit['author']['name'] ?? 'Unknown',
-            'commitMessage' => $commit['message'] ?? 'No message',
-            'commitAuthorAvatar' => $author['avatar_url'] ?? '',
-            'commitAuthorUrl' => $author['html_url'] ?? '',
+            'commitAuthor' => $author['name'] ?? 'Unknown',
+            'commitMessage' => $body['message'] ?? 'No message',
+            'commitAuthorAvatar' => $committer['avatar_url'] ?? '',
+            'commitAuthorUrl' => $committer['html_url'] ?? '',
             'commitHash' => $body['sha'] ?? '',
             'commitUrl' => $body['html_url'] ?? '',
         ];
@@ -407,7 +410,11 @@ class Gitea extends Git
      */
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
-        $url = "/repos/{$owner}/{$repositoryName}/commits?sha={$branch}&limit=1";
+        $query = http_build_query([
+            'sha' => $branch,
+            'limit' => 1,
+        ]);
+        $url = "/repos/{$owner}/{$repositoryName}/commits?{$query}";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 

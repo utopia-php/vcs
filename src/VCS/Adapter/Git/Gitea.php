@@ -375,21 +375,21 @@ class Gitea extends Git
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/git/commits/{$commitHash}";
-    
+
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
-    
+
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
             throw new Exception("Commit not found or inaccessible");
         }
-    
+
         $body = $response['body'] ?? [];
-        
+
         // Response structure: body['commit']['message'], body['author'], body['committer']
         $commit = $body['commit'] ?? [];
         $author = $body['author'] ?? [];
         $committer = $body['committer'] ?? [];
-    
+
         return [
             'commitAuthor' => $commit['author']['name'] ?? 'Unknown',
             'commitMessage' => $commit['message'] ?? 'No message',  // ← THIS is correct!

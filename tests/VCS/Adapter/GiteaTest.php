@@ -368,7 +368,6 @@ class GiteaTest extends Base
         $repositoryName = 'test-get-commit-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
-        // Create file with custom commit message to verify message content
         $customMessage = 'Test commit message';
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test Commit', $customMessage);
 
@@ -385,7 +384,6 @@ class GiteaTest extends Base
         $this->assertArrayHasKey('commitAuthorAvatar', $result);
         $this->assertArrayHasKey('commitAuthorUrl', $result);
 
-        // Strong assertions
         $this->assertSame($commitHash, $result['commitHash']);
         $this->assertStringContainsString($customMessage, $result['commitMessage']);
         $this->assertNotEmpty($result['commitAuthor']);
@@ -399,7 +397,6 @@ class GiteaTest extends Base
         $repositoryName = 'test-get-latest-commit-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
-        // Create files with custom messages to verify latest commit has correct message
         $firstMessage = 'First commit';
         $secondMessage = 'Second commit';
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test', $firstMessage);
@@ -415,9 +412,8 @@ class GiteaTest extends Base
         $this->assertArrayHasKey('commitAuthorAvatar', $result);
         $this->assertArrayHasKey('commitAuthorUrl', $result);
 
-        // Strong assertions - verify actual values
         $this->assertNotEmpty($result['commitHash']);
-        $this->assertStringContainsString($secondMessage, $result['commitMessage']); // Should be the latest (second) commit
+        $this->assertStringContainsString($secondMessage, $result['commitMessage']);
         $this->assertNotEmpty($result['commitAuthor']);
         $this->assertNotEmpty($result['commitUrl']);
 

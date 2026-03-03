@@ -392,7 +392,7 @@ class Gitea extends Git
 
         return [
             'commitAuthor' => $commit['author']['name'] ?? 'Unknown',
-            'commitMessage' => $commit['message'] ?? 'No message',  // ← THIS is correct!
+            'commitMessage' => $commit['message'] ?? 'No message',
             'commitAuthorAvatar' => $author['avatar_url'] ?? '',
             'commitAuthorUrl' => $author['html_url'] ?? '',
             'commitHash' => $body['sha'] ?? '',

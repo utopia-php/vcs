@@ -55,7 +55,6 @@ class GiteaTest extends Base
             }
         }
     }
-
     public function testCreateRepository(): void
     {
         $owner = self::$owner;
@@ -102,6 +101,23 @@ class GiteaTest extends Base
     public function testGetComment(): void
     {
         $this->markTestSkipped('Will be implemented in follow-up PR');
+    }
+
+    public function testGetRepositoryTreeWithSlashInBranchName(): void
+    {
+        $repositoryName = 'test-branch-with-slash-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+        $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'feature/test-branch', 'main');
+
+        $tree = $this->vcsAdapter->getRepositoryTree(self::$owner, $repositoryName, 'feature/test-branch');
+
+        $this->assertIsArray($tree);
+        $this->assertNotEmpty($tree);
+        $this->assertContains('README.md', $tree);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testGetRepository(): void
@@ -168,17 +184,158 @@ class GiteaTest extends Base
 
     public function testGetRepositoryTree(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-get-repository-tree-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        // Create files in repo
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test Repo');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'src/main.php', '<?php echo "hello";');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'src/lib.php', '<?php // library');
+
+        // Test non-recursive (should only show root level)
+        $tree = $this->vcsAdapter->getRepositoryTree(self::$owner, $repositoryName, 'main', false);
+
+        $this->assertIsArray($tree);
+        $this->assertContains('README.md', $tree);
+        $this->assertContains('src', $tree);
+        $this->assertCount(2, $tree); // Only README.md and src folder at root
+
+        // Test recursive (should show all files including nested)
+        $treeRecursive = $this->vcsAdapter->getRepositoryTree(self::$owner, $repositoryName, 'main', true);
+
+        $this->assertIsArray($treeRecursive);
+        $this->assertContains('README.md', $treeRecursive);
+        $this->assertContains('src', $treeRecursive);
+        $this->assertContains('src/main.php', $treeRecursive);
+        $this->assertContains('src/lib.php', $treeRecursive);
+        $this->assertGreaterThanOrEqual(4, count($treeRecursive));
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testGetRepositoryTreeWithInvalidBranch(): void
+    {
+        $repositoryName = 'test-get-repository-tree-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        $tree = $this->vcsAdapter->getRepositoryTree(self::$owner, $repositoryName, 'non-existing-branch', false);
+
+        $this->assertIsArray($tree);
+        $this->assertEmpty($tree);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testGetRepositoryContent(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-get-repository-content-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $fileContent = '# Hello World';
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', $fileContent);
+
+        $result = $this->vcsAdapter->getRepositoryContent(self::$owner, $repositoryName, 'README.md');
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('content', $result);
+        $this->assertArrayHasKey('sha', $result);
+        $this->assertArrayHasKey('size', $result);
+        $this->assertSame($fileContent, $result['content']);
+        $this->assertIsString($result['sha']);
+        $this->assertGreaterThan(0, $result['size']);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testGetRepositoryContentWithRef(): void
+    {
+        $repositoryName = 'test-get-repository-content-ref-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'main branch content');
+
+        $result = $this->vcsAdapter->getRepositoryContent(self::$owner, $repositoryName, 'test.txt', 'main');
+
+        $this->assertIsArray($result);
+        $this->assertSame('main branch content', $result['content']);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testGetRepositoryContentFileNotFound(): void
+    {
+        $repositoryName = 'test-get-repository-content-not-found-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        $this->expectException(\Utopia\VCS\Exception\FileNotFound::class);
+        $this->vcsAdapter->getRepositoryContent(self::$owner, $repositoryName, 'non-existing.txt');
+
     }
 
     public function testListRepositoryContents(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-list-repository-contents-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'file1.txt', 'content1');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'src/main.php', '<?php');
+
+        // List root directory
+        $contents = $this->vcsAdapter->listRepositoryContents(self::$owner, $repositoryName);
+
+        $this->assertIsArray($contents);
+        $this->assertCount(3, $contents); // README.md, file1.txt, src folder
+
+        $names = array_column($contents, 'name');
+        $this->assertContains('README.md', $names);
+        $this->assertContains('file1.txt', $names);
+        $this->assertContains('src', $names);
+
+        // Verify types
+        foreach ($contents as $item) {
+            $this->assertArrayHasKey('name', $item);
+            $this->assertArrayHasKey('type', $item);
+            $this->assertArrayHasKey('size', $item);
+        }
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testListRepositoryContentsInSubdirectory(): void
+    {
+        $repositoryName = 'test-list-repository-contents-subdir-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'src/file1.php', '<?php');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'src/file2.php', '<?php');
+
+        $contents = $this->vcsAdapter->listRepositoryContents(self::$owner, $repositoryName, 'src');
+
+        $this->assertIsArray($contents);
+        $this->assertCount(2, $contents);
+
+        $names = array_column($contents, 'name');
+        $this->assertContains('file1.php', $names);
+        $this->assertContains('file2.php', $names);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testListRepositoryContentsNonExistingPath(): void
+    {
+        $repositoryName = 'test-list-repository-contents-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        $contents = $this->vcsAdapter->listRepositoryContents(self::$owner, $repositoryName, 'non-existing-path');
+
+        $this->assertIsArray($contents);
+        $this->assertEmpty($contents);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testGetPullRequest(): void
@@ -273,6 +430,34 @@ class GiteaTest extends Base
 
     public function testListRepositoryLanguages(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-list-repository-languages-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'main.php', '<?php echo "test";');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'script.js', 'console.log("test");');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'style.css', 'body { margin: 0; }');
+
+        sleep(2);
+
+        $languages = $this->vcsAdapter->listRepositoryLanguages(self::$owner, $repositoryName);
+
+        $this->assertIsArray($languages);
+        $this->assertNotEmpty($languages);
+        $this->assertContains('PHP', $languages);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testListRepositoryLanguagesEmptyRepo(): void
+    {
+        $repositoryName = 'test-list-repository-languages-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $languages = $this->vcsAdapter->listRepositoryLanguages(self::$owner, $repositoryName);
+
+        $this->assertIsArray($languages);
+        $this->assertEmpty($languages);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 }

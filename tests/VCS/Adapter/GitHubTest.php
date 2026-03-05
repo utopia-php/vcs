@@ -173,6 +173,23 @@ class GitHubTest extends Base
         $this->assertNotEmpty($result);
     }
 
+    public function testGetInstallationRepository(): void
+    {
+        $repositoryName = 'astro-starter';
+        $repo = $this->vcsAdapter->getInstallationRepository($repositoryName);
+        $this->assertIsArray($repo);
+        $this->assertSame($repositoryName, $repo['name']);
+    }
+
+    public function testGetRepository(): void
+    {
+        $owner = 'vermakhushboo';
+        $repositoryName = 'basic-js-crud';
+        $repo = $this->vcsAdapter->getRepository($owner, $repositoryName);
+        $this->assertIsArray($repo);
+        $this->assertSame($repositoryName, $repo['name']);
+    }
+
     public function testGetRepositoryName(): void
     {
         $repositoryName = $this->vcsAdapter->getRepositoryName('432284323');

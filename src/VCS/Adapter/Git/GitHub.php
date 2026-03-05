@@ -95,7 +95,37 @@ class GitHub extends Git
     }
 
     /**
+     * Create a file in a repository
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $filepath Path where file should be created
+     * @param string $content Content of the file
+     * @param string $message Commit message
+     * @return array<mixed> Response from API
+     */
+    public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file'): array
+    {
+        throw new Exception("Not implemented");
+    }
+
+    /**
+     * Create a branch in a repository
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $newBranchName Name of the new branch
+     * @param string $oldBranchName Name of the branch to branch from
+     * @return array<mixed> Response from API
+     */
+    public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
+    {
+        throw new Exception("Not implemented");
+    }
+
+    /**
      * Search repositories for GitHub App
+     * @param string $installationId ID of the installation
      * @param string $owner Name of user or org
      * @param int $page page number
      * @param int $per_page number of results per page
@@ -104,27 +134,131 @@ class GitHub extends Git
      *
      * @throws Exception
      */
-    public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
+    public function searchRepositories(string $installationId, string $owner, int $page, int $per_page, string $search = ''): array
     {
-        $url = '/search/repositories';
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
-            'q' => "{$search} user:{$owner} fork:true",
-            'page' => $page,
-            'per_page' => $per_page,
-            'sort' => 'updated'
-        ]);
-
+        // Find whether installation has access to all (or) specific repositories
+        $url = '/app/installations/' . $installationId;
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->jwtToken"]);
         $responseBody = $response['body'] ?? [];
+        $hasAccessToAllRepositories = ($responseBody['repository_selection'] ?? '') === 'all';
 
-        if (!array_key_exists('items', $responseBody)) {
-            throw new Exception("Repositories list missing in the response.");
+        // Installation has access to all repositories, use the search API which supports filtering.
+        if ($hasAccessToAllRepositories) {
+            $url = '/search/repositories';
+
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+                'q' => "{$search} user:{$owner} fork:true",
+                'page' => $page,
+                'per_page' => $per_page,
+                'sort' => 'updated'
+            ]);
+            $responseBody = $response['body'] ?? [];
+
+            if (!array_key_exists('items', $responseBody)) {
+                throw new Exception("Repositories list missing in the response.");
+            }
+
+            return [
+                'items' => $responseBody['items'] ?? [],
+                'total' => $responseBody['total_count'] ?? 0,
+            ];
         }
 
+        // Installation has access to specific repositories, we need to perform client-side filtering.
+        $url = '/installation/repositories';
+        $repositories = [];
+
+        // When no search query is provided, delegate pagination to the GitHub API.
+        if (empty($search)) {
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+                'page' => $page,
+                'per_page' => $per_page,
+            ]);
+            
+            $responseBody = $response['body'];
+            
+            if (!array_key_exists('repositories', $responseBody)) {
+                throw new Exception("Repositories list missing in the response.");
+            }
+
+            return [
+                'items' => $responseBody['repositories'] ?? [],
+                'total' => $responseBody['total_count'] ?? 0,
+            ];
+        }
+
+        // When search query is provided, fetch all repositories accessible by the installation and filter them locally.
+        $currentPage = 1;
+        while (true) {
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+                'page' => $currentPage,
+                'per_page' => 100, // Maximum allowed by GitHub API
+            ]);
+
+            $responseBody = $response['body'] ?? [];
+            
+            if (!array_key_exists('repositories', $responseBody)) {
+                throw new Exception("Repositories list missing in the response.");
+            }
+
+            // Filter repositories to only include those that match the search query.
+            $filteredRepositories = array_filter($responseBody['repositories'] ?? [], fn ($repo) => stripos($repo['name'] ?? '', $search) !== false);
+
+            // Merge with result so far.
+            $repositories = array_merge($repositories, $filteredRepositories);
+
+            // If less than 100 repositories are returned, we have fetched all repositories.
+            if (\count($responseBody['repositories'] ??[]) < 100) {
+                break;
+            }
+
+            // Increment page number to fetch next page.
+            $currentPage++;
+        }
+
+        $repositoriesInRequestedPage = \array_slice($repositories, ($page - 1) * $per_page, $per_page);
+
         return [
-            'items' => $responseBody['items'] ?? [],
-            'total' => $responseBody['total_count'] ?? 0,
+            'items' => $repositoriesInRequestedPage,
+            'total' => \count($repositories),
         ];
+    }
+
+    public function getInstallationRepository(string $repositoryName): array
+    {
+        $currentPage = 1;
+        $perPage = 100;
+        $totalRepositories = 0;
+        $maxRepositories = 1000;
+        $url = '/installation/repositories';
+
+        while ($totalRepositories < $maxRepositories) {
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+                'page' => $currentPage,
+                'per_page' => $perPage,
+            ]);
+
+            $responseBody = $response['body'] ?? [];
+            
+            if (!array_key_exists('repositories', $responseBody)) {
+                throw new Exception("Repositories list missing in the response.");
+            }
+
+            foreach (($responseBody['repositories'] ?? []) as $repo) {
+                if (\strtolower($repo['name'] ?? '') === \strtolower($repositoryName)) {
+                    return $repo;
+                }
+            }
+
+            if (\count($responseBody['repositories'] ?? []) < $perPage) {
+                break;
+            }
+
+            $currentPage++;
+            $totalRepositories += $perPage;
+        }
+
+        throw new RepositoryNotFound("Repository not found.");
     }
 
     /**

@@ -6,9 +6,14 @@ use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Exception\RepositoryNotFound;
+use Utopia\VCS\Exception\FileNotFound;
 
 class Gitea extends Git
 {
+    public const CONTENTS_FILE = 'file';
+
+    public const CONTENTS_DIRECTORY = 'dir';
+
     protected string $endpoint = 'http://gitea:3000/api/v1';
 
     protected string $accessToken;
@@ -115,7 +120,12 @@ class Gitea extends Git
     // Stub methods to satisfy abstract class requirements
     // These will be implemented in follow-up PRs
 
-    public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
+    public function searchRepositories(string $installationId, string $owner, int $page, int $per_page, string $search = ''): array
+    {
+        throw new Exception("Not implemented yet");
+    }
+
+    public function getInstallationRepository(string $repositoryName): array
     {
         throw new Exception("Not implemented yet");
     }
@@ -153,22 +163,156 @@ class Gitea extends Git
 
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/git/trees/" . urlencode($branch) . ($recursive ? '?recursive=1' : '');
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (($response['headers']['status-code'] ?? 0) === 404) {
+            return [];
+        }
+
+        return array_column($response['body']['tree'] ?? [], 'path');
+    }
+
+    /**
+     * Create a file in a repository
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $filepath Path where file should be created
+     * @param string $content Content of the file
+     * @param string $message Commit message
+     * @return array<mixed> Response from API
+     */
+    public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file'): array
+    {
+        $url = "/repos/{$owner}/{$repositoryName}/contents/{$filepath}";
+
+        $response = $this->call(
+            self::METHOD_POST,
+            $url,
+            ['Authorization' => "token $this->accessToken"],
+            [
+                'content' => base64_encode($content),
+                'message' => $message
+            ]
+        );
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to create file {$filepath}: HTTP {$statusCode}");
+        }
+
+        return $response['body'] ?? [];
+    }
+
+    /**
+     * Create a branch in a repository
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $newBranchName Name of the new branch
+     * @param string $oldBranchName Name of the branch to branch from
+     * @return array<mixed> Response from API
+     */
+    public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
+    {
+        $url = "/repos/{$owner}/{$repositoryName}/branches";
+
+        $response = $this->call(
+            self::METHOD_POST,
+            $url,
+            ['Authorization' => "token $this->accessToken"],
+            [
+                'new_branch_name' => $newBranchName,
+                'old_branch_name' => $oldBranchName
+            ]
+        );
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to create branch {$newBranchName}: HTTP {$statusCode}");
+        }
+
+        return $response['body'] ?? [];
     }
 
     public function listRepositoryLanguages(string $owner, string $repositoryName): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/languages";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (isset($response['body'])) {
+            return array_keys($response['body']);
+        }
+
+        return [];
     }
 
     public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/contents/{$path}";
+        if (!empty($ref)) {
+            $url .= "?ref=" . urlencode($ref);
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (($response['headers']['status-code'] ?? 0) !== 200) {
+            throw new FileNotFound();
+        }
+
+        $encoding = $response['body']['encoding'] ?? '';
+        $content = '';
+
+        if ($encoding === 'base64') {
+            $content = base64_decode($response['body']['content'] ?? '');
+        } else {
+            throw new FileNotFound();
+        }
+
+        return [
+            'sha' => $response['body']['sha'] ?? '',
+            'size' => $response['body']['size'] ?? 0,
+            'content' => $content
+        ];
     }
 
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/contents";
+        if (!empty($path)) {
+            $url .= "/{$path}";
+        }
+        if (!empty($ref)) {
+            $url .= "?ref=" . urlencode($ref);
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        if (($response['headers']['status-code'] ?? 0) === 404) {
+            return [];
+        }
+
+        $items = [];
+        if (!empty($response['body'][0])) {
+            $items = $response['body'];
+        } elseif (!empty($response['body'])) {
+            $items = [$response['body']];
+        }
+
+        $contents = [];
+        foreach ($items as $item) {
+            $type = $item['type'] ?? 'file';
+            $contents[] = [
+                'name' => $item['name'] ?? '',
+                'size' => $item['size'] ?? 0,
+                'type' => $type === 'file' ? self::CONTENTS_FILE : self::CONTENTS_DIRECTORY
+            ];
+        }
+
+        return $contents;
     }
 
     public function deleteRepository(string $owner, string $repositoryName): bool

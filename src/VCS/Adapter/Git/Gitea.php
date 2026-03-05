@@ -401,25 +401,24 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        if ($statusCode >= 400) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
             throw new Exception("Commit not found or inaccessible");
         }
 
-        $body = $response['body'] ?? [];
-
-        // Response structure: body['commit']['message'], body['author'], body['committer']
-        $commit = $body['commit'] ?? [];
-        $author = $body['author'] ?? [];
-        $committer = $body['committer'] ?? [];
+        $responseBody = $response['body'] ?? [];
+        $responseBodyCommit = $responseBody['commit'] ?? [];
+        $responseBodyCommitAuthor = $responseBodyCommit['author'] ?? [];
+        $responseBodyAuthor = $responseBody['author'] ?? [];
 
         return [
-            'commitAuthor' => $commit['author']['name'] ?? 'Unknown',
-            'commitMessage' => $commit['message'] ?? 'No message',
-            'commitAuthorAvatar' => $author['avatar_url'] ?? '',
-            'commitAuthorUrl' => $author['html_url'] ?? '',
-            'commitHash' => $body['sha'] ?? '',
-            'commitUrl' => $body['html_url'] ?? '',
+            'commitAuthor' => $responseBodyCommitAuthor['name'] ?? 'Unknown',
+            'commitMessage' => $responseBodyCommit['message'] ?? 'No message',
+            'commitAuthorAvatar' => $responseBodyAuthor['avatar_url'] ?? '',
+            'commitAuthorUrl' => $responseBodyAuthor['html_url'] ?? '',
+            'commitHash' => $responseBody['sha'] ?? '',
+            'commitUrl' => $responseBody['html_url'] ?? '',
         ];
     }
 
@@ -441,24 +440,33 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        if ($statusCode >= 400 || empty($response['body'][0])) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Latest commit response failed with status code {$responseHeadersStatusCode}");
+        }
+
+        $responseBody = $response['body'] ?? [];
+
+        if (empty($responseBody[0] ?? [])) {
             throw new Exception("Latest commit response is missing required information.");
         }
 
-        $body = $response['body'][0];
-        $commit = $body['commit'] ?? [];
-        $author = $body['author'] ?? [];
+        $responseBodyFirst = $responseBody[0];
+        $responseBodyFirstCommit = $responseBodyFirst['commit'] ?? [];
+        $responseBodyFirstCommitAuthor = $responseBodyFirstCommit['author'] ?? [];
+        $responseBodyFirstAuthor = $responseBodyFirst['author'] ?? [];
 
         return [
-            'commitAuthor' => $commit['author']['name'] ?? 'Unknown',
-            'commitMessage' => $commit['message'] ?? 'No message',
-            'commitHash' => $body['sha'] ?? '',
-            'commitUrl' => $body['html_url'] ?? '',
-            'commitAuthorAvatar' => $author['avatar_url'] ?? '',
-            'commitAuthorUrl' => $author['html_url'] ?? '',
+            'commitAuthor' => $responseBodyFirstCommitAuthor['name'] ?? 'Unknown',
+            'commitMessage' => $responseBodyFirstCommit['message'] ?? 'No message',
+            'commitHash' => $responseBodyFirst['sha'] ?? '',
+            'commitUrl' => $responseBodyFirst['html_url'] ?? '',
+            'commitAuthorAvatar' => $responseBodyFirstAuthor['avatar_url'] ?? '',
+            'commitAuthorUrl' => $responseBodyFirstAuthor['html_url'] ?? '',
         ];
     }
+
     public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
         throw new Exception("Not implemented yet");

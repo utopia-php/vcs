@@ -112,7 +112,9 @@ class Gitea extends Git
             'visibility' => 'public',
         ]);
 
-        return $response['body']['name'] ?? '';
+        $responseBody = $response['body'] ?? [];
+
+        return $responseBody['name'] ?? '';
     }
 
     // Stub methods to satisfy abstract class requirements
@@ -134,12 +136,14 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        if ($statusCode >= 400) {
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body'];
+        return $response['body'] ?? [];
     }
 
     public function getRepositoryName(string $repositoryId): string
@@ -148,11 +152,13 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        if (!isset($response['body']['name'])) {
+        $responseBody = $response['body'] ?? [];
+
+        if (!array_key_exists('name', $responseBody)) {
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body']['name'];
+        return $responseBody['name'] ?? '';
     }
 
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
@@ -161,11 +167,15 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        if (($response['headers']['status-code'] ?? 0) === 404) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
             return [];
         }
 
-        return array_column($response['body']['tree'] ?? [], 'path');
+        $responseBody = $response['body'] ?? [];
+
+        return array_column($responseBody['tree'] ?? [], 'path');
     }
 
     /**
@@ -192,9 +202,10 @@ class Gitea extends Git
             ]
         );
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        if ($statusCode >= 400) {
-            throw new Exception("Failed to create file {$filepath}: HTTP {$statusCode}");
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create file {$filepath}: HTTP {$responseHeadersStatusCode}");
         }
 
         return $response['body'] ?? [];
@@ -223,9 +234,10 @@ class Gitea extends Git
             ]
         );
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        if ($statusCode >= 400) {
-            throw new Exception("Failed to create branch {$newBranchName}: HTTP {$statusCode}");
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create branch {$newBranchName}: HTTP {$responseHeadersStatusCode}");
         }
 
         return $response['body'] ?? [];
@@ -237,8 +249,10 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        if (isset($response['body'])) {
-            return array_keys($response['body']);
+        $responseBody = $response['body'] ?? [];
+
+        if (!empty($responseBody)) {
+            return array_keys($responseBody);
         }
 
         return [];
@@ -253,22 +267,26 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        if (($response['headers']['status-code'] ?? 0) !== 200) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode !== 200) {
             throw new FileNotFound();
         }
 
-        $encoding = $response['body']['encoding'] ?? '';
+        $responseBody = $response['body'] ?? [];
+
+        $encoding = $responseBody['encoding'] ?? '';
         $content = '';
 
         if ($encoding === 'base64') {
-            $content = base64_decode($response['body']['content'] ?? '');
+            $content = base64_decode($responseBody['content'] ?? '');
         } else {
             throw new FileNotFound();
         }
 
         return [
-            'sha' => $response['body']['sha'] ?? '',
-            'size' => $response['body']['size'] ?? 0,
+            'sha' => $responseBody['sha'] ?? '',
+            'size' => $responseBody['size'] ?? 0,
             'content' => $content
         ];
     }
@@ -285,15 +303,19 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        if (($response['headers']['status-code'] ?? 0) === 404) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
             return [];
         }
 
+        $responseBody = $response['body'] ?? [];
+
         $items = [];
-        if (!empty($response['body'][0])) {
-            $items = $response['body'];
-        } elseif (!empty($response['body'])) {
-            $items = [$response['body']];
+        if (!empty($responseBody[0] ?? [])) {
+            $items = $responseBody;
+        } elseif (!empty($responseBody)) {
+            $items = [$responseBody];
         }
 
         $contents = [];
@@ -315,10 +337,11 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = $response['headers']['status-code'];
 
-        if ($statusCode >= 400) {
-            throw new Exception("Deleting repository {$repositoryName} failed with status code {$statusCode}");
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Deleting repository {$repositoryName} failed with status code {$responseHeadersStatusCode}");
         }
 
         return true;

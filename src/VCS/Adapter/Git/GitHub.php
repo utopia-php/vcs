@@ -115,7 +115,7 @@ class GitHub extends Git
             'sort' => 'updated'
         ]);
 
-        $responseBody = $response['body'];
+        $responseBody = $response['body'] ?? [];
 
         if (!array_key_exists('items', $responseBody)) {
             throw new Exception("Repositories list missing in the response.");
@@ -202,8 +202,10 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        if (isset($response['body'])) {
-            return array_keys($response['body']);
+        $responseBody = $response['body'] ?? [];
+
+        if (!empty($responseBody)) {
+            return array_keys($responseBody);
         }
 
         return [];
@@ -233,7 +235,7 @@ class GitHub extends Git
             throw new FileNotFound();
         }
 
-        $responseBody = $response['body'];
+        $responseBody = $response['body'] ?? [];
 
         $encoding = $responseBody['encoding'] ?? '';
 

@@ -174,9 +174,9 @@ class GitHub extends Git
                 'page' => $page,
                 'per_page' => $per_page,
             ]);
-            
-            $responseBody = $response['body'];
-            
+
+            $responseBody = $response['body'] ?? [];
+
             if (!array_key_exists('repositories', $responseBody)) {
                 throw new Exception("Repositories list missing in the response.");
             }
@@ -196,7 +196,7 @@ class GitHub extends Git
             ]);
 
             $responseBody = $response['body'] ?? [];
-            
+
             if (!array_key_exists('repositories', $responseBody)) {
                 throw new Exception("Repositories list missing in the response.");
             }
@@ -208,7 +208,7 @@ class GitHub extends Git
             $repositories = array_merge($repositories, $filteredRepositories);
 
             // If less than 100 repositories are returned, we have fetched all repositories.
-            if (\count($responseBody['repositories'] ??[]) < 100) {
+            if (\count($responseBody['repositories'] ?? []) < 100) {
                 break;
             }
 
@@ -239,7 +239,7 @@ class GitHub extends Git
             ]);
 
             $responseBody = $response['body'] ?? [];
-            
+
             if (!array_key_exists('repositories', $responseBody)) {
                 throw new Exception("Repositories list missing in the response.");
             }

@@ -387,14 +387,84 @@ class Gitea extends Git
         throw new Exception("Not implemented yet");
     }
 
+    /**
+     * Get details of a commit using commit hash
+     *
+     * @param string $owner Owner name of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $commitHash SHA of the commit
+     * @return array<mixed> Details of the commit
+     */
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/git/commits/{$commitHash}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Commit not found or inaccessible");
+        }
+
+        $responseBody = $response['body'] ?? [];
+        $responseBodyCommit = $responseBody['commit'] ?? [];
+        $responseBodyCommitAuthor = $responseBodyCommit['author'] ?? [];
+        $responseBodyAuthor = $responseBody['author'] ?? [];
+
+        return [
+            'commitAuthor' => $responseBodyCommitAuthor['name'] ?? 'Unknown',
+            'commitMessage' => $responseBodyCommit['message'] ?? 'No message',
+            'commitAuthorAvatar' => $responseBodyAuthor['avatar_url'] ?? '',
+            'commitAuthorUrl' => $responseBodyAuthor['html_url'] ?? '',
+            'commitHash' => $responseBody['sha'] ?? '',
+            'commitUrl' => $responseBody['html_url'] ?? '',
+        ];
     }
 
+    /**
+     * Get latest commit of a branch
+     *
+     * @param string $owner Owner name of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $branch Name of the branch
+     * @return array<mixed> Details of the commit
+     */
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
-        throw new Exception("Not implemented yet");
+        $query = http_build_query([
+            'sha' => $branch,
+            'limit' => 1,
+        ]);
+        $url = "/repos/{$owner}/{$repositoryName}/commits?{$query}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Latest commit response failed with status code {$responseHeadersStatusCode}");
+        }
+
+        $responseBody = $response['body'] ?? [];
+
+        if (empty($responseBody[0] ?? [])) {
+            throw new Exception("Latest commit response is missing required information.");
+        }
+
+        $responseBodyFirst = $responseBody[0];
+        $responseBodyFirstCommit = $responseBodyFirst['commit'] ?? [];
+        $responseBodyFirstCommitAuthor = $responseBodyFirstCommit['author'] ?? [];
+        $responseBodyFirstAuthor = $responseBodyFirst['author'] ?? [];
+
+        return [
+            'commitAuthor' => $responseBodyFirstCommitAuthor['name'] ?? 'Unknown',
+            'commitMessage' => $responseBodyFirstCommit['message'] ?? 'No message',
+            'commitHash' => $responseBodyFirst['sha'] ?? '',
+            'commitUrl' => $responseBodyFirst['html_url'] ?? '',
+            'commitAuthorAvatar' => $responseBodyFirstAuthor['avatar_url'] ?? '',
+            'commitAuthorUrl' => $responseBodyFirstAuthor['html_url'] ?? '',
+        ];
     }
 
     public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void

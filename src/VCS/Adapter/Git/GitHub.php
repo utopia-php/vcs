@@ -115,13 +115,15 @@ class GitHub extends Git
             'sort' => 'updated'
         ]);
 
-        if (!isset($response['body']['items'])) {
+        $responseBody = $response['body'];
+
+        if (!array_key_exists('items', $responseBody)) {
             throw new Exception("Repositories list missing in the response.");
         }
 
         return [
-            'items' => $response['body']['items'],
-            'total' => $response['body']['total_count'],
+            'items' => $responseBody['items'] ?? [],
+            'total' => $responseBody['total_count'] ?? 0,
         ];
     }
 
@@ -152,11 +154,13 @@ class GitHub extends Git
         $url = "/repositories/$repositoryId";
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        if (!isset($response['body']['name'])) {
+        $responseBody = $response['body'] ?? [];
+
+        if (!array_key_exists('name', $responseBody)) {
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body']['name'];
+        return $responseBody['name'] ?? '';
     }
 
     /**
@@ -174,11 +178,15 @@ class GitHub extends Git
         $url = "/repos/$owner/$repositoryName/git/trees/$branch" . ($recursive ? '?recursive=1' : '');
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        if ($response['headers']['status-code'] == 404) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode == 404) {
             return [];
         }
 
-        return array_column($response['body']['tree'], 'path');
+        $responseBody = $response['body'] ?? [];
+
+        return array_column($responseBody['tree'] ?? [], 'path');
     }
 
     /**
@@ -219,22 +227,26 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        if ($response['headers']['status-code'] !== 200) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode !== 200) {
             throw new FileNotFound();
         }
 
-        $encoding = $response['body']['encoding'];
+        $responseBody = $response['body'];
+
+        $encoding = $responseBody['encoding'] ?? '';
 
         $content = '';
         if ($encoding === 'base64') {
-            $content = base64_decode($response['body']['content']);
+            $content = base64_decode($responseBody['content'] ?? '');
         } else {
             throw new FileNotFound();
         }
 
         $output = [
-           'sha' => $response['body']['sha'],
-           'size' => $response['body']['size'],
+           'sha' => $responseBody['sha'] ?? '',
+           'size' => $responseBody['size'] ?? 0,
            'content' => $content
         ];
 
@@ -262,16 +274,20 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        if (($response['headers']['status-code'] == 404)) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode == 404) {
             return [];
         }
 
+        $responseBody = $response['body'] ?? [];
+
         $items = [];
 
-        if (!empty($response['body'][0])) {
-            $items = $response['body'];
-        } elseif (!empty($response['body'])) {
-            $items = [$response['body']];
+        if (!empty($responseBody[0] ?? [])) {
+            $items = $responseBody;
+        } elseif (!empty($responseBody)) {
+            $items = [$responseBody];
         }
 
         $contents = [];
@@ -293,10 +309,10 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        $statusCode = $response['headers']['status-code'];
-
-        if ($statusCode >= 400) {
-            throw new Exception("Deleting repository $repositoryName failed with status code $statusCode");
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Deleting repository $repositoryName failed with status code $responseHeadersStatusCode");
         }
         return true;
     }
@@ -314,11 +330,13 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], ['body' => $comment]);
 
-        if (!isset($response['body']['id'])) {
+        $responseBody = $response['body'] ?? [];
+
+        if (!array_key_exists('id', $responseBody)) {
             throw new Exception("Comment creation response is missing comment ID.");
         }
 
-        $commentId = $response['body']['id'];
+        $commentId = $responseBody['id'] ?? '';
 
         return $commentId;
     }
@@ -338,7 +356,10 @@ class GitHub extends Git
         $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/comments/' . $commentId;
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-        $comment = $response['body']['body'] ?? '';
+
+        $responseBody = $response['body'] ?? [];
+
+        $comment = $responseBody['body'] ?? '';
 
         return $comment;
     }
@@ -360,11 +381,13 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], ['body' => $comment]);
 
-        if (!isset($response['body']['id'])) {
+        $responseBody = $response['body'] ?? [];
+
+        if (!array_key_exists('id', $responseBody)) {
             throw new Exception("Comment update response is missing comment ID.");
         }
 
-        $commentId = $response['body']['id'];
+        $commentId = $responseBody['id'] ?? '';
 
         return $commentId;
     }
@@ -393,11 +416,12 @@ class GitHub extends Git
         $jwt = new JWT($privateKeyObj, 'RS256');
         $token = $jwt->encode($payload);
         $this->jwtToken = $token;
-        $res = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
-        if (!isset($res['body']['token'])) {
+        $response = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
+        $responseBody = $response['body'] ?? [];
+        if (!array_key_exists('token', $responseBody)) {
             throw new Exception('Failed to retrieve access token from GitHub API.');
         }
-        $this->accessToken = $res['body']['token'];
+        $this->accessToken = $responseBody['token'] ?? '';
     }
 
     /**
@@ -424,11 +448,14 @@ class GitHub extends Git
         $url = '/app/installations/' . $installationId;
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->jwtToken"]);
 
-        if (!isset($response['body']['account']['login'])) {
+        $responseBody = $response['body'] ?? [];
+        $responseBodyAccount = $responseBody['account'] ?? [];
+
+        if (!array_key_exists('login', $responseBodyAccount)) {
             throw new Exception("Owner name retrieval response is missing account login.");
         }
 
-        return $response['body']['account']['login'];
+        return $responseBodyAccount['login'] ?? '';
     }
 
     /**
@@ -456,7 +483,9 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        return $response['body'][0] ?? [];
+        $responseBody = $response['body'] ?? [];
+
+        return $responseBody[0] ?? [];
     }
 
     /**
@@ -472,9 +501,11 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
+        $responseBody = $response['body'] ?? [];
+
         $names = [];
-        foreach ($response['body'] as $subarray) {
-            $names[] = $subarray['name'];
+        foreach ($responseBody as $subarray) {
+            $names[] = $subarray['name'] ?? '';
         }
 
         return $names;
@@ -494,18 +525,18 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        $body = $response['body'] ?? [];
-        $author = $body['author'] ?? [];
-        $commit = $body['commit'] ?? [];
-        $commitAuthor = $commit['author'] ?? [];
+        $responseBody = $response['body'] ?? [];
+        $responseBodyAuthor = $responseBody['author'] ?? [];
+        $responseBodyCommit = $responseBody['commit'] ?? [];
+        $responseBodyCommitAuthor = $responseBodyCommit['author'] ?? [];
 
         return [
-            'commitAuthor' => $commitAuthor['name'] ?? 'Unknown',
-            'commitMessage' => $commit['message'] ?? 'No message',
-            'commitAuthorAvatar' => $author['avatar_url'] ?? '',
-            'commitAuthorUrl' => $author['html_url'] ?? '',
-            'commitHash' => $body['sha'] ?? '',
-            'commitUrl' => $body['html_url'] ?? '',
+            'commitAuthor' => $responseBodyCommitAuthor['name'] ?? 'Unknown',
+            'commitMessage' => $responseBodyCommit['message'] ?? 'No message',
+            'commitAuthorAvatar' => $responseBodyAuthor['avatar_url'] ?? '',
+            'commitAuthorUrl' => $responseBodyAuthor['html_url'] ?? '',
+            'commitHash' => $responseBody['sha'] ?? '',
+            'commitUrl' => $responseBody['html_url'] ?? '',
         ];
     }
 
@@ -523,24 +554,29 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
+        $responseBody = $response['body'] ?? [];
+        $responseBodyCommit = $responseBody['commit'] ?? [];
+        $responseBodyCommitAuthor = $responseBodyCommit['author'] ?? [];
+        $responseBodyAuthor = $responseBody['author'] ?? [];
+
         if (
-            !isset($response['body']['commit']['author']['name']) ||
-            !isset($response['body']['commit']['message']) ||
-            !isset($response['body']['sha']) ||
-            !isset($response['body']['html_url']) ||
-            !isset($response['body']['author']['avatar_url']) ||
-            !isset($response['body']['author']['html_url'])
+            !array_key_exists('name', $responseBodyCommitAuthor) ||
+            !array_key_exists('message', $responseBodyCommit) ||
+            !array_key_exists('sha', $responseBody) ||
+            !array_key_exists('html_url', $responseBody) ||
+            !array_key_exists('avatar_url', $responseBodyAuthor) ||
+            !array_key_exists('html_url', $responseBodyAuthor)
         ) {
             throw new Exception("Latest commit response is missing required information.");
         }
 
         return [
-            'commitAuthor' => $response['body']['commit']['author']['name'],
-            'commitMessage' => $response['body']['commit']['message'],
-            'commitHash' => $response['body']['sha'],
-            'commitUrl' => $response['body']['html_url'],
-            'commitAuthorAvatar' => $response['body']['author']['avatar_url'],
-            'commitAuthorUrl' => $response['body']['author']['html_url'],
+            'commitAuthor' => $responseBodyCommitAuthor['name'] ?? '',
+            'commitMessage' => $responseBodyCommit['message'] ?? '',
+            'commitHash' => $responseBody['sha'] ?? '',
+            'commitUrl' => $responseBody['html_url'] ?? '',
+            'commitAuthorAvatar' => $responseBodyAuthor['avatar_url'] ?? '',
+            'commitAuthorUrl' => $responseBodyAuthor['html_url'] ?? '',
         ];
     }
 
@@ -631,26 +667,33 @@ class GitHub extends Git
             throw new Exception("Invalid payload.");
         }
 
-        $installationId = strval(isset($payload['installation']['id']) ? $payload['installation']['id'] : '');
+        $payloadInstallation = $payload['installation'] ?? [];
+
+        $installationId = strval($payloadInstallation['id'] ?? '');
 
         switch ($event) {
             case 'push':
-                $branchCreated = isset($payload['created']) ? $payload['created'] : false;
-                $branchDeleted = isset($payload['deleted']) ? $payload['deleted'] : false;
-                $ref = $payload['ref'] ?? '';
-                $repositoryId = strval(isset($payload['repository']['id']) ? $payload['repository']['id'] : '');
-                $repositoryName = isset($payload['repository']['name']) ? $payload['repository']['name'] : '';
-                $branch = str_replace('refs/heads/', '', $ref);
-                $repositoryUrl = isset($payload['repository']['html_url']) ? $payload['repository']['html_url'] : '';
-                $branchUrl = $repositoryUrl ? $repositoryUrl . "/tree/" . $branch : '';
+                $payloadRepository = $payload['repository'] ?? [];
+                $payloadRepositoryOwner = $payloadRepository['owner'] ?? [];
+                $payloadSender = $payload['sender'] ?? [];
+                $payloadHeadCommit = $payload['head_commit'] ?? [];
+                $payloadHeadCommitAuthor = $payloadHeadCommit['author'] ?? [];
+
+                $branchCreated = $payload['created'] ?? false;
+                $branchDeleted = $payload['deleted'] ?? false;
+                $repositoryId = strval($payloadRepository['id'] ?? '');
+                $repositoryName = $payloadRepository['name'] ?? '';
+                $branch = str_replace('refs/heads/', '', $payload['ref'] ?? '');
+                $repositoryUrl = $payloadRepository['html_url'] ?? '';
+                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . "/tree/" . $branch : '';
                 $commitHash = $payload['after'] ?? '';
-                $owner = isset($payload['repository']['owner']['name']) ? $payload['repository']['owner']['name'] : '';
-                $authorUrl = isset($payload['sender']['html_url']) ? $payload['sender']['html_url'] : '';
-                $authorAvatarUrl = isset($payload['sender']['avatar_url']) ? $payload['sender']['avatar_url'] : '';
-                $headCommitAuthorName = isset($payload['head_commit']['author']['name']) ? $payload['head_commit']['author']['name'] : '';
-                $headCommitAuthorEmail = isset($payload['head_commit']['author']['email']) ? $payload['head_commit']['author']['email'] : '';
-                $headCommitMessage = isset($payload['head_commit']['message']) ? $payload['head_commit']['message'] : '';
-                $headCommitUrl = isset($payload['head_commit']['url']) ? $payload['head_commit']['url'] : '';
+                $owner = $payloadRepositoryOwner['name'] ?? '';
+                $authorUrl = $payloadSender['html_url'] ?? '';
+                $authorAvatarUrl = $payloadSender['avatar_url'] ?? '';
+                $headCommitAuthorName = $payloadHeadCommitAuthor['name'] ?? '';
+                $headCommitAuthorEmail = $payloadHeadCommitAuthor['email'] ?? '';
+                $headCommitMessage = $payloadHeadCommit['message'] ?? '';
+                $headCommitUrl = $payloadHeadCommit['url'] ?? '';
 
                 $affectedFiles = [];
                 foreach (($payload['commits'] ?? []) as $commit) {
@@ -690,20 +733,30 @@ class GitHub extends Git
                     'affectedFiles' => \array_keys($affectedFiles),
                 ];
             case 'pull_request':
-                $repositoryId = strval(isset($payload['repository']['id']) ? $payload['repository']['id'] : '');
-                $branch = isset($payload['pull_request']['head']['ref']) ? $payload['pull_request']['head']['ref'] : '';
-                $repositoryName = isset($payload['repository']['name']) ? $payload['repository']['name'] : '';
-                $repositoryUrl = isset($payload['repository']['html_url']) ? $payload['repository']['html_url'] : '';
-                $branchUrl = $repositoryUrl ? "$repositoryUrl/tree/$branch" : '';
+                $payloadRepository = $payload['repository'] ?? [];
+                $payloadRepositoryOwner = $payloadRepository['owner'] ?? [];
+                $payloadSender = $payload['sender'] ?? [];
+                $payloadPullRequest = $payload['pull_request'] ?? [];
+                $payloadPullRequestHead = $payloadPullRequest['head'] ?? [];
+                $payloadPullRequestHeadUser = $payloadPullRequestHead['user'] ?? [];
+                $payloadPullRequestUser = $payloadPullRequest['user'] ?? [];
+                $payloadPullRequestBase = $payloadPullRequest['base'] ?? [];
+                $payloadPullRequestBaseUser = $payloadPullRequestBase['user'] ?? [];
+
+                $repositoryId = strval($payloadRepository['id'] ?? '');
+                $branch = $payloadPullRequestHead['ref'] ?? '';
+                $repositoryName = $payloadRepository['name'] ?? '';
+                $repositoryUrl = $payloadRepository['html_url'] ?? '';
+                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . "/tree/" . $branch : '';
                 $pullRequestNumber = $payload['number'] ?? '';
                 $action = $payload['action'] ?? '';
-                $owner = isset($payload['repository']['owner']['login']) ? $payload['repository']['owner']['login'] : '';
-                $authorUrl = isset($payload['sender']['html_url']) ? $payload['sender']['html_url'] : '';
-                $authorAvatarUrl = isset($payload['pull_request']['user']['avatar_url']) ? $payload['pull_request']['user']['avatar_url'] : '';
-                $commitHash = isset($payload['pull_request']['head']['sha']) ? $payload['pull_request']['head']['sha'] : '';
+                $owner = $payloadRepositoryOwner['login'] ?? '';
+                $authorUrl = $payloadSender['html_url'] ?? '';
+                $authorAvatarUrl = $payloadPullRequestUser['avatar_url'] ?? '';
+                $commitHash = $payloadPullRequestHead['sha'] ?? '';
                 $headCommitUrl = $repositoryUrl ? $repositoryUrl . "/commits/" . $commitHash : '';
-                $headLogin = isset($payload['pull_request']['head']['user']['login']) ? $payload['pull_request']['head']['user']['login'] : '';
-                $baseLogin = isset($payload['pull_request']['base']['user']['login']) ? $payload['pull_request']['base']['user']['login'] : '';
+                $headLogin = $payloadPullRequestHeadUser['login'] ?? '';
+                $baseLogin = $payloadPullRequestBaseUser['login'] ?? '';
                 $external = $headLogin !== $baseLogin;
 
                 return [
@@ -724,8 +777,11 @@ class GitHub extends Git
                 ];
             case 'installation':
             case 'installation_repositories':
+                $payloadInstallation = $payload['installation'] ?? [];
+                $payloadInstallationAccount = $payloadInstallation['account'] ?? [];
+
                 $action = $payload['action'] ?? '';
-                $userName = isset($payload['installation']['account']['login']) ? $payload['installation']['account']['login'] : '';
+                $userName = $payloadInstallationAccount['login'] ?? '';
 
                 return [
                     'action' => $action,

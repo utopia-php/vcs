@@ -107,7 +107,9 @@ class Gitea extends Git
             'visibility' => 'public',
         ]);
 
-        return $response['body']['name'] ?? '';
+        $responseBody = $response['body'] ?? [];
+
+        return $responseBody['name'] ?? '';
     }
 
     // Stub methods to satisfy abstract class requirements
@@ -124,12 +126,14 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = isset($response['headers']['status-code']) ? $response['headers']['status-code'] : 0;
-        if ($statusCode >= 400) {
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body'];
+        return $response['body'] ?? [];
     }
 
     public function getRepositoryName(string $repositoryId): string
@@ -138,11 +142,13 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
-        if (!isset($response['body']['name'])) {
+        $responseBody = $response['body'] ?? [];
+
+        if (!array_key_exists('name', $responseBody)) {
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body']['name'];
+        return $responseBody['name'] ?? '';
     }
 
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
@@ -171,10 +177,11 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "token $this->accessToken"]);
 
-        $statusCode = isset($response['headers']['status-code']) ? $response['headers']['status-code'] : 0;
 
-        if ($statusCode >= 400) {
-            throw new Exception("Deleting repository {$repositoryName} failed with status code {$statusCode}");
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Deleting repository {$repositoryName} failed with status code {$responseHeadersStatusCode}");
         }
 
         return true;

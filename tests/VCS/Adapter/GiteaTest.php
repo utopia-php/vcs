@@ -385,8 +385,9 @@ class GiteaTest extends Base
         $this->assertArrayHasKey('commitAuthorUrl', $result);
 
         $this->assertSame($commitHash, $result['commitHash']);
-        $this->assertStringContainsString($customMessage, $result['commitMessage']);
-        $this->assertNotEmpty($result['commitAuthor']);
+        $this->assertSame('utopia', $result['commitAuthor']);
+        $this->assertStringStartsWith($customMessage, $result['commitMessage']);
+        $this->assertStringContainsString('gravatar.com', $result['commitAuthorAvatar']);
         $this->assertNotEmpty($result['commitUrl']);
 
         $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
@@ -400,22 +401,36 @@ class GiteaTest extends Base
         $firstMessage = 'First commit';
         $secondMessage = 'Second commit';
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test', $firstMessage);
+
+        $commit1 = $this->vcsAdapter->getLatestCommit(self::$owner, $repositoryName, 'main');
+
+        $this->assertIsArray($commit1);
+        $this->assertArrayHasKey('commitHash', $commit1);
+        $this->assertArrayHasKey('commitMessage', $commit1);
+        $this->assertArrayHasKey('commitAuthor', $commit1);
+        $this->assertArrayHasKey('commitUrl', $commit1);
+        $this->assertArrayHasKey('commitAuthorAvatar', $commit1);
+        $this->assertArrayHasKey('commitAuthorUrl', $commit1);
+
+        $this->assertNotEmpty($commit1['commitHash']);
+        $this->assertSame('utopia', $commit1['commitAuthor']);
+        $this->assertStringStartsWith($firstMessage, $commit1['commitMessage']);
+        $this->assertStringContainsString('gravatar.com', $commit1['commitAuthorAvatar']);
+        $this->assertNotEmpty($commit1['commitUrl']);
+
+        $commit1Hash = $commit1['commitHash'];
+
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test content', $secondMessage);
 
-        $result = $this->vcsAdapter->getLatestCommit(self::$owner, $repositoryName, 'main');
+        $commit2 = $this->vcsAdapter->getLatestCommit(self::$owner, $repositoryName, 'main');
 
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('commitHash', $result);
-        $this->assertArrayHasKey('commitMessage', $result);
-        $this->assertArrayHasKey('commitAuthor', $result);
-        $this->assertArrayHasKey('commitUrl', $result);
-        $this->assertArrayHasKey('commitAuthorAvatar', $result);
-        $this->assertArrayHasKey('commitAuthorUrl', $result);
+        $this->assertIsArray($commit2);
+        $this->assertNotEmpty($commit2['commitHash']);
+        $this->assertStringStartsWith($secondMessage, $commit2['commitMessage']);
 
-        $this->assertNotEmpty($result['commitHash']);
-        $this->assertStringContainsString($secondMessage, $result['commitMessage']);
-        $this->assertNotEmpty($result['commitAuthor']);
-        $this->assertNotEmpty($result['commitUrl']);
+        $commit2Hash = $commit2['commitHash'];
+
+        $this->assertNotSame($commit1Hash, $commit2Hash);
 
         $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }

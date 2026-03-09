@@ -386,6 +386,12 @@ class Gitea extends Git
             $payload
         );
 
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create pull request: HTTP {$responseHeadersStatusCode}");
+        }
+
         $responseBody = $response['body'] ?? [];
 
         return $responseBody;
@@ -447,6 +453,12 @@ class Gitea extends Git
         $url = "/repos/{$owner}/{$repositoryName}/pulls/{$pullRequestNumber}";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get pull request: HTTP {$responseHeadersStatusCode}");
+        }
 
         return $response['body'] ?? [];
     }

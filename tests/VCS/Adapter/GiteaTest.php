@@ -103,45 +103,41 @@ class GiteaTest extends Base
         $repositoryName = 'test-comment-workflow-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
-        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
-        $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'comment-test', 'main');
-        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test', 'Add test file', 'comment-test');
+        try {
+            $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'comment-test', 'main');
+            $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test', 'Add test file', 'comment-test');
 
-        $pr = $this->vcsAdapter->createPullRequest(
-            self::$owner,
-            $repositoryName,
-            'Comment Test PR',
-            'comment-test',
-            'main'
-        );
+            $pr = $this->vcsAdapter->createPullRequest(
+                self::$owner,
+                $repositoryName,
+                'Comment Test PR',
+                'comment-test',
+                'main'
+            );
 
-        $prNumber = $pr['number'] ?? 0;
-        $this->assertGreaterThan(0, $prNumber);
+            $prNumber = $pr['number'] ?? 0;
+            $this->assertGreaterThan(0, $prNumber);
 
-        $originalComment = 'This is a test comment';
-        $commentId = $this->vcsAdapter->createComment(self::$owner, $repositoryName, $prNumber, $originalComment);
+            $originalComment = 'This is a test comment';
+            $commentId = $this->vcsAdapter->createComment(self::$owner, $repositoryName, $prNumber, $originalComment);
 
-        $this->assertNotEmpty($commentId);
-        $this->assertIsString($commentId);
+            $this->assertNotEmpty($commentId);
+            $this->assertIsString($commentId);
 
-        // Test getComment
-        $retrievedComment = $this->vcsAdapter->getComment(self::$owner, $repositoryName, $commentId);
+            $retrievedComment = $this->vcsAdapter->getComment(self::$owner, $repositoryName, $commentId);
+            $this->assertSame($originalComment, $retrievedComment);
 
-        $this->assertSame($originalComment, $retrievedComment);
-        $this->assertIsString($commentId);
-        $this->assertNotEmpty($commentId);
+            $updatedCommentText = 'This comment has been updated';
+            $updatedCommentId = $this->vcsAdapter->updateComment(self::$owner, $repositoryName, (int)$commentId, $updatedCommentText);
 
-        // Test updateComment
-        $updatedCommentText = 'This comment has been updated';
-        $updatedCommentId = $this->vcsAdapter->updateComment(self::$owner, $repositoryName, (int)$commentId, $updatedCommentText);
+            $this->assertSame($commentId, $updatedCommentId);
 
-        $this->assertSame($commentId, $updatedCommentId);
-
-        // Verify the update
-        $finalComment = $this->vcsAdapter->getComment(self::$owner, $repositoryName, $commentId);
-        $this->assertSame($updatedCommentText, $finalComment);
-
-        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+            $finalComment = $this->vcsAdapter->getComment(self::$owner, $repositoryName, $commentId);
+            $this->assertSame($updatedCommentText, $finalComment);
+        } finally {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+        }
     }
 
     public function testGetComment(): void
@@ -196,11 +192,10 @@ class GiteaTest extends Base
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
 
-        // Getting invalid comment should return empty string
         $result = $this->vcsAdapter->getComment(self::$owner, $repositoryName, '99999999');
 
         $this->assertIsString($result);
-        // May be empty or throw exception depending on API
+        $this->assertSame('', $result);
 
         $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
@@ -484,11 +479,12 @@ class GiteaTest extends Base
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
 
-        // Try to get non-existent PR
-        $result = $this->vcsAdapter->getPullRequest(self::$owner, $repositoryName, 99999);
-
-        // Should return empty or have error handling
-        $this->assertIsArray($result);
+        try {
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->getPullRequest(self::$owner, $repositoryName, 99999);
+        } finally {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+        }
 
         $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }

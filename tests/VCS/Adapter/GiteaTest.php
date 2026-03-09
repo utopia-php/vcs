@@ -105,7 +105,7 @@ class GiteaTest extends Base
 
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
         $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'comment-test', 'main');
-        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test', 'Add test file', 'comment-test');
 
         $pr = $this->vcsAdapter->createPullRequest(
             self::$owner,
@@ -151,7 +151,7 @@ class GiteaTest extends Base
 
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
         $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'test-branch', 'main');
-        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test', 'Add test', 'test-branch');
 
         // Create PR
         $pr = $this->vcsAdapter->createPullRequest(
@@ -445,14 +445,10 @@ class GiteaTest extends Base
         $repositoryName = 'test-get-pull-request-' . \uniqid();
         $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
 
-        // Create initial file on main branch
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
-
-        // Create feature branch and add file
         $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'feature-branch', 'main');
-        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'feature.txt', 'feature content');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'feature.txt', 'feature content', 'Add feature', 'feature-branch');
 
-        // Create pull request
         $pr = $this->vcsAdapter->createPullRequest(
             self::$owner,
             $repositoryName,
@@ -664,7 +660,7 @@ class GiteaTest extends Base
 
         $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
         $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'my-feature', 'main');
-        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'feature.txt', 'content');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'feature.txt', 'content', 'Add feature', 'my-feature');
 
         // Create PR
         $pr = $this->vcsAdapter->createPullRequest(

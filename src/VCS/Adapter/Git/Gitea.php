@@ -188,18 +188,25 @@ class Gitea extends Git
      * @param string $message Commit message
      * @return array<mixed> Response from API
      */
-    public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file'): array
+    public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file', string $branch = ''): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/contents/{$filepath}";
+
+        $payload = [
+            'content' => base64_encode($content),
+            'message' => $message
+        ];
+
+        // Add branch if specified
+        if (!empty($branch)) {
+            $payload['branch'] = $branch;
+        }
 
         $response = $this->call(
             self::METHOD_POST,
             $url,
             ['Authorization' => "token $this->accessToken"],
-            [
-                'content' => base64_encode($content),
-                'message' => $message
-            ]
+            $payload
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -446,7 +453,7 @@ class Gitea extends Git
 
     public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array
     {
-        $url = "/repos/{$owner}/{$repositoryName}/pulls?state=open&sort=recentupdate&limit=1";
+        $url = "/repos/{$owner}/{$repositoryName}/pulls?state=open&sort=recentupdate";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 

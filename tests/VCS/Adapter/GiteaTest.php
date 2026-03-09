@@ -98,9 +98,111 @@ class GiteaTest extends Base
         $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
+    public function testCommentWorkflow(): void
+    {
+        $repositoryName = 'test-comment-workflow-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+        $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'comment-test', 'main');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test');
+
+        $pr = $this->vcsAdapter->createPullRequest(
+            self::$owner,
+            $repositoryName,
+            'Comment Test PR',
+            'comment-test',
+            'main'
+        );
+
+        $prNumber = $pr['number'] ?? 0;
+        $this->assertGreaterThan(0, $prNumber);
+
+        $originalComment = 'This is a test comment';
+        $commentId = $this->vcsAdapter->createComment(self::$owner, $repositoryName, $prNumber, $originalComment);
+
+        $this->assertNotEmpty($commentId);
+        $this->assertIsString($commentId);
+
+        // Test getComment
+        $retrievedComment = $this->vcsAdapter->getComment(self::$owner, $repositoryName, $commentId);
+
+        $this->assertSame($originalComment, $retrievedComment);
+        $this->assertIsString($commentId);
+        $this->assertNotEmpty($commentId);
+
+        // Test updateComment
+        $updatedCommentText = 'This comment has been updated';
+        $updatedCommentId = $this->vcsAdapter->updateComment(self::$owner, $repositoryName, (int)$commentId, $updatedCommentText);
+
+        $this->assertSame($commentId, $updatedCommentId);
+
+        // Verify the update
+        $finalComment = $this->vcsAdapter->getComment(self::$owner, $repositoryName, $commentId);
+        $this->assertSame($updatedCommentText, $finalComment);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
     public function testGetComment(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-get-comment-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+        $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'test-branch', 'main');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'test.txt', 'test');
+
+        // Create PR
+        $pr = $this->vcsAdapter->createPullRequest(
+            self::$owner,
+            $repositoryName,
+            'Test PR',
+            'test-branch',
+            'main'
+        );
+
+        $prNumber = $pr['number'] ?? 0;
+
+        // Create a comment
+        $commentId = $this->vcsAdapter->createComment(self::$owner, $repositoryName, $prNumber, 'Test comment');
+
+        // Test getComment
+        $result = $this->vcsAdapter->getComment(self::$owner, $repositoryName, $commentId);
+
+        $this->assertIsString($result);
+        $this->assertSame('Test comment', $result);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testCreateCommentInvalidPR(): void
+    {
+        $repositoryName = 'test-comment-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        try {
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->createComment(self::$owner, $repositoryName, 99999, 'Test comment');
+        } finally {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetCommentInvalidId(): void
+    {
+        $repositoryName = 'test-get-comment-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        // Getting invalid comment should return empty string
+        $result = $this->vcsAdapter->getComment(self::$owner, $repositoryName, '99999999');
+
+        $this->assertIsString($result);
+        // May be empty or throw exception depending on API
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testGetRepositoryTreeWithSlashInBranchName(): void
@@ -340,7 +442,59 @@ class GiteaTest extends Base
 
     public function testGetPullRequest(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-get-pull-request-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        // Create initial file on main branch
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        // Create feature branch and add file
+        $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'feature-branch', 'main');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'feature.txt', 'feature content');
+
+        // Create pull request
+        $pr = $this->vcsAdapter->createPullRequest(
+            self::$owner,
+            $repositoryName,
+            'Test PR',
+            'feature-branch',
+            'main',
+            'Test PR description'
+        );
+
+        $prNumber = $pr['number'] ?? 0;
+        $this->assertGreaterThan(0, $prNumber);
+
+        // Now test getPullRequest
+        $result = $this->vcsAdapter->getPullRequest(self::$owner, $repositoryName, $prNumber);
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('number', $result);
+        $this->assertArrayHasKey('title', $result);
+        $this->assertArrayHasKey('state', $result);
+        $this->assertArrayHasKey('head', $result);
+        $this->assertArrayHasKey('base', $result);
+
+        $this->assertSame($prNumber, $result['number']);
+        $this->assertSame('Test PR', $result['title']);
+        $this->assertSame('open', $result['state']);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testGetPullRequestWithInvalidNumber(): void
+    {
+        $repositoryName = 'test-get-pull-request-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+        // Try to get non-existent PR
+        $result = $this->vcsAdapter->getPullRequest(self::$owner, $repositoryName, 99999);
+
+        // Should return empty or have error handling
+        $this->assertIsArray($result);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testGenerateCloneCommand(): void
@@ -505,7 +659,52 @@ class GiteaTest extends Base
 
     public function testGetPullRequestFromBranch(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-get-pr-from-branch-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+        $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'my-feature', 'main');
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'feature.txt', 'content');
+
+        // Create PR
+        $pr = $this->vcsAdapter->createPullRequest(
+            self::$owner,
+            $repositoryName,
+            'Feature PR',
+            'my-feature',
+            'main'
+        );
+
+        $this->assertArrayHasKey('number', $pr);
+
+        // Test getPullRequestFromBranch
+        $result = $this->vcsAdapter->getPullRequestFromBranch(self::$owner, $repositoryName, 'my-feature');
+
+        $this->assertIsArray($result);
+        $this->assertNotEmpty($result);
+        $this->assertArrayHasKey('head', $result);
+
+        $resultHead = $result['head'] ?? [];
+        $this->assertSame('my-feature', $resultHead['ref'] ?? '');
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+    }
+
+    public function testGetPullRequestFromBranchNoPR(): void
+    {
+        $repositoryName = 'test-get-pr-no-pr-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+        $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'lonely-branch', 'main');
+
+        // Don't create a PR - just test the method
+        $result = $this->vcsAdapter->getPullRequestFromBranch(self::$owner, $repositoryName, 'lonely-branch');
+
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+
+        $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
     }
 
     public function testCreateComment(): void

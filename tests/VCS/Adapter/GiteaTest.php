@@ -469,7 +469,39 @@ class GiteaTest extends Base
     }
     public function testSearchRepositories(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        // Create multiple repositories
+        $repo1Name = 'test-search-repo1-' . \uniqid();
+        $repo2Name = 'test-search-repo2-' . \uniqid();
+        $repo3Name = 'other-repo-' . \uniqid();
+
+        $this->vcsAdapter->createRepository(self::$owner, $repo1Name, false);
+        $this->vcsAdapter->createRepository(self::$owner, $repo2Name, false);
+        $this->vcsAdapter->createRepository(self::$owner, $repo3Name, false);
+
+        try {
+            // Search without filter - should return all
+            $result = $this->vcsAdapter->searchRepositories('', self::$owner, 1, 10);
+
+            $this->assertIsArray($result);
+            $this->assertArrayHasKey('items', $result);
+            $this->assertArrayHasKey('total', $result);
+            $this->assertGreaterThanOrEqual(3, $result['total']);
+
+            // Search with filter
+            $result = $this->vcsAdapter->searchRepositories('', self::$owner, 1, 10, 'test-search');
+
+            $this->assertIsArray($result);
+            $this->assertGreaterThanOrEqual(2, $result['total']);
+
+            // Verify the filtered repos are in results
+            $repoNames = array_column($result['items'], 'name');
+            $this->assertContains($repo1Name, $repoNames);
+            $this->assertContains($repo2Name, $repoNames);
+        } finally {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repo1Name);
+            $this->vcsAdapter->deleteRepository(self::$owner, $repo2Name);
+            $this->vcsAdapter->deleteRepository(self::$owner, $repo3Name);
+        }
     }
 
     public function testDeleteRepository(): void
@@ -500,7 +532,12 @@ class GiteaTest extends Base
 
     public function testGetOwnerName(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        // For Gitea, getOwnerName simply returns the installationId parameter
+        // since Gitea doesn't have GitHub App installation concept
+        $result = $this->vcsAdapter->getOwnerName(self::$owner);
+
+        $this->assertIsString($result);
+        $this->assertSame(self::$owner, $result);
     }
 
     public function testGetPullRequestFromBranch(): void
@@ -515,7 +552,31 @@ class GiteaTest extends Base
 
     public function testListBranches(): void
     {
-        $this->markTestSkipped('Will be implemented in follow-up PR');
+        $repositoryName = 'test-list-branches-' . \uniqid();
+        $this->vcsAdapter->createRepository(self::$owner, $repositoryName, false);
+
+        try {
+            // Create initial file on main branch
+            $this->vcsAdapter->createFile(self::$owner, $repositoryName, 'README.md', '# Test');
+
+            // Create additional branches
+            $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'feature-1', 'main');
+            sleep(1);
+            $this->vcsAdapter->createBranch(self::$owner, $repositoryName, 'feature-2', 'main');
+            sleep(1);
+
+            // Test listBranches
+            $branches = $this->vcsAdapter->listBranches(self::$owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertNotEmpty($branches);
+            $this->assertContains('main', $branches);
+            $this->assertContains('feature-1', $branches);
+            $this->assertContains('feature-2', $branches);
+            $this->assertGreaterThanOrEqual(3, count($branches));
+        } finally {
+            $this->vcsAdapter->deleteRepository(self::$owner, $repositoryName);
+        }
     }
 
     public function testListRepositoryLanguages(): void

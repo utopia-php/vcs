@@ -117,12 +117,47 @@ class Gitea extends Git
         return $responseBody['name'] ?? '';
     }
 
-    // Stub methods to satisfy abstract class requirements
-    // These will be implemented in follow-up PRs
-
+    /**
+     * Search repositories in organization
+     *
+     * @param string $installationId Not used in Gitea (kept for interface compatibility)
+     * @param string $owner Organization or user name
+     * @param int $page Page number for pagination
+     * @param int $per_page Number of results per page
+     * @param string $search Search query to filter repository names
+     * @return array<mixed> Array with 'items' (repositories) and 'total' count
+     */
     public function searchRepositories(string $installationId, string $owner, int $page, int $per_page, string $search = ''): array
     {
-        throw new Exception("Not implemented yet");
+        $queryParams = [
+            'page' => $page,
+            'limit' => $per_page,
+        ];
+
+        if (!empty($search)) {
+            $queryParams['q'] = $search;
+        }
+
+        $query = http_build_query($queryParams);
+        $url = "/repos/search?{$query}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseBody = $response['body'] ?? [];
+
+        // Filter by owner client-side
+        $allRepos = $responseBody['data'] ?? [];
+        $filteredRepos = array_filter($allRepos, function ($repo) use ($owner) {
+            $repoOwner = $repo['owner']['login'] ?? '';
+            return $repoOwner === $owner;
+        });
+
+        $filteredRepos = array_values($filteredRepos); // Re-index
+
+        return [
+            'items' => $filteredRepos,
+            'total' => count($filteredRepos),
+        ];
     }
 
     public function getInstallationRepository(string $repositoryName): array
@@ -367,9 +402,16 @@ class Gitea extends Git
         throw new Exception("Not implemented yet");
     }
 
+    /**
+     * Get owner name
+     * @param string $installationId In Gitea context, this is the owner name itself
+     * @return string Owner name
+     */
     public function getOwnerName(string $installationId): string
     {
-        throw new Exception("Not implemented yet");
+        // Gitea doesn't have GitHub App installation concept
+        // Return the installationId as-is since it represents the owner
+        return $installationId;
     }
 
     public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array
@@ -382,9 +424,27 @@ class Gitea extends Git
         throw new Exception("Not implemented yet");
     }
 
+    /**
+     * List all branches in a repository
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @return array<string> Array of branch names
+     */
     public function listBranches(string $owner, string $repositoryName): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/branches";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseBody = $response['body'] ?? [];
+
+        $names = [];
+        foreach ($responseBody as $branch) {
+            $names[] = $branch['name'] ?? '';
+        }
+
+        return $names;
     }
 
     /**

@@ -129,37 +129,56 @@ class Gitea extends Git
      */
     public function searchRepositories(string $installationId, string $owner, int $page, int $per_page, string $search = ''): array
     {
-        $queryParams = [
-            'page' => $page,
-            'limit' => $per_page,
-        ];
+        $allRepos = [];
+        $currentPage = 1;
 
-        if (!empty($search)) {
-            $queryParams['q'] = $search;
+        while (true) {
+            $queryParams = [
+                'page' => $currentPage,
+                'limit' => 100,
+            ];
+
+            if (!empty($search)) {
+                $queryParams['q'] = $search;
+            }
+
+            $query = http_build_query($queryParams);
+            $url = "/repos/search?{$query}";
+
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+            $responseBody = $response['body'] ?? [];
+            $repos = $responseBody['data'] ?? [];
+
+            if (empty($repos)) {
+                break;
+            }
+
+            $allRepos = array_merge($allRepos, $repos);
+
+            if (count($repos) < 100) {
+                break;
+            }
+
+            $currentPage++;
         }
 
-        $query = http_build_query($queryParams);
-        $url = "/repos/search?{$query}";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
-
-        $responseBody = $response['body'] ?? [];
-
-        // Filter by owner client-side
-        $allRepos = $responseBody['data'] ?? [];
         $filteredRepos = array_filter($allRepos, function ($repo) use ($owner) {
             $repoOwner = $repo['owner']['login'] ?? '';
             return $repoOwner === $owner;
         });
 
-        $filteredRepos = array_values($filteredRepos); // Re-index
+        $filteredRepos = array_values($filteredRepos);
+
+        $total = count($filteredRepos);
+        $offset = ($page - 1) * $per_page;
+        $pagedRepos = array_slice($filteredRepos, $offset, $per_page);
 
         return [
-            'items' => $filteredRepos,
-            'total' => count($filteredRepos),
+            'items' => $pagedRepos,
+            'total' => $total,
         ];
     }
-
     public function getInstallationRepository(string $repositoryName): array
     {
         throw new Exception("Not implemented yet");
@@ -437,11 +456,23 @@ class Gitea extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            return [];
+        }
+
         $responseBody = $response['body'] ?? [];
+
+        if (!is_array($responseBody)) {
+            return [];
+        }
 
         $names = [];
         foreach ($responseBody as $branch) {
-            $names[] = $branch['name'] ?? '';
+            if (is_array($branch) && array_key_exists('name', $branch)) {
+                $names[] = $branch['name'] ?? '';
+            }
         }
 
         return $names;

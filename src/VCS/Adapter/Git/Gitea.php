@@ -147,8 +147,19 @@ class Gitea extends Git
 
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
+            $responseHeaders = $response['headers'] ?? [];
+            $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+            if ($responseHeadersStatusCode >= 400) {
+                throw new Exception("Repository search failed with status code {$responseHeadersStatusCode}");
+            }
+
             $responseBody = $response['body'] ?? [];
-            $repos = $responseBody['data'] ?? [];
+
+            if (!array_key_exists('data', $responseBody)) {
+                throw new Exception("Repositories list missing in the response.");
+            }
+
+            $repos = $responseBody['data'];
 
             if (empty($repos)) {
                 break;
@@ -179,6 +190,7 @@ class Gitea extends Git
             'total' => $total,
         ];
     }
+
     public function getInstallationRepository(string $repositoryName): array
     {
         throw new Exception("Not implemented yet");

@@ -188,18 +188,25 @@ class Gitea extends Git
      * @param string $message Commit message
      * @return array<mixed> Response from API
      */
-    public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file'): array
+    public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file', string $branch = ''): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/contents/{$filepath}";
+
+        $payload = [
+            'content' => base64_encode($content),
+            'message' => $message
+        ];
+
+        // Add branch if specified
+        if (!empty($branch)) {
+            $payload['branch'] = $branch;
+        }
 
         $response = $this->call(
             self::METHOD_POST,
             $url,
             ['Authorization' => "token $this->accessToken"],
-            [
-                'content' => base64_encode($content),
-                'message' => $message
-            ]
+            $payload
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -347,19 +354,88 @@ class Gitea extends Git
         return true;
     }
 
+    /**
+     * Create a pull request
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $title PR title
+     * @param string $head Source branch
+     * @param string $base Target branch
+     * @param string $body PR description (optional)
+     * @return array<mixed> Created PR details
+     */
+    public function createPullRequest(string $owner, string $repositoryName, string $title, string $head, string $base, string $body = ''): array
+    {
+        $url = "/repos/{$owner}/{$repositoryName}/pulls";
+
+        $payload = [
+            'title' => $title,
+            'head' => $head,
+            'base' => $base,
+        ];
+
+        if (!empty($body)) {
+            $payload['body'] = $body;
+        }
+
+        $response = $this->call(
+            self::METHOD_POST,
+            $url,
+            ['Authorization' => "token $this->accessToken"],
+            $payload
+        );
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create pull request: HTTP {$responseHeadersStatusCode}");
+        }
+
+        $responseBody = $response['body'] ?? [];
+
+        return $responseBody;
+    }
+
     public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/issues/{$pullRequestNumber}/comments";
+
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "token $this->accessToken"], ['body' => $comment]);
+
+        $responseBody = $response['body'] ?? [];
+
+        if (!array_key_exists('id', $responseBody)) {
+            throw new Exception("Comment creation response is missing comment ID.");
+        }
+
+        return (string) ($responseBody['id'] ?? '');
     }
 
     public function getComment(string $owner, string $repositoryName, string $commentId): string
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/issues/comments/{$commentId}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseBody = $response['body'] ?? [];
+
+        return $responseBody['body'] ?? '';
     }
 
     public function updateComment(string $owner, string $repositoryName, int $commentId, string $comment): string
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/issues/comments/{$commentId}";
+
+        $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "token $this->accessToken"], ['body' => $comment]);
+
+        $responseBody = $response['body'] ?? [];
+
+        if (!array_key_exists('id', $responseBody)) {
+            throw new Exception("Comment update response is missing comment ID.");
+        }
+
+        return (string) ($responseBody['id'] ?? '');
     }
 
     public function getUser(string $username): array
@@ -374,12 +450,37 @@ class Gitea extends Git
 
     public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/pulls/{$pullRequestNumber}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get pull request: HTTP {$responseHeadersStatusCode}");
+        }
+
+        return $response['body'] ?? [];
     }
 
     public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array
     {
-        throw new Exception("Not implemented yet");
+        $url = "/repos/{$owner}/{$repositoryName}/pulls?state=open&sort=recentupdate";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseBody = $response['body'] ?? [];
+
+        // Filter by head branch (source branch of the PR)
+        foreach ($responseBody as $pr) {
+            $prHead = $pr['head'] ?? [];
+            $prHeadRef = $prHead['ref'] ?? '';
+            if ($prHeadRef === $branch) {
+                return $pr;
+            }
+        }
+
+        return [];
     }
 
     public function listBranches(string $owner, string $repositoryName): array

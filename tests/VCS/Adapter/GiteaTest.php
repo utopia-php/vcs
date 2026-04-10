@@ -1443,6 +1443,21 @@ class GiteaTest extends Base
         }
     }
 
+    public function testListBranchesEmptyRepo(): void
+    {
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testCreateTag(): void
     {
         $repositoryName = 'test-create-tag-' . \uniqid();

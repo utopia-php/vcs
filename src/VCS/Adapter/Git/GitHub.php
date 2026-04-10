@@ -863,8 +863,9 @@ class GitHub extends Git
             "git config --global init.defaultBranch main",
             "git init",
             "git remote add origin {$cloneUrl}",
-            // Enable sparse checkout
+            // Enable non-cone sparse checkout (cone mode includes root-level files)
             "git config core.sparseCheckout true",
+            "git config core.sparseCheckoutCone false",
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
             // Disable fetching of refs we don't need
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",

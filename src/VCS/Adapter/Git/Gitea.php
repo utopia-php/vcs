@@ -724,7 +724,8 @@ class Gitea extends Git
         for ($currentPage = 1; $currentPage <= $maxPages; $currentPage++) {
             $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$perPage}";
 
-            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+            // We decode ourselves later, because there is edge-case when Gitea returns empty body instead of empty array
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"], decode: false);
 
             $responseHeaders = $response['headers'] ?? [];
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -740,7 +741,7 @@ class Gitea extends Git
                 break;
             }
 
-            $responseBody = $response['body'] ?? [];
+            $responseBody = \json_decode($response['body'] ?? '', true) ?? [];
 
             if (!is_array($responseBody)) {
                 break;

@@ -123,6 +123,21 @@ abstract class Base extends TestCase
         $this->assertNotEmpty($branches);
     }
 
+    public function testListBranchesEmptyRepo(): void
+    {
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository('test-kh', $repositoryName, false);
+
+        try {
+            $branches = $this->vcsAdapter->listBranches('test-kh', $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository('test-kh', $repositoryName);
+        }
+    }
+
     public function testListRepositoryLanguages(): void
     {
         $languages = $this->vcsAdapter->listRepositoryLanguages('vermakhushboo', 'basic-js-crud');

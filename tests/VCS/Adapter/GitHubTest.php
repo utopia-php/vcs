@@ -474,4 +474,9 @@ class GitHubTest extends Base
         $this->assertSame('https://avatars.githubusercontent.com/in/287220?v=4', $commitDetails['commitAuthorAvatar']);
         $this->assertSame('https://github.com/apps/appwritedemoapp', $commitDetails['commitAuthorUrl']);
     }
+
+    public function testListBranchesEmptyRepo(): void
+    {
+        $this->markTestSkipped('GitHub creates a default branch on repository creation');
+    }
 }

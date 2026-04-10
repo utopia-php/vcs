@@ -76,6 +76,30 @@ This will allow the Utopia-php community to have sufficient discussion about the
 
 This is also important for the Utopia-php lead developers to be able to give technical input and different emphasis regarding the feature design and architecture. Some bigger features might need to go through our [RFC process](https://github.com/appwrite/rfc).
 
+## Running Tests
+
+Tests are split by adapter. Each adapter has its own Docker Compose profile and PHPUnit test suite.
+
+To start the stack and run tests for a specific adapter:
+
+```bash
+docker compose --profile <adapter> up -d
+sleep 15
+docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml --testsuite <adapter>
+```
+
+Where `<adapter>` is one of: `gitea`, `forgejo`, `github`, `gitlab`, `gogs`.
+
+For example, to run Gitea tests:
+
+```bash
+docker compose --profile gitea up -d
+sleep 15
+docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml --testsuite gitea
+```
+
+The `github` adapter does not require any local services — only the GitHub secrets (`TESTS_GITHUB_PRIVATE_KEY`, `TESTS_GITHUB_APP_IDENTIFIER`, `TESTS_GITHUB_INSTALLATION_ID`) as environment variables.
+
 ## Adding A New Adapter
 
 You can follow our [Adding new VCS Adapter](docs/add-new-vcs-adapter.md) tutorial to add a new VCS adapter like GitLab, Bitbucket etc. in this library.

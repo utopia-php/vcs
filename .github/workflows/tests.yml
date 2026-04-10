@@ -8,9 +8,14 @@ permissions:
 
 jobs:
   tests:
-    name: Tests
+    name: ${{ matrix.adapter }}
     runs-on: ubuntu-latest
     if: github.event.pull_request.head.repo.full_name == github.repository
+
+    strategy:
+      fail-fast: false
+      matrix:
+        adapter: [gitea, forgejo, github, gitlab, gogs]
 
     steps:
     - name: Check out the repo
@@ -22,15 +27,15 @@ jobs:
           TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
           TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
       run: |
-        docker compose up -d
+        docker compose --profile ${{ matrix.adapter }} up -d
         sleep 15
 
     - name: Doctor
       run: |
-        docker compose logs
+        docker compose --profile ${{ matrix.adapter }} logs
         docker ps
         docker network ls
 
     - name: Run Tests
       run: |
-        docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml tests
+        docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml --testsuite ${{ matrix.adapter }}

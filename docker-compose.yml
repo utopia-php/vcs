@@ -21,23 +21,32 @@ services:
       - TESTS_GITLAB_URL=http://gitlab:80
     depends_on:
       gitea:
-        condition: service_healthy
+        condition: service_started
+        required: false
       gitea-bootstrap:
         condition: service_completed_successfully
+        required: false
       forgejo:
-        condition: service_healthy
+        condition: service_started
+        required: false
       forgejo-bootstrap:
         condition: service_completed_successfully
+        required: false
       gogs:
-        condition: service_healthy
+        condition: service_started
+        required: false
       gogs-bootstrap:
         condition: service_completed_successfully
+        required: false
       gitlab:
-        condition: service_healthy
+        condition: service_started
+        required: false
       gitlab-bootstrap:
         condition: service_completed_successfully
-      request-catcher:                                               
+        required: false
+      request-catcher:
         condition: service_started
+        required: false
 
   gitea:
     image: gitea/gitea:1.21.5
@@ -46,7 +55,7 @@ services:
       - USER_GID=1000
       - GITEA__database__DB_TYPE=sqlite3
       - GITEA__security__INSTALL_LOCK=true
-      - GITEA__webhook__ALLOWED_HOST_LIST=*        
+      - GITEA__webhook__ALLOWED_HOST_LIST=*
       - GITEA__webhook__SKIP_TLS_VERIFY=true
       - GITEA__webhook__DELIVER_TIMEOUT=10
       - GITEA__server__LOCAL_ROOT_URL=http://gitea:3000/
@@ -60,6 +69,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    profiles:
+      - gitea
 
   gitea-bootstrap:
     image: gitea/gitea:1.21.5
@@ -81,10 +92,17 @@ services:
           echo $$TOKEN > /data/gitea/token.txt;
         fi
       "
-  request-catcher:                                                   
+    profiles:
+      - gitea
+
+  request-catcher:
     image: appwrite/requestcatcher:1.1.0
     ports:
       - "5000:5000"
+    profiles:
+      - gitea
+      - forgejo
+      - gogs
 
   forgejo:
     image: codeberg.org/forgejo/forgejo:9
@@ -105,6 +123,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    profiles:
+      - forgejo
 
   forgejo-bootstrap:
     image: codeberg.org/forgejo/forgejo:9
@@ -126,6 +146,8 @@ services:
           echo $$TOKEN > /data/gitea/token.txt;
         fi
       "
+    profiles:
+      - forgejo
 
   gogs:
     image: gogs/gogs:0.14
@@ -140,6 +162,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    profiles:
+      - gogs
 
   gogs-bootstrap:
     image: gogs/gogs:0.14
@@ -177,6 +201,8 @@ services:
           mkdir -p /data/gogs
           echo $$TOKEN > /data/gogs/token.txt
         fi
+    profiles:
+      - gogs
 
   gitlab:
     image: gitlab/gitlab-ce:18.10.1-ce.0
@@ -194,6 +220,8 @@ services:
       timeout: 10s
       retries: 20
       start_period: 300s
+    profiles:
+      - gitlab
 
   gitlab-bootstrap:
     image: alpine/curl:8.12.1
@@ -241,6 +269,8 @@ services:
         if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi
         mkdir -p /gitlab-data
         echo $$TOKEN > /gitlab-data/token.txt
+    profiles:
+      - gitlab
 
 volumes:
   gitea-data:

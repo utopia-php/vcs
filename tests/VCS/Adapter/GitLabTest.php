@@ -74,6 +74,8 @@ class GitLabTest extends Base
             $this->assertArrayHasKey('name', $result);
             $this->assertSame($repositoryName, $result['name']);
             $this->assertFalse($result['visibility'] === 'private');
+            $this->assertArrayHasKey('pushed_at', $result);
+            $this->assertNotFalse(\strtotime($result['pushed_at']));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -89,6 +91,8 @@ class GitLabTest extends Base
 
             $this->assertIsArray($result);
             $this->assertSame($repositoryName, $result['name']);
+            $this->assertArrayHasKey('pushed_at', $result);
+            $this->assertNotFalse(\strtotime($result['pushed_at']));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

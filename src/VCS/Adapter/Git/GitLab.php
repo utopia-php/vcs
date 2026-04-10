@@ -118,7 +118,9 @@ class GitLab extends Git
         if ($statusCode >= 400) {
             throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}");
         }
-        return is_array($body) ? $body : [];
+        $result = is_array($body) ? $body : [];
+        $result['pushed_at'] = $result['last_activity_at'] ?? '';
+        return $result;
     }
 
     public function deleteRepository(string $owner, string $repositoryName): bool
@@ -152,7 +154,9 @@ class GitLab extends Git
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body'] ?? [];
+        $result = $response['body'] ?? [];
+        $result['pushed_at'] = $result['last_activity_at'] ?? '';
+        return $result;
     }
 
 

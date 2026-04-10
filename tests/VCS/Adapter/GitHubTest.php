@@ -201,6 +201,8 @@ class GitHubTest extends Base
         $repo = $this->vcsAdapter->getRepository($owner, $repositoryName);
         $this->assertIsArray($repo);
         $this->assertSame($repositoryName, $repo['name']);
+        $this->assertArrayHasKey('pushed_at', $repo);
+        $this->assertNotFalse(\strtotime($repo['pushed_at']));
     }
 
     public function testGetRepositoryName(): void

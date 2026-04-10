@@ -74,6 +74,8 @@ class GiteaTest extends Base
         $this->assertArrayHasKey('owner', $result);
         $this->assertSame($owner, $result['owner']['login']);
         $this->assertFalse($result['private']);
+        $this->assertArrayHasKey('pushed_at', $result);
+        $this->assertNotFalse(\strtotime($result['pushed_at']));
 
         $this->assertTrue($this->vcsAdapter->deleteRepository(static::$owner, $repositoryName));
     }
@@ -238,6 +240,8 @@ class GiteaTest extends Base
         $this->assertIsArray($result);
         $this->assertSame($repositoryName, $result['name']);
         $this->assertSame(static::$owner, $result['owner']['login']);
+        $this->assertArrayHasKey('pushed_at', $result);
+        $this->assertNotFalse(\strtotime($result['pushed_at']));
         $this->assertTrue($this->vcsAdapter->deleteRepository(static::$owner, $repositoryName));
     }
 
@@ -1111,6 +1115,9 @@ class GiteaTest extends Base
             $repoNames = array_column($result['items'], 'name');
             $this->assertContains($repo1Name, $repoNames);
             $this->assertContains($repo2Name, $repoNames);
+
+            $this->assertArrayHasKey('pushed_at', $result['items'][0]);
+            $this->assertNotFalse(\strtotime($result['items'][0]['pushed_at']));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repo1Name);
             $this->vcsAdapter->deleteRepository(static::$owner, $repo2Name);

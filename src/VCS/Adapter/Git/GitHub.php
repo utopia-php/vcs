@@ -857,21 +857,30 @@ class GitHub extends Git
         $directory = escapeshellarg($directory);
         $rootDirectory = escapeshellarg($rootDirectory);
 
+        $isSubdirectory = $rootDirectory !== escapeshellarg('*');
+
         $commands = [
             "mkdir -p {$directory}",
             "cd {$directory}",
             "git config --global init.defaultBranch main",
             "git init",
             "git remote add origin {$cloneUrl}",
-            // Enable non-cone sparse checkout (cone mode includes root-level files)
+            // Enable sparse checkout
             "git config core.sparseCheckout true",
-            "git config core.sparseCheckoutCone false",
+        ];
+
+        // Disable cone mode for subdirectory checkouts (cone mode includes root-level files)
+        if ($isSubdirectory) {
+            $commands[] = "git config core.sparseCheckoutCone false";
+        }
+
+        $commands = array_merge($commands, [
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
             // Disable fetching of refs we don't need
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
             // Disable fetching of tags
             "git config remote.origin.tagopt --no-tags",
-        ];
+        ]);
 
         switch ($versionType) {
             case self::CLONE_TYPE_BRANCH:

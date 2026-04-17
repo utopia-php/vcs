@@ -3,6 +3,7 @@
 namespace Utopia\VCS\Adapter\Git;
 
 use Exception;
+use Utopia\Command;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Exception\RepositoryNotFound;
@@ -345,7 +346,7 @@ class GitLab extends Git
         throw new Exception("Not implemented");
     }
 
-    public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
+    public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): Command
     {
         if (empty($rootDirectory) || $rootDirectory === '/') {
             $rootDirectory = '*';
@@ -359,40 +360,101 @@ class GitLab extends Git
             $baseUrl = str_replace('://', '://oauth2:' . urlencode($this->accessToken) . '@', $this->gitlabUrl);
         }
 
-        $cloneUrl = escapeshellarg("{$baseUrl}/{$ownerPath}/{$repositoryName}.git");
-        $directory = escapeshellarg($directory);
-        $rootDirectory = escapeshellarg($rootDirectory);
-
         $commands = [
-            "mkdir -p {$directory}",
-            "cd {$directory}",
-            "git config --global init.defaultBranch main",
-            "git init",
-            "git remote add origin {$cloneUrl}",
-            "git config core.sparseCheckout true",
-            "echo {$rootDirectory} >> .git/info/sparse-checkout",
-            "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
-            "git config remote.origin.tagopt --no-tags",
+            (new Command('mkdir'))
+                ->flag('-p')
+                ->argument($directory),
+            (new Command('git'))
+                ->argument('config')
+                ->argument('--global')
+                ->argument('init.defaultBranch')
+                ->argument('main'),
+            (new Command('git'))
+                ->argument('init')
+                ->argument($directory),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('remote')
+                ->argument('add')
+                ->argument('origin')
+                ->argument("{$baseUrl}/{$ownerPath}/{$repositoryName}.git"),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('config')
+                ->argument('--add')
+                ->argument('remote.origin.fetch')
+                ->argument('+refs/heads/*:refs/remotes/origin/*'),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('config')
+                ->argument('remote.origin.tagopt')
+                ->argument('--no-tags'),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('sparse-checkout')
+                ->argument('set')
+                ->argument('--no-cone')
+                ->argument($rootDirectory),
         ];
 
         switch ($versionType) {
             case self::CLONE_TYPE_BRANCH:
-                $branchName = escapeshellarg($version);
-                $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull --depth=1 origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+                $commands[] = Command::or(
+                    Command::and(
+                        (new Command('git'))
+                            ->option('-C', $directory)
+                            ->argument('ls-remote')
+                            ->argument('--exit-code')
+                            ->argument('--heads')
+                            ->argument('origin')
+                            ->argument($version),
+                        (new Command('git'))
+                            ->option('-C', $directory)
+                            ->argument('pull')
+                            ->argument('--depth=1')
+                            ->argument('origin')
+                            ->argument($version),
+                        (new Command('git'))
+                            ->option('-C', $directory)
+                            ->argument('checkout')
+                            ->argument($version)
+                    ),
+                    (new Command('git'))
+                        ->option('-C', $directory)
+                        ->argument('checkout')
+                        ->argument('-b')
+                        ->argument($version)
+                );
                 break;
             case self::CLONE_TYPE_COMMIT:
-                $commitHash = escapeshellarg($version);
-                $commands[] = "git fetch --depth=1 origin {$commitHash} && git checkout {$commitHash}";
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('fetch')
+                    ->argument('--depth=1')
+                    ->argument('origin')
+                    ->argument($version);
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('checkout')
+                    ->argument($version);
                 break;
             case self::CLONE_TYPE_TAG:
-                $tagName = escapeshellarg($version);
-                $commands[] = "git fetch --depth=1 origin refs/tags/{$tagName} && git checkout FETCH_HEAD";
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('fetch')
+                    ->argument('--depth=1')
+                    ->argument('origin')
+                    ->argument('refs/tags/' . $version);
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('checkout')
+                    ->argument('FETCH_HEAD');
                 break;
             default:
                 throw new Exception("Unsupported clone type: {$versionType}");
         }
 
-        return implode(' && ', $commands);
+        return Command::and(...$commands);
     }
 
     public function getEvent(string $event, string $payload): array

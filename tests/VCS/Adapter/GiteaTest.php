@@ -2,8 +2,10 @@
 
 namespace Utopia\Tests\Adapter;
 
+use Utopia\Command;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\Console;
 use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
@@ -547,11 +549,12 @@ class GiteaTest extends Base
                 '/'
             );
 
-            $this->assertIsString($command);
-            $this->assertStringContainsString('git init', $command);
-            $this->assertStringContainsString('git remote add origin', $command);
-            $this->assertStringContainsString('git config core.sparseCheckout true', $command);
-            $this->assertStringContainsString($repositoryName, $command);
+            $this->assertInstanceOf(Command::class, $command);
+            $commandString = $command->toString();
+            $this->assertStringContainsString('git', $commandString);
+            $this->assertStringContainsString('remote', $commandString);
+            $this->assertStringContainsString('sparse-checkout', $commandString);
+            $this->assertStringContainsString($repositoryName, $commandString);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -576,9 +579,11 @@ class GiteaTest extends Base
                 '/tmp/test-clone-commit-' . \uniqid(),
                 '/'
             );
-            $this->assertIsString($command);
-            $this->assertStringContainsString('git fetch --depth=1', $command);
-            $this->assertStringContainsString($commitHash, $command);
+            $this->assertInstanceOf(Command::class, $command);
+            $commandString = $command->toString();
+            $this->assertStringContainsString('fetch', $commandString);
+            $this->assertStringContainsString('--depth=1', $commandString);
+            $this->assertStringContainsString($commitHash, $commandString);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -608,14 +613,11 @@ class GiteaTest extends Base
                 '/'
             );
 
-            // Verify the command contains tag-specific git commands
-            $this->assertIsString($command);
-            $this->assertStringContainsString('git init', $command);
-            $this->assertStringContainsString('git remote add origin', $command);
-            $this->assertStringContainsString('git config core.sparseCheckout true', $command);
-            $this->assertStringContainsString('refs/tags', $command);
-            $this->assertStringContainsString('v1.0.0', $command);
-            $this->assertStringContainsString('git checkout FETCH_HEAD', $command);
+            $this->assertInstanceOf(Command::class, $command);
+            $commandString = $command->toString();
+            $this->assertStringContainsString('refs/tags', $commandString);
+            $this->assertStringContainsString('v1.0.0', $commandString);
+            $this->assertStringContainsString('FETCH_HEAD', $commandString);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -635,8 +637,11 @@ class GiteaTest extends Base
                 '/'
             );
 
-            $output = [];
-            exec($command . ' 2>&1', $output, $exitCode);
+            $this->assertInstanceOf(Command::class, $command);
+
+            $output = '';
+            $stderr = '';
+            $exitCode = Console::execute($command, '', $output, $stderr, 30);
 
             $cloneFailed = ($exitCode !== 0) || !file_exists($directory . '/README.md');
 

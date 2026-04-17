@@ -2,8 +2,11 @@
 
 namespace Utopia\Tests\Adapter;
 
+use Exception;
+use Utopia\Command;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\Console;
 use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
@@ -374,12 +377,12 @@ class GitHubTest extends Base
     {
         \exec('rm -rf /tmp/clone-branch');
         $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', 'test', GitHub::CLONE_TYPE_BRANCH, '/tmp/clone-branch', '*');
-        $this->assertNotEmpty($gitCloneCommand);
-        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+        $this->assertInstanceOf(Command::class, $gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand->toString());
 
         $output = '';
-        $resultCode = null;
-        \exec($gitCloneCommand, $output, $resultCode);
+        $stderr = '';
+        $resultCode = Console::execute($gitCloneCommand, '', $output, $stderr, 30);
         $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-branch/README.md');
@@ -389,12 +392,12 @@ class GitHubTest extends Base
     {
         \exec('rm -rf /tmp/clone-commit');
         $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '4fb10447faea8a55c5cad7b5ebdfdbedca349fe4', GitHub::CLONE_TYPE_COMMIT, '/tmp/clone-commit', '*');
-        $this->assertNotEmpty($gitCloneCommand);
-        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+        $this->assertInstanceOf(Command::class, $gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand->toString());
 
         $output = '';
-        $resultCode = null;
-        \exec($gitCloneCommand, $output, $resultCode);
+        $stderr = '';
+        $resultCode = Console::execute($gitCloneCommand, '', $output, $stderr, 30);
         $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-commit/README.md');
@@ -404,48 +407,40 @@ class GitHubTest extends Base
     {
         \exec('rm -rf /tmp/clone-tag /tmp/clone-tag2 /tmp/clone-tag3');
         $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.1.0', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag', '*');
-        $this->assertNotEmpty($gitCloneCommand);
-        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+        $this->assertInstanceOf(Command::class, $gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand->toString());
 
         $output = '';
-        $resultCode = null;
-        \exec($gitCloneCommand, $output, $resultCode);
+        $stderr = '';
+        $resultCode = Console::execute($gitCloneCommand, '', $output, $stderr, 30);
         $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-tag/README.md');
 
         $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.1.*', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag2', '*');
-        $this->assertNotEmpty($gitCloneCommand);
-        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+        $this->assertInstanceOf(Command::class, $gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand->toString());
 
         $output = '';
-        $resultCode = null;
-        \exec($gitCloneCommand, $output, $resultCode);
+        $stderr = '';
+        $resultCode = Console::execute($gitCloneCommand, '', $output, $stderr, 30);
         $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-tag2/README.md');
 
         $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.*.*', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag3', '*');
-        $this->assertNotEmpty($gitCloneCommand);
-        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
+        $this->assertInstanceOf(Command::class, $gitCloneCommand);
+        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand->toString());
 
         $output = '';
-        $resultCode = null;
-        \exec($gitCloneCommand, $output, $resultCode);
+        $stderr = '';
+        $resultCode = Console::execute($gitCloneCommand, '', $output, $stderr, 30);
         $this->assertSame(0, $resultCode);
 
         $this->assertFileExists('/tmp/clone-tag3/README.md');
 
-
-        $gitCloneCommand = $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.2.*', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag4', '*');
-        $this->assertNotEmpty($gitCloneCommand);
-        $this->assertStringContainsString('sparse-checkout', $gitCloneCommand);
-
-        $output = '';
-        $resultCode = null;
-        \exec($gitCloneCommand, $output, $resultCode);
-        $this->assertNotEquals(0, $resultCode);
-
+        $this->expectException(Exception::class);
+        $this->vcsAdapter->generateCloneCommand('test-kh', 'test2', '0.2.*', GitHub::CLONE_TYPE_TAG, '/tmp/clone-tag4', '*');
         $this->assertFileDoesNotExist('/tmp/clone-tag4/README.md');
     }
 

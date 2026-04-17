@@ -2,8 +2,10 @@
 
 namespace Utopia\Tests\Adapter;
 
+use Utopia\Command;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\Console;
 use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
@@ -155,15 +157,17 @@ class GitLabTest extends Base
                 '/'
             );
 
-            $this->assertIsString($command);
-            $this->assertStringContainsString('git init', $command);
-            $this->assertStringContainsString('git remote add origin', $command);
-            $this->assertStringContainsString('git config core.sparseCheckout true', $command);
-            $this->assertStringContainsString($repositoryName, $command);
+            $this->assertInstanceOf(Command::class, $command);
+            $commandString = $command->toString();
+            $this->assertStringContainsString('git', $commandString);
+            $this->assertStringContainsString('remote', $commandString);
+            $this->assertStringContainsString('sparse-checkout', $commandString);
+            $this->assertStringContainsString($repositoryName, $commandString);
 
-            $output = [];
-            \exec($command . ' 2>&1', $output, $exitCode);
-            $this->assertSame(0, $exitCode, implode("\n", $output));
+            $output = '';
+            $stderr = '';
+            $exitCode = Console::execute($command, '', $output, $stderr, 30);
+            $this->assertSame(0, $exitCode, $stdout = trim($output . "\n" . $stderr));
             $this->assertFileExists($directory . '/README.md');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -194,9 +198,11 @@ class GitLabTest extends Base
                 '/'
             );
 
-            $this->assertIsString($command);
-            $this->assertStringContainsString('git fetch --depth=1', $command);
-            $this->assertStringContainsString($commitHash, $command);
+            $this->assertInstanceOf(Command::class, $command);
+            $commandString = $command->toString();
+            $this->assertStringContainsString('fetch', $commandString);
+            $this->assertStringContainsString('--depth=1', $commandString);
+            $this->assertStringContainsString($commitHash, $commandString);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -225,9 +231,10 @@ class GitLabTest extends Base
                 '/'
             );
 
-            $this->assertIsString($command);
-            $this->assertStringContainsString('refs/tags', $command);
-            $this->assertStringContainsString('v1.0.0', $command);
+            $this->assertInstanceOf(Command::class, $command);
+            $commandString = $command->toString();
+            $this->assertStringContainsString('refs/tags', $commandString);
+            $this->assertStringContainsString('v1.0.0', $commandString);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -247,8 +254,11 @@ class GitLabTest extends Base
                 '/'
             );
 
-            $output = [];
-            \exec($command . ' 2>&1', $output, $exitCode);
+            $this->assertInstanceOf(Command::class, $command);
+
+            $output = '';
+            $stderr = '';
+            $exitCode = Console::execute($command, '', $output, $stderr, 30);
 
             $cloneFailed = ($exitCode !== 0) || !file_exists($directory . '/README.md');
             $this->assertTrue($cloneFailed, 'Clone should have failed for nonexistent repository');

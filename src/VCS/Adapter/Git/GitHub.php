@@ -4,6 +4,7 @@ namespace Utopia\VCS\Adapter\Git;
 
 use Ahc\Jwt\JWT;
 use Exception;
+use Utopia\Command;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Exception\FileNotFound;
@@ -841,7 +842,7 @@ class GitHub extends Git
     /**
      * Generates a clone command using app access token
      */
-    public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
+    public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): Command
     {
         if (empty($rootDirectory)) {
             $rootDirectory = '*';
@@ -854,42 +855,133 @@ class GitHub extends Git
 
         $cloneUrl = "https://{$owner}{$accessToken}@github.com/{$owner}/{$repositoryName}";
 
-        $directory = escapeshellarg($directory);
-        $rootDirectory = escapeshellarg($rootDirectory);
-
         $commands = [
-            "mkdir -p {$directory}",
-            "cd {$directory}",
-            "git config --global init.defaultBranch main",
-            "git init",
-            "git remote add origin {$cloneUrl}",
-            // Enable sparse checkout
-            "git config core.sparseCheckout true",
-            "echo {$rootDirectory} >> .git/info/sparse-checkout",
-            // Disable fetching of refs we don't need
-            "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
-            // Disable fetching of tags
-            "git config remote.origin.tagopt --no-tags",
+            (new Command('mkdir'))
+                ->flag('-p')
+                ->argument($directory),
+            (new Command('git'))
+                ->argument('config')
+                ->argument('--global')
+                ->argument('init.defaultBranch')
+                ->argument('main'),
+            (new Command('git'))
+                ->argument('init')
+                ->argument($directory),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('remote')
+                ->argument('add')
+                ->argument('origin')
+                ->argument($cloneUrl),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('config')
+                ->argument('--add')
+                ->argument('remote.origin.fetch')
+                ->argument('+refs/heads/*:refs/remotes/origin/*'),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('config')
+                ->argument('remote.origin.tagopt')
+                ->argument('--no-tags'),
+            (new Command('git'))
+                ->option('-C', $directory)
+                ->argument('sparse-checkout')
+                ->argument('set')
+                ->argument('--no-cone')
+                ->argument($rootDirectory),
         ];
 
         switch ($versionType) {
             case self::CLONE_TYPE_BRANCH:
-                $branchName = escapeshellarg($version);
-                $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull --depth=1 origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
+                $commands[] = Command::or(
+                    Command::and(
+                        (new Command('git'))
+                            ->option('-C', $directory)
+                            ->argument('ls-remote')
+                            ->argument('--exit-code')
+                            ->argument('--heads')
+                            ->argument('origin')
+                            ->argument($version),
+                        (new Command('git'))
+                            ->option('-C', $directory)
+                            ->argument('pull')
+                            ->argument('--depth=1')
+                            ->argument('origin')
+                            ->argument($version),
+                        (new Command('git'))
+                            ->option('-C', $directory)
+                            ->argument('checkout')
+                            ->argument($version)
+                    ),
+                    (new Command('git'))
+                        ->option('-C', $directory)
+                        ->argument('checkout')
+                        ->argument('-b')
+                        ->argument($version)
+                );
                 break;
             case self::CLONE_TYPE_COMMIT:
-                $commitHash = escapeshellarg($version);
-                $commands[] = "git fetch --depth=1 origin {$commitHash} && git checkout {$commitHash}";
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('fetch')
+                    ->argument('--depth=1')
+                    ->argument('origin')
+                    ->argument($version);
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('checkout')
+                    ->argument($version);
                 break;
             case self::CLONE_TYPE_TAG:
-                $tagName = escapeshellarg($version);
-                $commands[] = "git fetch --depth=1 origin refs/tags/$(git ls-remote --tags origin {$tagName} | tail -n 1 | awk -F '/' '{print $3}') && git checkout FETCH_HEAD";
+                $resolvedTag = $this->resolveTagReference($owner, $repositoryName, $version);
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('fetch')
+                    ->argument('--depth=1')
+                    ->argument('origin')
+                    ->argument('refs/tags/' . $resolvedTag);
+                $commands[] = (new Command('git'))
+                    ->option('-C', $directory)
+                    ->argument('checkout')
+                    ->argument('FETCH_HEAD');
                 break;
         }
 
-        $fullCommand = implode(" && ", $commands);
+        return Command::and(...$commands);
+    }
 
-        return $fullCommand;
+    private function resolveTagReference(string $owner, string $repositoryName, string $version): string
+    {
+        if (!str_contains($version, '*')) {
+            return $version;
+        }
+
+        $prefix = rtrim(strstr($version, '*', true) ?: '', '.');
+        $refPrefix = 'tags' . (!empty($prefix) ? '/' . $prefix : '');
+        $response = $this->call(
+            self::METHOD_GET,
+            "/repos/{$owner}/{$repositoryName}/git/matching-refs/{$refPrefix}",
+            ['Authorization' => "Bearer $this->accessToken"]
+        );
+
+        $refs = $response['body'] ?? [];
+        $matches = [];
+
+        foreach ($refs as $ref) {
+            $tag = str_replace('refs/tags/', '', $ref['ref'] ?? '');
+            if ($tag !== '' && fnmatch($version, $tag)) {
+                $matches[] = $tag;
+            }
+        }
+
+        if (empty($matches)) {
+            throw new Exception("Tag not found for pattern: {$version}");
+        }
+
+        usort($matches, static fn (string $left, string $right): int => version_compare($left, $right));
+
+        return $matches[array_key_last($matches)];
     }
 
     /**

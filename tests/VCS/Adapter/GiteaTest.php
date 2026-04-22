@@ -61,6 +61,24 @@ class GiteaTest extends Base
         }
     }
 
+    public function testListBranchesEmptyRepo(): void
+    {
+        // Base::testListBranchesEmptyRepo hardcodes owner 'test-kh' (a GitHub username).
+        // In Gitea we use a generated test org, so override to use static::$owner.
+        $owner = static::$owner;
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository($owner, $repositoryName, false);
+
+        try {
+            $branches = $this->vcsAdapter->listBranches($owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository($owner, $repositoryName);
+        }
+    }
+
     public function testCreateRepository(): void
     {
         $owner = static::$owner;

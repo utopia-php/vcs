@@ -100,8 +100,13 @@ class Gitea extends Git
             'private' => $private,
         ]);
 
-        return $response['body'] ?? [];
-        // return is_array($body) ? $body : [];
+        $result = $response['body'] ?? [];
+        if (is_array($result)) {
+            // Gitea's API does not expose `pushed_at`; surface `updated_at` under that key
+            // for parity with the other VCS adapters (GitHub, GitLab).
+            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+        }
+        return is_array($result) ? $result : [];
     }
 
     public function createOrganization(string $orgName): string
@@ -207,6 +212,15 @@ class Gitea extends Git
         $offset = ($page - 1) * $per_page;
         $pagedRepos = array_slice($filteredRepos, $offset, $per_page);
 
+        // Gitea's API does not expose `pushed_at`; surface `updated_at` under that key
+        // for parity with the other VCS adapters (GitHub, GitLab).
+        foreach ($pagedRepos as &$repo) {
+            if (is_array($repo)) {
+                $repo['pushed_at'] = $repo['pushed_at'] ?? ($repo['updated_at'] ?? '');
+            }
+        }
+        unset($repo);
+
         return [
             'items' => $pagedRepos,
             'total' => $total,
@@ -241,7 +255,13 @@ class Gitea extends Git
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body'] ?? [];
+        $result = $response['body'] ?? [];
+        if (is_array($result)) {
+            // Gitea's API does not expose `pushed_at`; surface `updated_at` under that key
+            // for parity with the other VCS adapters (GitHub, GitLab).
+            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+        }
+        return is_array($result) ? $result : [];
     }
 
     public function getRepositoryName(string $repositoryId): string

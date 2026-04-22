@@ -211,6 +211,11 @@ class GitLabTest extends Base
         $this->markTestSkipped('Not implemented for GitLab yet');
     }
 
+    public function testListBranchesEmptyRepo(): void
+    {
+        $this->markTestSkipped('Not implemented for GitLab yet');
+    }
+
     public function testListRepositoryLanguages(): void
     {
         $this->markTestSkipped('Not implemented for GitLab yet');

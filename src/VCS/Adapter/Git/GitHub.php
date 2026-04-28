@@ -340,8 +340,13 @@ class GitHub extends Git
     public function getRepository(string $owner, string $repositoryName): array
     {
         $url = "/repos/{$owner}/{$repositoryName}";
-
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404 || $responseHeadersStatusCode === 422) {
+            throw new RepositoryNotFound("Repository not found.");
+        }
 
         return $response['body'] ?? [];
     }
@@ -764,6 +769,12 @@ class GitHub extends Git
         $url = "/repos/$owner/$repositoryName/commits/$commitHash";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404 || $responseHeadersStatusCode === 422) {
+            throw new RepositoryNotFound("Commit not found.");
+        }
 
         $responseBody = $response['body'] ?? [];
         $responseBodyAuthor = $responseBody['author'] ?? [];

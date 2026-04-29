@@ -408,7 +408,6 @@ abstract class Adapter
             throw new Exception(curl_error($ch) . ' with status code ' . $responseStatus, $responseStatus);
         }
 
-        curl_close($ch);
 
         $responseHeaders['status-code'] = $responseStatus;
 

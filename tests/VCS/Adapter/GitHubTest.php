@@ -474,4 +474,22 @@ class GitHubTest extends Base
         $this->assertSame('https://avatars.githubusercontent.com/in/287220?v=4', $commitDetails['commitAuthorAvatar']);
         $this->assertSame('https://github.com/apps/appwritedemoapp', $commitDetails['commitAuthorUrl']);
     }
+
+    public function testListBranches(): void
+    {
+        $owner = 'test-kh';
+        $repositoryName = 'test2';
+
+        // Basic test
+        $branches = $this->vcsAdapter->listBranches($owner, $repositoryName);
+        $this->assertIsArray($branches);
+        $this->assertNotEmpty($branches);
+        $this->assertContains('main', $branches);
+        $this->assertContains('test', $branches);
+
+        // Test with pagination params
+        $branches = $this->vcsAdapter->listBranches($owner, $repositoryName, 1, 1);
+        $this->assertIsArray($branches);
+        $this->assertCount(1, $branches);
+    }
 }

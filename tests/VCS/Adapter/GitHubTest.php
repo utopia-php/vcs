@@ -295,10 +295,11 @@ class GitHubTest extends Base
     public function testGetRepositoryTreeWithInvalidBranch(): void
     {
         $repositoryName = 'test-get-repository-tree-invalid-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
         try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
             $tree = $this->vcsAdapter->getRepositoryTree(static::$owner, $repositoryName, 'non-existing-branch', false);
             $this->assertIsArray($tree);
             $this->assertEmpty($tree);
@@ -353,10 +354,11 @@ class GitHubTest extends Base
     public function testGetRepositoryContentFileNotFound(): void
     {
         $repositoryName = 'test-get-repository-content-not-found-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
         try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
             $this->expectException(FileNotFound::class);
             $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'non-existing.txt');
         } finally {
@@ -367,11 +369,11 @@ class GitHubTest extends Base
     public function testGetRepositoryContentCaseSensitive(): void
     {
         $repositoryName = 'test-get-repository-content-case-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
         try {
-            // GitHub is case-sensitive — readme.md should throw
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
             $this->expectException(FileNotFound::class);
             $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'readme.md');
         } finally {
@@ -412,10 +414,11 @@ class GitHubTest extends Base
     public function testListRepositoryContentsNonExistingPath(): void
     {
         $repositoryName = 'test-list-repository-contents-invalid-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
         try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
             $contents = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'non-existing-path');
             $this->assertIsArray($contents);
             $this->assertEmpty($contents);
@@ -510,11 +513,12 @@ class GitHubTest extends Base
     public function testGetCommitWithInvalidHash(): void
     {
         $repositoryName = 'test-get-commit-invalid-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
+    
         try {
-            $this->expectException(RepositoryNotFound::class);
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+    
+            $this->expectException(\Exception::class);
             $this->vcsAdapter->getCommit(static::$owner, $repositoryName, 'invalid-sha-12345');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -555,10 +559,11 @@ class GitHubTest extends Base
     public function testGetLatestCommitWithInvalidBranch(): void
     {
         $repositoryName = 'test-get-latest-commit-invalid-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
         try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
             $this->expectException(\Exception::class);
             $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, 'non-existing-branch');
         } finally {

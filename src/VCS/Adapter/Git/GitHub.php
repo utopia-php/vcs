@@ -772,8 +772,11 @@ class GitHub extends Git
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
-        if ($responseHeadersStatusCode === 404 || $responseHeadersStatusCode === 422) {
+        if ($responseHeadersStatusCode === 404) {
             throw new RepositoryNotFound("Commit not found.");
+        }
+        if ($responseHeadersStatusCode === 422) {
+            throw new Exception("Commit not found or inaccessible.");
         }
 
         $responseBody = $response['body'] ?? [];
@@ -804,6 +807,12 @@ class GitHub extends Git
         $url = "/repos/$owner/$repositoryName/commits/$branch?per_page=1";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
+            throw new RepositoryNotFound("Branch not found: {$branch}");
+        }
 
         $responseBody = $response['body'] ?? [];
         $responseBodyCommit = $responseBody['commit'] ?? [];

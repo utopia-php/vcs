@@ -513,11 +513,11 @@ class GitHubTest extends Base
     public function testGetCommitWithInvalidHash(): void
     {
         $repositoryName = 'test-get-commit-invalid-' . \uniqid();
-    
+
         try {
             $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-    
+
             $this->expectException(\Exception::class);
             $this->vcsAdapter->getCommit(static::$owner, $repositoryName, 'invalid-sha-12345');
         } finally {

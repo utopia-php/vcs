@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "cfe77dc7b88fcdd59e8be1a94f94ca54",
+    "content-hash": "d292ca6f88e8657b37abd0f847a153b5",
     "packages": [
         {
             "name": "adhocore/jwt",
@@ -1982,16 +1982,16 @@
         },
         {
             "name": "utopia-php/fetch",
-            "version": "0.5.1",
+            "version": "1.1.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/utopia-php/fetch.git",
-                "reference": "a96a010e1c273f3888765449687baf58cbc61fcd"
+                "reference": "64f2b3a789480f1deb102ce684dac4217d8e98d5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/utopia-php/fetch/zipball/a96a010e1c273f3888765449687baf58cbc61fcd",
-                "reference": "a96a010e1c273f3888765449687baf58cbc61fcd",
+                "url": "https://api.github.com/repos/utopia-php/fetch/zipball/64f2b3a789480f1deb102ce684dac4217d8e98d5",
+                "reference": "64f2b3a789480f1deb102ce684dac4217d8e98d5",
                 "shasum": ""
             },
             "require": {
@@ -2000,7 +2000,8 @@
             "require-dev": {
                 "laravel/pint": "^1.5.0",
                 "phpstan/phpstan": "^1.10",
-                "phpunit/phpunit": "^9.5"
+                "phpunit/phpunit": "^9.5",
+                "swoole/ide-helper": "^6.0"
             },
             "type": "library",
             "autoload": {
@@ -2015,9 +2016,9 @@
             "description": "A simple library that provides an interface for making HTTP Requests.",
             "support": {
                 "issues": "https://github.com/utopia-php/fetch/issues",
-                "source": "https://github.com/utopia-php/fetch/tree/0.5.1"
+                "source": "https://github.com/utopia-php/fetch/tree/1.1.2"
             },
-            "time": "2025-12-18T16:25:10+00:00"
+            "time": "2026-04-29T11:19:19+00:00"
         },
         {
             "name": "utopia-php/pools",

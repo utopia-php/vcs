@@ -467,6 +467,60 @@ class GitHubTest extends Base
         $this->assertSame('7ae65094d56edafc48596ffbb77950e741e56412', $commitDetails['commitHash']);
     }
 
+    public function testListBranchesFetchesAllPages(): void
+    {
+        $firstPage = [];
+        for ($i = 1; $i <= 100; $i++) {
+            $firstPage[] = ['name' => "branch-{$i}"];
+        }
+
+        $secondPage = [];
+        for ($i = 101; $i <= 135; $i++) {
+            $secondPage[] = ['name' => "branch-{$i}"];
+        }
+
+        $adapter = new class (new Cache(new None()), [$firstPage, $secondPage]) extends GitHub {
+            /**
+             * @var array<array<mixed>>
+             */
+            public array $requests = [];
+
+            /**
+             * @param array<array<mixed>> $responses
+             */
+            public function __construct(Cache $cache, private array $responses)
+            {
+                parent::__construct($cache);
+                $this->accessToken = 'test-token';
+            }
+
+            protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true)
+            {
+                $this->requests[] = [
+                    'method' => $method,
+                    'path' => $path,
+                    'headers' => $headers,
+                    'params' => $params,
+                ];
+
+                return [
+                    'headers' => ['status-code' => 200],
+                    'body' => array_shift($this->responses) ?? [],
+                ];
+            }
+        };
+
+        $branches = $adapter->listBranches('appwrite', 'appwrite');
+
+        $this->assertCount(135, $branches);
+        $this->assertSame('branch-1', $branches[0]);
+        $this->assertSame('branch-135', $branches[134]);
+        $this->assertCount(2, $adapter->requests);
+        $this->assertSame('/repos/appwrite/appwrite/branches', $adapter->requests[0]['path']);
+        $this->assertSame(['page' => 1, 'per_page' => 100], $adapter->requests[0]['params']);
+        $this->assertSame(['page' => 2, 'per_page' => 100], $adapter->requests[1]['params']);
+    }
+
     public function testGetLatestCommit(): void
     {
         $commitDetails = $this->vcsAdapter->getLatestCommit('test-kh', 'test1', 'test');

@@ -738,15 +738,28 @@ class GitHub extends Git
     public function listBranches(string $owner, string $repositoryName): array
     {
         $url = "/repos/$owner/$repositoryName/branches";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        $responseBody = $response['body'] ?? [];
-
+        $perPage = 100;
+        $currentPage = 1;
         $names = [];
-        foreach ($responseBody as $subarray) {
-            $names[] = $subarray['name'] ?? '';
-        }
+
+        do {
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+                'page' => $currentPage,
+                'per_page' => $perPage,
+            ]);
+
+            $responseBody = $response['body'] ?? [];
+
+            if (!is_array($responseBody)) {
+                break;
+            }
+
+            foreach ($responseBody as $subarray) {
+                $names[] = $subarray['name'] ?? '';
+            }
+
+            $currentPage++;
+        } while (count($responseBody) === $perPage);
 
         return $names;
     }

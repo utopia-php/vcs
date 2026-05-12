@@ -4,7 +4,9 @@ namespace Utopia\VCS;
 
 final class DeploymentSkippable
 {
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     private const PATTERNS = [
         '[skip ci]',

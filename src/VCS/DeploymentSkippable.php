@@ -2,8 +2,10 @@
 
 namespace Utopia\VCS;
 
-class DeploymentSkippable
+final class DeploymentSkippable
 {
+    private function __construct() {}
+
     private const PATTERNS = [
         '[skip ci]',
         '[ci skip]',
@@ -22,7 +24,7 @@ class DeploymentSkippable
         '[no appwrite]',
     ];
 
-    public static function fromCommitMessage(mixed $message): bool
+    public static function isSkippedByCommitMessage(mixed $message): bool
     {
         if (!is_string($message)) {
             return false;

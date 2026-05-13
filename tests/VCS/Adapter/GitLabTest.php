@@ -251,7 +251,6 @@ class GitLabTest extends Base
 
             $this->assertNotEmpty($commentId);
             $this->assertIsString($commentId);
-            $this->assertIsNumeric($commentId);
 
             $retrieved = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
             $this->assertSame('Test comment', $retrieved);
@@ -283,7 +282,7 @@ class GitLabTest extends Base
 
             $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Original comment');
 
-            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, (int)$commentId, 'Updated comment');
+            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, $commentId, 'Updated comment');
 
             $this->assertSame($commentId, $updatedCommentId);
 
@@ -1229,7 +1228,6 @@ class GitLabTest extends Base
 
         try {
             $result = $this->vcsAdapter->getComment(static::$owner, $repositoryName, '99999999');
-
             $this->assertIsString($result);
             $this->assertSame('', $result);
         } finally {

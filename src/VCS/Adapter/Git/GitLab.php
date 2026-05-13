@@ -99,42 +99,6 @@ class GitLab extends Git
         return $owner;
     }
 
-    private function findMrIidForNote(string $projectPath, string $commentId): ?int
-    {
-        $page = 1;
-        while (true) {
-            $url = "/projects/{$projectPath}/merge_requests?state=all&per_page=100&page={$page}";
-            $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
-            $responseHeaders = $response['headers'] ?? [];
-            $statusCode = $responseHeaders['status-code'] ?? 0;
-            if ($statusCode >= 400) {
-                throw new Exception("Failed to list merge requests: HTTP {$statusCode}");
-            }
-            
-            $mrs = $response['body'] ?? [];
-            
-            if (empty($mrs) || !is_array($mrs)) {
-                break;
-            }
-
-            foreach ($mrs as $mr) {
-                $mrIid = $mr['iid'] ?? 0;
-                $noteUrl = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$commentId}";
-                $noteResponse = $this->call(self::METHOD_GET, $noteUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
-                if (($noteResponse['headers']['status-code'] ?? 0) === 200) {
-                    return $mrIid;
-                }
-            }
-
-            if (count($mrs) < 100) {
-                break;
-            }
-            $page++;
-        }
-
-        return null;
-    }
-
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
         $namespaceId = (int) $this->getNamespaceId($owner);
@@ -518,7 +482,7 @@ class GitLab extends Git
             throw new Exception("Comment creation response is missing comment ID.");
         }
 
-        return (string) ($responseBody['id'] ?? '');
+        return $pullRequestNumber . ':' . ($responseBody['id'] ?? '');
     }
 
     public function getComment(string $owner, string $repositoryName, string $commentId): string
@@ -526,34 +490,38 @@ class GitLab extends Git
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
 
-        $mrIid = $this->findMrIidForNote($projectPath, $commentId);
-        if ($mrIid === null) {
+        $parts = explode(':', $commentId, 2);
+        if (count($parts) !== 2) {
             return '';
         }
 
-        $noteUrl = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$commentId}";
-        $noteResponse = $this->call(self::METHOD_GET, $noteUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
-        return $noteResponse['body']['body'] ?? '';
+        [$mrIid, $noteId] = $parts;
+        $url = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$noteId}";
+        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+
+        return $response['body']['body'] ?? '';
     }
 
-    public function updateComment(string $owner, string $repositoryName, int $commentId, string $comment): string
+    public function updateComment(string $owner, string $repositoryName, string $commentId, string $comment): string
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
 
-        $mrIid = $this->findMrIidForNote($projectPath, (string) $commentId);
-        if ($mrIid === null) {
-            throw new Exception("Failed to update comment: comment ID {$commentId} not found in any merge request.");
+        $parts = explode(':', $commentId, 2);
+        if (count($parts) !== 2) {
+            throw new Exception("Invalid comment ID format: {$commentId}");
         }
 
-        $noteUrl = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$commentId}";
-        $noteResponse = $this->call(self::METHOD_PUT, $noteUrl, ['PRIVATE-TOKEN' => $this->accessToken], ['body' => $comment]);
-        $noteHeaders = $noteResponse['headers'] ?? [];
-        if (($noteHeaders['status-code'] ?? 0) !== 200) {
-            throw new Exception("Failed to update comment: HTTP " . ($noteHeaders['status-code'] ?? 0));
+        [$mrIid, $noteId] = $parts;
+        $url = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$noteId}";
+        $response = $this->call(self::METHOD_PUT, $url, ['PRIVATE-TOKEN' => $this->accessToken], ['body' => $comment]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        if (($responseHeaders['status-code'] ?? 0) !== 200) {
+            throw new Exception("Failed to update comment: HTTP " . ($responseHeaders['status-code'] ?? 0));
         }
 
-        return (string) $commentId;
+        return $commentId;
     }
 
     public function getUser(string $username): array

@@ -135,7 +135,7 @@ class GiteaTest extends Base
             $this->assertSame($originalComment, $retrievedComment);
 
             $updatedCommentText = 'This comment has been updated';
-            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, (int)$commentId, $updatedCommentText);
+            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, $commentId, $updatedCommentText);
 
             $this->assertSame($commentId, $updatedCommentId);
 
@@ -677,7 +677,7 @@ class GiteaTest extends Base
             $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Original comment');
 
             // Test updateComment
-            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, (int)$commentId, 'Updated comment');
+            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, (string)$commentId, 'Updated comment');
 
             $this->assertSame($commentId, $updatedCommentId);
 

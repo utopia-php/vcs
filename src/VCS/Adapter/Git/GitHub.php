@@ -754,28 +754,20 @@ class GitHub extends Git
     {
         $url = "/repos/$owner/$repositoryName/branches";
         $perPage = min(max($perPage, 1), 100);
-        $names = [];
 
-        do {
-            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
-                'page' => $page,
-                'per_page' => $perPage,
-            ]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+            'page' => $page,
+            'per_page' => $perPage,
+        ]);
 
-            $responseBody = $response['body'] ?? [];
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        $responseBody = $response['body'] ?? [];
 
-            if (!is_array($responseBody)) {
-                break;
-            }
+        if ($statusCode < 200 || $statusCode >= 300 || !is_array($responseBody)) {
+            return [];
+        }
 
-            foreach ($responseBody as $subarray) {
-                $names[] = $subarray['name'] ?? '';
-            }
-
-            $page++;
-        } while (count($responseBody) === $perPage);
-
-        return $names;
+        return array_values(array_map(fn ($branch) => $branch['name'] ?? '', $responseBody));
     }
 
     /**

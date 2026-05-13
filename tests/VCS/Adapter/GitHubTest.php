@@ -525,7 +525,7 @@ class GitHubTest extends Base
         }
     }
 
-    public function testListBranchesFetchesMultiplePages(): void
+    public function testListBranchesPagination(): void
     {
         $repositoryName = 'test-list-branches-pages-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
@@ -537,12 +537,19 @@ class GitHubTest extends Base
 
             /** @var GitHub $adapter */
             $adapter = $this->vcsAdapter;
-            $branches = $adapter->listBranches(static::$owner, $repositoryName, 1);
 
-            $this->assertIsArray($branches);
-            $this->assertContains(static::$defaultBranch, $branches);
-            $this->assertContains('branch-a', $branches);
-            $this->assertContains('branch-b', $branches);
+            $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1);
+            $this->assertCount(1, $page1);
+
+            $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, 2);
+            $this->assertCount(1, $page2);
+
+            $this->assertNotSame($page1[0], $page2[0]);
+
+            $all = $adapter->listBranches(static::$owner, $repositoryName, 100, 1);
+            $this->assertContains(static::$defaultBranch, $all);
+            $this->assertContains('branch-a', $all);
+            $this->assertContains('branch-b', $all);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

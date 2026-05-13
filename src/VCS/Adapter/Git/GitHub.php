@@ -181,7 +181,15 @@ class GitHub extends Git
      */
     public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
     {
-        throw new Exception("Not implemented");
+        $latestCommit = $this->getLatestCommit($owner, $repositoryName, $oldBranchName);
+        $sha = $latestCommit['commitHash'];
+
+        $response = $this->call(self::METHOD_POST, "/repos/$owner/$repositoryName/git/refs", ['Authorization' => "Bearer $this->accessToken"], [
+            'ref' => "refs/heads/$newBranchName",
+            'sha' => $sha,
+        ]);
+
+        return $response['body'] ?? [];
     }
 
     /**
@@ -739,13 +747,13 @@ class GitHub extends Git
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
      * @param  int  $perPage Number of branches to fetch per page
+     * @param  int  $page Page number to start fetching from
      * @return array<string> List of branch names as array
      */
-    public function listBranches(string $owner, string $repositoryName, int $perPage = 100): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1): array
     {
         $url = "/repos/$owner/$repositoryName/branches";
         $perPage = min(max($perPage, 1), 100);
-        $page = 1;
         $names = [];
 
         do {

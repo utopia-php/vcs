@@ -527,15 +527,25 @@ class GitHubTest extends Base
 
     public function testListBranchesFetchesMultiplePages(): void
     {
-        $this->assertInstanceOf(GitHub::class, $this->vcsAdapter);
+        $repositoryName = 'test-list-branches-pages-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
-        /** @var GitHub $adapter */
-        $adapter = $this->vcsAdapter;
-        $branches = $adapter->listBranches('test-kh', 'test1', 1);
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-a', static::$defaultBranch);
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-b', static::$defaultBranch);
 
-        $this->assertIsArray($branches);
-        $this->assertContains('main', $branches);
-        $this->assertContains('test', $branches);
+            /** @var GitHub $adapter */
+            $adapter = $this->vcsAdapter;
+            $branches = $adapter->listBranches(static::$owner, $repositoryName, 1);
+
+            $this->assertIsArray($branches);
+            $this->assertContains(static::$defaultBranch, $branches);
+            $this->assertContains('branch-a', $branches);
+            $this->assertContains('branch-b', $branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testGetLatestCommit(): void

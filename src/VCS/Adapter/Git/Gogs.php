@@ -505,7 +505,7 @@ class Gogs extends Gitea
      *
      * @return array<string>
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/branches";
 

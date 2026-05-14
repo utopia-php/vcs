@@ -473,11 +473,17 @@ class GitHubTest extends Base
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+            /** @var GitHub $adapter */
+            $adapter = $this->vcsAdapter;
+            $branches = $adapter->listBranches(static::$owner, $repositoryName);
 
             $this->assertIsArray($branches);
-            $this->assertNotEmpty($branches);
-            $this->assertContains(static::$defaultBranch, $branches);
+            $this->assertArrayHasKey('items', $branches);
+            $this->assertArrayHasKey('hasNext', $branches);
+            $this->assertNotEmpty($branches['items']);
+            $this->assertFalse($branches['hasNext']);
+            $this->assertNull($branches['nextCursor']);
+            $this->assertContains(static::$defaultBranch, $branches['items']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -541,13 +547,37 @@ class GitHubTest extends Base
             $adapter = $this->vcsAdapter;
 
             $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1);
-            $this->assertSame(['branch-a'], $page1);
+            $this->assertSame(['branch-a'], $page1['items']);
+            $this->assertTrue($page1['hasNext']);
+            $this->assertNotEmpty($page1['nextCursor']);
 
             $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, 2);
-            $this->assertSame(['branch-b'], $page2);
+            $this->assertSame(['branch-b'], $page2['items']);
+            $this->assertTrue($page2['hasNext']);
+            $this->assertNotEmpty($page2['nextCursor']);
+
+            $cursorPage2 = $adapter->listBranches(static::$owner, $repositoryName, 1, $page1['nextCursor']);
+            $this->assertSame($page2, $cursorPage2);
+
+            $page3 = $adapter->listBranches(static::$owner, $repositoryName, 1, 3);
+            $this->assertSame([static::$defaultBranch], $page3['items']);
+            $this->assertFalse($page3['hasNext']);
+            $this->assertNull($page3['nextCursor']);
 
             $all = $adapter->listBranches(static::$owner, $repositoryName, 100, 1);
-            $this->assertEqualsCanonicalizing([static::$defaultBranch, 'branch-a', 'branch-b'], $all);
+            $this->assertEqualsCanonicalizing([static::$defaultBranch, 'branch-a', 'branch-b'], $all['items']);
+            $this->assertFalse($all['hasNext']);
+            $this->assertNull($all['nextCursor']);
+
+            $searchPage1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1, 'branch');
+            $this->assertSame(['branch-a'], $searchPage1['items']);
+            $this->assertTrue($searchPage1['hasNext']);
+            $this->assertNotEmpty($searchPage1['nextCursor']);
+
+            $searchPage2 = $adapter->listBranches(static::$owner, $repositoryName, 1, $searchPage1['nextCursor'], 'branch');
+            $this->assertSame(['branch-b'], $searchPage2['items']);
+            $this->assertFalse($searchPage2['hasNext']);
+            $this->assertNull($searchPage2['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -559,10 +589,14 @@ class GitHubTest extends Base
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+            /** @var GitHub $adapter */
+            $adapter = $this->vcsAdapter;
+            $branches = $adapter->listBranches(static::$owner, $repositoryName);
 
             $this->assertIsArray($branches);
-            $this->assertEmpty($branches);
+            $this->assertSame([], $branches['items']);
+            $this->assertFalse($branches['hasNext']);
+            $this->assertNull($branches['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -570,10 +604,14 @@ class GitHubTest extends Base
 
     public function testListBranchesNonExistingRepository(): void
     {
-        $branches = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
+        /** @var GitHub $adapter */
+        $adapter = $this->vcsAdapter;
+        $branches = $adapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
 
         $this->assertIsArray($branches);
-        $this->assertEmpty($branches);
+        $this->assertSame([], $branches['items']);
+        $this->assertFalse($branches['hasNext']);
+        $this->assertNull($branches['nextCursor']);
     }
 
     public function testGetLatestCommit(): void

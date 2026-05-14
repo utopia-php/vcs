@@ -731,7 +731,7 @@ class Gitea extends Git
      * @param string $repositoryName Name of the repository
      * @return array<string> Array of branch names
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
         $allBranches = [];
         $perPage = 50;

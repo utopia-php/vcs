@@ -747,27 +747,103 @@ class GitHub extends Git
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
      * @param  int  $perPage Number of branches to fetch per page
-     * @param  int  $page Page number to start fetching from
-     * @return array<string> List of branch names as array
+     * @param  int|string|null  $page Page number or GraphQL cursor to start fetching from
+     * @param  string  $search Branch name search query
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null} List of branch names and pagination metadata
      */
-    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
-        $url = "/repos/$owner/$repositoryName/branches";
         $perPage = min(max($perPage, 1), 100);
+        $cursor = is_string($page) ? $page : null;
+        $page = is_int($page) ? max($page, 1) : 1;
+        $result = [
+            'items' => [],
+            'hasNext' => false,
+            'nextCursor' => null,
+        ];
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
-            'page' => $page,
-            'per_page' => $perPage,
+        for ($currentPage = 1; $currentPage <= $page; $currentPage++) {
+            $result = $this->listBranchesPage($owner, $repositoryName, $perPage, $cursor, $search);
+
+            if ($currentPage === $page) {
+                return $result;
+            }
+
+            if ($result['hasNext'] === false) {
+                return [
+                    'items' => [],
+                    'hasNext' => false,
+                    'nextCursor' => null,
+                ];
+            }
+
+            $cursor = $result['nextCursor'];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
+     */
+    private function listBranchesPage(string $owner, string $repositoryName, int $perPage, ?string $cursor, string $search): array
+    {
+        $query = <<<'GRAPHQL'
+query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String, $query: String) {
+  repository(owner: $owner, name: $name) {
+    refs(refPrefix: "refs/heads/", first: $first, after: $after, query: $query, orderBy: {field: ALPHABETICAL, direction: ASC}) {
+      nodes {
+        name
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+GRAPHQL;
+
+        $response = $this->call(self::METHOD_POST, '/graphql', ['Authorization' => "Bearer $this->accessToken"], [
+            'query' => $query,
+            'variables' => [
+                'owner' => $owner,
+                'name' => $repositoryName,
+                'first' => $perPage,
+                'after' => $cursor,
+                'query' => $search === '' ? null : $search,
+            ],
         ]);
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         $responseBody = $response['body'] ?? [];
 
-        if ($statusCode < 200 || $statusCode >= 300 || !is_array($responseBody)) {
-            return [];
+        if ($statusCode < 200 || $statusCode >= 300 || !is_array($responseBody) || array_key_exists('errors', $responseBody)) {
+            return [
+                'items' => [],
+                'hasNext' => false,
+                'nextCursor' => null,
+            ];
         }
 
-        return array_values(array_map(fn ($branch) => $branch['name'] ?? '', $responseBody));
+        $refs = $responseBody['data']['repository']['refs'] ?? null;
+
+        if (!is_array($refs)) {
+            return [
+                'items' => [],
+                'hasNext' => false,
+                'nextCursor' => null,
+            ];
+        }
+
+        $pageInfo = $refs['pageInfo'] ?? [];
+        $hasNext = $pageInfo['hasNextPage'] ?? false;
+
+        return [
+            'items' => array_values(array_map(fn ($branch) => $branch['name'] ?? '', $refs['nodes'] ?? [])),
+            'hasNext' => $hasNext,
+            'nextCursor' => $hasNext ? ($pageInfo['endCursor'] ?? null) : null,
+        ];
     }
 
     /**

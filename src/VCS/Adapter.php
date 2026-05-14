@@ -225,9 +225,12 @@ abstract class Adapter
      *
      * @param string $owner Owner name of the repository
      * @param string $repositoryName Name of the repository
-     * @return array<string> List of branch names as array
+     * @param int $perPage Number of branches to fetch per page
+     * @param int|string|null $page Page number or cursor to start fetching from
+     * @param string $search Branch name search query
+     * @return array<string>|array{items: array<string>, hasNext: bool, nextCursor?: string|null} List of branch names or branch names with pagination metadata
      */
-    abstract public function listBranches(string $owner, string $repositoryName): array;
+    abstract public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array;
 
     /**
      * Updates status check of each commit

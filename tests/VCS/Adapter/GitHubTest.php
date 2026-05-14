@@ -539,12 +539,10 @@ class GitHubTest extends Base
             $adapter = $this->vcsAdapter;
 
             $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1);
-            $this->assertCount(1, $page1);
+            $this->assertSame(['branch-a'], $page1);
 
             $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, 2);
-            $this->assertCount(1, $page2);
-
-            $this->assertNotSame($page1[0], $page2[0]);
+            $this->assertSame(['branch-b'], $page2);
 
             $all = $adapter->listBranches(static::$owner, $repositoryName, 100, 1);
             $this->assertContains(static::$defaultBranch, $all);
@@ -553,6 +551,29 @@ class GitHubTest extends Base
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
+    }
+
+    public function testListBranchesEmptyRepository(): void
+    {
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListBranchesNonExistingRepository(): void
+    {
+        $branches = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
+
+        $this->assertIsArray($branches);
+        $this->assertEmpty($branches);
     }
 
     public function testGetLatestCommit(): void

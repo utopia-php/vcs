@@ -704,11 +704,13 @@ class GitLab extends Git
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+        $perPage = min(max($perPage, 1), 100);
+        $requestedPage = is_int($page) ? max($page, 1) : 1;
 
         $branches = [];
-        $page = 1;
+        $currentPage = 1;
         do {
-            $pagedUrl = "/projects/{$projectPath}/repository/branches?per_page=100&page={$page}";
+            $pagedUrl = "/projects/{$projectPath}/repository/branches?per_page=100&page={$currentPage}";
             $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -722,10 +724,14 @@ class GitLab extends Git
             foreach ($responseBody as $branch) {
                 $branches[] = $branch['name'] ?? '';
             }
-            $page++;
+            $currentPage++;
         } while (count($responseBody) === 100);
 
-        return $branches;
+        if ($search !== '') {
+            $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
+        }
+
+        return array_slice($branches, ($requestedPage - 1) * $perPage, $perPage);
     }
 
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array

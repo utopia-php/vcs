@@ -507,6 +507,8 @@ class Gogs extends Gitea
      */
     public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
+        $perPage = min(max($perPage, 1), 100);
+        $page = is_int($page) ? max($page, 1) : 1;
         $url = "/repos/{$owner}/{$repositoryName}/branches";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -535,6 +537,10 @@ class Gogs extends Gitea
             }
         }
 
-        return $branches;
+        if ($search !== '') {
+            $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
+        }
+
+        return array_slice($branches, ($page - 1) * $perPage, $perPage);
     }
 }

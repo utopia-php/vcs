@@ -1051,6 +1051,17 @@ class GitLabTest extends Base
             $this->assertContains(static::$defaultBranch, $result);
             $this->assertContains('feature-branch', $result);
             $this->assertContains('another-branch', $result);
+
+            $page1 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 1);
+            $page2 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 2);
+            $this->assertSame([$result[0]], $page1);
+            $this->assertSame([$result[1]], $page2);
+
+            $searchResult = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'feature');
+            $this->assertSame(['feature-branch'], $searchResult);
+
+            $substringSearch = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'eature');
+            $this->assertSame([], $substringSearch);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

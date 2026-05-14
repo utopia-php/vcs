@@ -1462,6 +1462,17 @@ class GiteaTest extends Base
             $this->assertContains('feature-1', $branches);
             $this->assertContains('feature-2', $branches);
             $this->assertGreaterThanOrEqual(3, count($branches));
+
+            $page1 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 1);
+            $page2 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 2);
+            $this->assertSame([$branches[0]], $page1);
+            $this->assertSame([$branches[1]], $page2);
+
+            $searchResult = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'feature');
+            $this->assertEqualsCanonicalizing(['feature-1', 'feature-2'], $searchResult);
+
+            $substringSearch = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'eature');
+            $this->assertSame([], $substringSearch);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

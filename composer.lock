@@ -1938,23 +1938,23 @@
         },
         {
             "name": "utopia-php/cache",
-            "version": "2.0.0",
+            "version": "2.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/utopia-php/cache.git",
-                "reference": "ef1d122a464b3469f2a11c7d751214e72b76eee0"
+                "reference": "fc3b9ae33c4b83e0e2c91ecf60b4f40fb7ee8f8e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/utopia-php/cache/zipball/ef1d122a464b3469f2a11c7d751214e72b76eee0",
-                "reference": "ef1d122a464b3469f2a11c7d751214e72b76eee0",
+                "url": "https://api.github.com/repos/utopia-php/cache/zipball/fc3b9ae33c4b83e0e2c91ecf60b4f40fb7ee8f8e",
+                "reference": "fc3b9ae33c4b83e0e2c91ecf60b4f40fb7ee8f8e",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
                 "ext-memcached": "*",
                 "ext-redis": "*",
-                "php": ">=8.2",
+                "php": ">=8.3",
                 "utopia-php/circuit-breaker": "0.3.*",
                 "utopia-php/pools": "1.*",
                 "utopia-php/telemetry": "*"
@@ -1963,6 +1963,7 @@
                 "laravel/pint": "1.2.*",
                 "phpstan/phpstan": "^1.12",
                 "phpunit/phpunit": "^9.3",
+                "swoole/ide-helper": "^6.0",
                 "vimeo/psalm": "4.13.1"
             },
             "type": "library",
@@ -1985,9 +1986,9 @@
             ],
             "support": {
                 "issues": "https://github.com/utopia-php/cache/issues",
-                "source": "https://github.com/utopia-php/cache/tree/2.0.0"
+                "source": "https://github.com/utopia-php/cache/tree/2.1.0"
             },
-            "time": "2026-05-12T10:55:15+00:00"
+            "time": "2026-05-12T15:03:23+00:00"
         },
         {
             "name": "utopia-php/circuit-breaker",
@@ -2317,16 +2318,16 @@
         },
         {
             "name": "laravel/pint",
-            "version": "v1.29.0",
+            "version": "v1.29.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/pint.git",
-                "reference": "bdec963f53172c5e36330f3a400604c69bf02d39"
+                "reference": "0770e9b7fafd50d4586881d456d6eb41c9247a80"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/pint/zipball/bdec963f53172c5e36330f3a400604c69bf02d39",
-                "reference": "bdec963f53172c5e36330f3a400604c69bf02d39",
+                "url": "https://api.github.com/repos/laravel/pint/zipball/0770e9b7fafd50d4586881d456d6eb41c9247a80",
+                "reference": "0770e9b7fafd50d4586881d456d6eb41c9247a80",
                 "shasum": ""
             },
             "require": {
@@ -2337,14 +2338,14 @@
                 "php": "^8.2.0"
             },
             "require-dev": {
-                "friendsofphp/php-cs-fixer": "^3.94.2",
-                "illuminate/view": "^12.54.1",
-                "larastan/larastan": "^3.9.3",
-                "laravel-zero/framework": "^12.0.5",
+                "friendsofphp/php-cs-fixer": "^3.95.1",
+                "illuminate/view": "^12.56.0",
+                "larastan/larastan": "^3.9.6",
+                "laravel-zero/framework": "^12.1.0",
                 "mockery/mockery": "^1.6.12",
                 "nunomaduro/termwind": "^2.4.0",
                 "pestphp/pest": "^3.8.6",
-                "shipfastlabs/agent-detector": "^1.1.0"
+                "shipfastlabs/agent-detector": "^1.1.3"
             },
             "bin": [
                 "builds/pint"
@@ -2381,7 +2382,7 @@
                 "issues": "https://github.com/laravel/pint/issues",
                 "source": "https://github.com/laravel/pint"
             },
-            "time": "2026-03-12T15:51:39+00:00"
+            "time": "2026-04-20T15:26:14+00:00"
         },
         {
             "name": "myclabs/deep-copy",
@@ -4165,16 +4166,16 @@
         },
         {
             "name": "utopia-php/system",
-            "version": "0.10.1",
+            "version": "0.10.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/utopia-php/system.git",
-                "reference": "7c1669533bb9c285de19191270c8c1439161a78a"
+                "reference": "04229a822b147c1abaf1a92fb42c2d7aad4625df"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/utopia-php/system/zipball/7c1669533bb9c285de19191270c8c1439161a78a",
-                "reference": "7c1669533bb9c285de19191270c8c1439161a78a",
+                "url": "https://api.github.com/repos/utopia-php/system/zipball/04229a822b147c1abaf1a92fb42c2d7aad4625df",
+                "reference": "04229a822b147c1abaf1a92fb42c2d7aad4625df",
                 "shasum": ""
             },
             "require": {
@@ -4215,9 +4216,9 @@
             ],
             "support": {
                 "issues": "https://github.com/utopia-php/system/issues",
-                "source": "https://github.com/utopia-php/system/tree/0.10.1"
+                "source": "https://github.com/utopia-php/system/tree/0.10.2"
             },
-            "time": "2026-03-15T21:07:41+00:00"
+            "time": "2026-05-05T14:33:41+00:00"
         }
     ],
     "aliases": [],

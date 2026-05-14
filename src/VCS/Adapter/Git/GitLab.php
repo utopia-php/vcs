@@ -731,6 +731,10 @@ class GitLab extends Git
             $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
         }
 
+        if ($search === '' && $requestedPage === 1 && $perPage === 100) {
+            return $branches;
+        }
+
         return array_slice($branches, ($requestedPage - 1) * $perPage, $perPage);
     }
 

@@ -541,6 +541,10 @@ class Gogs extends Gitea
             $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
         }
 
+        if ($search === '' && $page === 1 && $perPage === 100) {
+            return $branches;
+        }
+
         return array_slice($branches, ($page - 1) * $perPage, $perPage);
     }
 }

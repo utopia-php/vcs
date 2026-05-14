@@ -781,6 +781,10 @@ class Gitea extends Git
             $allBranches = array_values(array_filter($allBranches, fn ($branch) => str_starts_with($branch, $search)));
         }
 
+        if ($search === '' && $requestedPage === 1 && $requestedPerPage === 100) {
+            return $allBranches;
+        }
+
         return array_slice($allBranches, ($requestedPage - 1) * $requestedPerPage, $requestedPerPage);
     }
 

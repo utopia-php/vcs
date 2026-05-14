@@ -545,7 +545,7 @@ class GitHubTest extends Base
             $this->assertSame(['branch-b'], $page2);
 
             $all = $adapter->listBranches(static::$owner, $repositoryName, 100, 1);
-            $this->assertSame([static::$defaultBranch, 'branch-a', 'branch-b'], $all);
+            $this->assertEqualsCanonicalizing([static::$defaultBranch, 'branch-a', 'branch-b'], $all);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

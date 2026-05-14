@@ -748,7 +748,7 @@ class GitHub extends Git
      * @param  string  $repositoryName Name of the GitHub repository
      * @param  int  $perPage Number of branches to fetch per page
      * @param  int|string|null  $page Page number or GraphQL cursor to start fetching from
-     * @param  string  $search Branch name search query
+     * @param  string  $search Branch name prefix search query
      * @return array{items: array<string>, hasNext: bool, nextCursor: string|null} List of branch names and pagination metadata
      */
     public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
@@ -788,10 +788,11 @@ class GitHub extends Git
      */
     private function listBranchesPage(string $owner, string $repositoryName, int $perPage, ?string $cursor, string $search): array
     {
+        $refPrefix = 'refs/heads/' . $search;
         $query = <<<'GRAPHQL'
-query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String, $query: String) {
+query ListBranches($owner: String!, $name: String!, $refPrefix: String!, $first: Int!, $after: String) {
   repository(owner: $owner, name: $name) {
-    refs(refPrefix: "refs/heads/", first: $first, after: $after, query: $query, orderBy: {field: ALPHABETICAL, direction: ASC}) {
+    refs(refPrefix: $refPrefix, first: $first, after: $after, orderBy: {field: ALPHABETICAL, direction: ASC}) {
       nodes {
         name
       }
@@ -809,9 +810,9 @@ GRAPHQL;
             'variables' => [
                 'owner' => $owner,
                 'name' => $repositoryName,
+                'refPrefix' => $refPrefix,
                 'first' => $perPage,
                 'after' => $cursor,
-                'query' => $search === '' ? null : $search,
             ],
         ]);
 

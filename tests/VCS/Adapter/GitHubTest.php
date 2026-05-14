@@ -578,6 +578,11 @@ class GitHubTest extends Base
             $this->assertSame(['branch-b'], $searchPage2['items']);
             $this->assertFalse($searchPage2['hasNext']);
             $this->assertNull($searchPage2['nextCursor']);
+
+            $substringSearch = $adapter->listBranches(static::$owner, $repositoryName, 100, 1, 'ranch');
+            $this->assertSame([], $substringSearch['items']);
+            $this->assertFalse($substringSearch['hasNext']);
+            $this->assertNull($substringSearch['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

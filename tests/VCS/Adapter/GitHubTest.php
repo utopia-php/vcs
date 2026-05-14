@@ -525,6 +525,55 @@ class GitHubTest extends Base
         }
     }
 
+    public function testListBranchesPagination(): void
+    {
+        $repositoryName = 'test-list-branches-pages-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-a', static::$defaultBranch);
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-b', static::$defaultBranch);
+
+            /** @var GitHub $adapter */
+            $adapter = $this->vcsAdapter;
+
+            $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1);
+            $this->assertSame(['branch-a'], $page1);
+
+            $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, 2);
+            $this->assertSame(['branch-b'], $page2);
+
+            $all = $adapter->listBranches(static::$owner, $repositoryName, 100, 1);
+            $this->assertEqualsCanonicalizing([static::$defaultBranch, 'branch-a', 'branch-b'], $all);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListBranchesEmptyRepository(): void
+    {
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListBranchesNonExistingRepository(): void
+    {
+        $branches = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
+
+        $this->assertIsArray($branches);
+        $this->assertEmpty($branches);
+    }
+
     public function testGetLatestCommit(): void
     {
         $repositoryName = 'test-get-latest-commit-' . \uniqid();

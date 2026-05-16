@@ -3,6 +3,9 @@
 namespace Utopia\VCS;
 
 use Exception;
+use Utopia\VCS\Exception\ProviderRateLimited;
+use Utopia\VCS\Exception\ProviderRequestFailed;
+use Utopia\VCS\Exception\ProviderServerError;
 
 abstract class Adapter
 {
@@ -298,32 +301,30 @@ abstract class Adapter
     abstract public function getLatestCommit(string $owner, string $repositoryName, string $branch): array;
 
     /**
+     * Maximum number of retry attempts for transient failures
+     */
+    protected int $maxRetries = 3;
+
+    /**
      * Call
      *
-     * Make an API call
+     * Make an API call with automatic retries for transient failures.
      *
      * @param  string  $method
      * @param  string  $path
+     * @param  array<mixed>  $headers
      * @param  array<mixed>  $params
-     * @param  array<string, string>  $headers
      * @param  bool  $decode
      * @return array<mixed>
      *
      * @throws Exception
+     * @throws ProviderServerError
+     * @throws ProviderRateLimited
+     * @throws ProviderRequestFailed
      */
     protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true)
     {
         $headers = array_merge($this->headers, $headers);
-        $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
-
-        if (!$ch) {
-            throw new Exception('Curl failed to initialize');
-        }
-
-        $responseHeaders = [];
-        $responseStatus = -1;
-        $responseType = '';
-        $responseBody = '';
 
         switch ($headers['content-type']) {
             case 'application/json':
@@ -343,81 +344,150 @@ abstract class Adapter
                 break;
         }
 
+        $formattedHeaders = [];
         foreach ($headers as $i => $header) {
-            $headers[] = $i . ':' . $header;
-            unset($headers[$i]);
+            $formattedHeaders[] = $i . ':' . $header;
         }
 
-        curl_setopt($ch, CURLOPT_PATH_AS_IS, 1);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $header) use (&$responseHeaders) {
-            $len = strlen($header);
-            $header = explode(':', $header, 2);
+        $lastException = null;
+        $lastResponseStatus = 0;
+        $lastResponseBody = '';
+        $lastResponseHeaders = [];
 
-            if (count($header) < 2) { // ignore invalid headers
+        for ($attempt = 1; $attempt <= $this->maxRetries; $attempt++) {
+            $responseHeaders = [];
+            $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
+
+            if (!$ch) {
+                throw new Exception('Curl failed to initialize');
+            }
+
+            curl_setopt($ch, CURLOPT_PATH_AS_IS, 1);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36');
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $formattedHeaders);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $header) use (&$responseHeaders) {
+                $len = strlen($header);
+                $header = explode(':', $header, 2);
+
+                if (count($header) < 2) { // ignore invalid headers
+                    return $len;
+                }
+
+                $responseHeaders[strtolower(trim($header[0]))] = trim($header[1]);
+
                 return $len;
+            });
+
+            if ($method != self::METHOD_GET) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
             }
 
-            $responseHeaders[strtolower(trim($header[0]))] = trim($header[1]);
-
-            return $len;
-        });
-
-        if ($method != self::METHOD_GET) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
-        }
-
-        // Allow self signed certificates
-        if ($this->selfSigned) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        }
-
-        $responseBody = \curl_exec($ch) ?: '';
-
-        if ($responseBody === true) {
-            $responseBody = '';
-        }
-
-        $responseType = $responseHeaders['content-type'] ?? '';
-        $responseStatus = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        if ($decode) {
-            $length = strpos($responseType, ';') ?: strlen($responseType);
-            switch (substr($responseType, 0, $length)) {
-                case 'application/json':
-                    $json = \json_decode($responseBody, true);
-
-                    if ($json === null) {
-                        throw new Exception('Failed to parse response: ' . $responseBody);
-                    }
-
-                    $responseBody = $json;
-                    $json = null;
-                    break;
+            // Allow self signed certificates
+            if ($this->selfSigned) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             }
+
+            $responseBody = \curl_exec($ch) ?: '';
+
+            if ($responseBody === true) {
+                $responseBody = '';
+            }
+
+            $curlErrno = curl_errno($ch);
+            $curlError = curl_error($ch);
+            $responseStatus = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            // Handle curl-level network errors (retry)
+            if ($curlErrno) {
+                $lastException = new ProviderRequestFailed($curlError . ' with status code ' . $responseStatus, $responseStatus);
+                if ($attempt < $this->maxRetries) {
+                    \usleep($this->getRetryDelay($attempt));
+                    continue;
+                }
+                throw $lastException;
+            }
+
+            $responseType = $responseHeaders['content-type'] ?? '';
+
+            if ($decode) {
+                $length = strpos($responseType, ';') ?: strlen($responseType);
+                switch (substr($responseType, 0, $length)) {
+                    case 'application/json':
+                        $json = \json_decode($responseBody, true);
+
+                        if ($json === null) {
+                            throw new ProviderRequestFailed('Failed to parse response: ' . $responseBody, $responseStatus);
+                        }
+
+                        $responseBody = $json;
+                        $json = null;
+                        break;
+                }
+            }
+
+            $responseHeaders['status-code'] = $responseStatus;
+
+            // Rate limited (429 or 403 with rate-limit headers)
+            if ($responseStatus === 429 || ($responseStatus === 403 && isset($responseHeaders['x-ratelimit-remaining']) && $responseHeaders['x-ratelimit-remaining'] === '0')) {
+                if ($attempt < $this->maxRetries) {
+                    $retryAfter = isset($responseHeaders['retry-after']) ? (int) $responseHeaders['retry-after'] : null;
+                    $delay = $retryAfter !== null ? $retryAfter * 1_000_000 : $this->getRetryDelay($attempt);
+                    \usleep($delay);
+                    continue;
+                }
+                throw new ProviderRateLimited('Rate limited by provider (HTTP ' . $responseStatus . ')', $responseStatus);
+            }
+
+            // Server errors (5xx) — retry
+            if ($responseStatus >= 500) {
+                $lastResponseStatus = $responseStatus;
+                $lastResponseBody = $responseBody;
+                $lastResponseHeaders = $responseHeaders;
+                if ($attempt < $this->maxRetries) {
+                    \usleep($this->getRetryDelay($attempt));
+                    continue;
+                }
+                throw new ProviderServerError(
+                    'Provider returned server error (HTTP ' . $responseStatus . ') for ' . $method . ' ' . $path,
+                    $responseStatus
+                );
+            }
+
+            // Success or client error (4xx) — return immediately, no retry
+            return [
+                'headers' => $responseHeaders,
+                'body' => $responseBody,
+            ];
         }
 
-        if ((curl_errno($ch)/* || 200 != $responseStatus*/)) {
-            throw new Exception(curl_error($ch) . ' with status code ' . $responseStatus, $responseStatus);
+        // Should not reach here, but handle gracefully
+        if ($lastException) {
+            throw $lastException;
         }
 
-        $responseHeaders['status-code'] = $responseStatus;
+        throw new ProviderServerError(
+            'Provider returned server error (HTTP ' . $lastResponseStatus . ') for ' . $method . ' ' . $path,
+            $lastResponseStatus
+        );
+    }
 
-        if ($responseStatus === 500) {
-            echo 'Server error(' . $method . ': ' . $path . '. Params: ' . json_encode($params) . '): ' . json_encode($responseBody) . "\n";
-        }
-
-        return [
-            'headers' => $responseHeaders,
-            'body' => $responseBody,
-        ];
+    /**
+     * Get retry delay in microseconds using exponential backoff
+     *
+     * @param  int  $attempt Current attempt number (1-based)
+     * @return int Delay in microseconds
+     */
+    protected function getRetryDelay(int $attempt): int
+    {
+        // 1s, 2s, 4s
+        return (int) (pow(2, $attempt - 1) * 1_000_000);
     }
 
     /**

@@ -370,13 +370,19 @@ class GitHub extends Git
         $url = "/repositories/$repositoryId";
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        $responseBody = $response['body'] ?? [];
-
-        if (!array_key_exists('name', $responseBody)) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $responseBody['name'] ?? '';
+        $responseBody = $response['body'] ?? [];
+
+        if (!is_array($responseBody) || !array_key_exists('name', $responseBody)) {
+            throw new Exception("Unexpected response from provider: missing 'name' field (HTTP $responseHeadersStatusCode)");
+        }
+
+        return $responseBody['name'];
     }
 
     /**

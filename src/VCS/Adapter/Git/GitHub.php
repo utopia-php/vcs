@@ -181,7 +181,15 @@ class GitHub extends Git
      */
     public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
     {
-        throw new Exception("Not implemented");
+        $latestCommit = $this->getLatestCommit($owner, $repositoryName, $oldBranchName);
+        $sha = $latestCommit['commitHash'];
+
+        $response = $this->call(self::METHOD_POST, "/repos/$owner/$repositoryName/git/refs", ['Authorization' => "Bearer $this->accessToken"], [
+            'ref' => "refs/heads/$newBranchName",
+            'sha' => $sha,
+        ]);
+
+        return $response['body'] ?? [];
     }
 
     /**
@@ -738,22 +746,28 @@ class GitHub extends Git
      *
      * @param  string  $owner Owner name of the repository
      * @param  string  $repositoryName Name of the GitHub repository
+     * @param  int  $perPage Number of branches to fetch per page
+     * @param  int  $page Page number to start fetching from
      * @return array<string> List of branch names as array
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1): array
     {
         $url = "/repos/$owner/$repositoryName/branches";
+        $perPage = min(max($perPage, 1), 100);
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+            'page' => $page,
+            'per_page' => $perPage,
+        ]);
 
+        $statusCode = $response['headers']['status-code'] ?? 0;
         $responseBody = $response['body'] ?? [];
 
-        $names = [];
-        foreach ($responseBody as $subarray) {
-            $names[] = $subarray['name'] ?? '';
+        if ($statusCode < 200 || $statusCode >= 300 || !is_array($responseBody)) {
+            return [];
         }
 
-        return $names;
+        return array_values(array_map(fn ($branch) => $branch['name'] ?? '', $responseBody));
     }
 
     /**

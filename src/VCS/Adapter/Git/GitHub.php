@@ -587,13 +587,13 @@ class GitHub extends Git
      *
      * @param string $owner      The owner of the repository
      * @param string $repositoryName   The name of the repository
-     * @param int $commentId  The ID of the comment to update
+     * @param string $commentId  The ID of the comment to update
      * @param string $comment    The updated comment content
      * @return string            The ID of the updated comment
      *
      * @throws Exception
      */
-    public function updateComment(string $owner, string $repositoryName, int $commentId, string $comment): string
+    public function updateComment(string $owner, string $repositoryName, string $commentId, string $comment): string
     {
         $url = '/repos/' . $owner . '/' . $repositoryName . '/issues/comments/' . $commentId;
 

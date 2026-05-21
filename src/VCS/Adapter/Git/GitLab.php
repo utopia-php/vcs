@@ -465,22 +465,85 @@ class GitLab extends Git
 
     public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string
     {
-        throw new Exception("Not implemented");
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+        $url = "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}/notes";
+
+        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], ['body' => $comment]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to create comment: HTTP {$statusCode}");
+        }
+
+        $responseBody = $response['body'] ?? [];
+        if (!array_key_exists('id', $responseBody)) {
+            throw new Exception("Comment creation response is missing comment ID.");
+        }
+
+        return $pullRequestNumber . ':' . ($responseBody['id'] ?? '');
     }
 
     public function getComment(string $owner, string $repositoryName, string $commentId): string
     {
-        throw new Exception("Not implemented");
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+
+        $parts = explode(':', $commentId, 2);
+        if (count($parts) !== 2) {
+            return '';
+        }
+
+        [$mrIid, $noteId] = $parts;
+        $url = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$noteId}";
+        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+
+        return $response['body']['body'] ?? '';
     }
 
-    public function updateComment(string $owner, string $repositoryName, int $commentId, string $comment): string
+    public function updateComment(string $owner, string $repositoryName, string $commentId, string $comment): string
     {
-        throw new Exception("Not implemented");
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+
+        $parts = explode(':', $commentId, 2);
+        if (count($parts) !== 2) {
+            throw new Exception("Invalid comment ID format: {$commentId}");
+        }
+
+        [$mrIid, $noteId] = $parts;
+        $url = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$noteId}";
+        $response = $this->call(self::METHOD_PUT, $url, ['PRIVATE-TOKEN' => $this->accessToken], ['body' => $comment]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        if (($responseHeaders['status-code'] ?? 0) !== 200) {
+            throw new Exception("Failed to update comment: HTTP " . ($responseHeaders['status-code'] ?? 0));
+        }
+
+        return $commentId;
     }
 
     public function getUser(string $username): array
     {
-        throw new Exception("Not implemented");
+        $url = "/users?username=" . rawurlencode($username);
+
+        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to get user: HTTP {$statusCode}");
+        }
+
+        $body = $response['body'] ?? [];
+
+        // GitLab returns an array of users — return first match
+        if (empty($body[0])) {
+            throw new Exception("User not found: {$username}");
+        }
+
+        return $body[0];
     }
 
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
@@ -511,17 +574,123 @@ class GitLab extends Git
 
     public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array
     {
-        throw new Exception("Not implemented");
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+        $url = "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}";
+
+        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to get merge request: HTTP {$statusCode}");
+        }
+
+        $mr = $response['body'] ?? [];
+
+        // Normalize to match expected shape (consistent with Gitea/GitHub)
+        return [
+            'number'  => $mr['iid'] ?? 0,
+            'title'   => $mr['title'] ?? '',
+            'state'   => $mr['state'] ?? '',
+            'head'    => [
+                'ref' => $mr['source_branch'] ?? '',
+                'sha' => $mr['sha'] ?? '',
+            ],
+            'base'    => [
+                'ref' => $mr['target_branch'] ?? '',
+            ],
+        ];
     }
 
     public function getPullRequestFiles(string $owner, string $repositoryName, int $pullRequestNumber): array
     {
-        throw new Exception("Not implemented");
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+
+        // Poll until diff is ready (patch_id_sha not null)
+        $maxAttempts = 10;
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            $mrResponse = $this->call(
+                self::METHOD_GET,
+                "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}",
+                ['PRIVATE-TOKEN' => $this->accessToken]
+            );
+            $mrBody = $mrResponse['body'] ?? [];
+            if (($mrBody['patch_id_sha'] ?? null) !== null) {
+                break;
+            }
+            usleep(1000000); // 1 second
+        }
+
+        // Fetch diffs with pagination
+        $allFiles = [];
+        $page = 1;
+        $perPage = 100;
+
+        while (true) {
+            $url = "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}/diffs?page={$page}&per_page={$perPage}";
+            $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to get merge request files: HTTP {$statusCode}");
+            }
+
+            $files = $response['body'] ?? [];
+            if (!is_array($files) || empty($files)) {
+                break;
+            }
+
+            foreach ($files as $diff) {
+                $allFiles[] = [
+                    'filename' => $diff['new_path'] ?? $diff['old_path'] ?? '',
+                ];
+            }
+
+            if (count($files) < $perPage) {
+                break;
+            }
+            $page++;
+        }
+
+        return $allFiles;
     }
 
     public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array
     {
-        throw new Exception("Not implemented");
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+        $url = "/projects/{$projectPath}/merge_requests?state=opened&source_branch=" . urlencode($branch);
+
+        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to list merge requests: HTTP {$statusCode}");
+        }
+
+        $body = $response['body'] ?? [];
+        if (empty($body[0])) {
+            return [];
+        }
+
+        $mr = $body[0];
+
+        return [
+            'number' => $mr['iid'] ?? 0,
+            'title'  => $mr['title'] ?? '',
+            'state'  => $mr['state'] ?? '',
+            'head'   => [
+                'ref' => $mr['source_branch'] ?? '',
+                'sha' => $mr['sha'] ?? '',
+            ],
+            'base'   => [
+                'ref' => $mr['target_branch'] ?? '',
+            ],
+        ];
     }
 
     public function listBranches(string $owner, string $repositoryName): array
@@ -704,14 +873,24 @@ class GitLab extends Git
     public function getEvent(string $event, string $payload): array
     {
         $payloadArray = json_decode($payload, true);
-        if ($payloadArray === false || $payloadArray === null) {
+        if ($payloadArray === null || !is_array($payloadArray)) {
             return [];
         }
 
         switch ($event) {
             case 'Push Hook':
                 $commits = $payloadArray['commits'] ?? [];
-                $latestCommit = !empty($commits) ? $commits[0] : [];
+                $checkoutSha = $payloadArray['checkout_sha'] ?? '';
+                $latestCommit = [];
+                foreach ($commits as $c) {
+                    if (($c['id'] ?? '') === $checkoutSha) {
+                        $latestCommit = $c;
+                        break;
+                    }
+                }
+                if (empty($latestCommit) && !empty($commits)) {
+                    $latestCommit = $commits[0];
+                }
                 $ref = $payloadArray['ref'] ?? '';
                 // ref format: refs/heads/main
                 $branch = str_replace('refs/heads/', '', $ref);

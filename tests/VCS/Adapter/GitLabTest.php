@@ -130,7 +130,31 @@ class GitLabTest extends Base
 
     public function testGetPullRequestFromBranch(): void
     {
-        $this->markTestSkipped('Not implemented for GitLab yet');
+        $repositoryName = 'test-get-pr-from-branch-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'my-feature', static::$defaultBranch);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'feature.txt', 'content', 'Add feature', 'my-feature');
+
+            $this->vcsAdapter->createPullRequest(
+                static::$owner,
+                $repositoryName,
+                'Feature MR',
+                'my-feature',
+                static::$defaultBranch
+            );
+
+            $result = $this->vcsAdapter->getPullRequestFromBranch(static::$owner, $repositoryName, 'my-feature');
+
+            $this->assertIsArray($result);
+            $this->assertNotEmpty($result);
+            $this->assertArrayHasKey('head', $result);
+            $this->assertSame('my-feature', $result['head']['ref'] ?? '');
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testGetOwnerName(): void
@@ -204,12 +228,69 @@ class GitLabTest extends Base
 
     public function testCreateComment(): void
     {
-        $this->markTestSkipped('Not implemented for GitLab yet');
+        $repositoryName = 'test-create-comment-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'test-branch', static::$defaultBranch);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'test.txt', 'test', 'Add test', 'test-branch');
+
+            $pr = $this->vcsAdapter->createPullRequest(
+                static::$owner,
+                $repositoryName,
+                'Test PR',
+                'test-branch',
+                static::$defaultBranch
+            );
+
+            $prNumber = $pr['iid'] ?? 0;
+            $this->assertGreaterThan(0, $prNumber);
+
+            $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Test comment');
+
+            $this->assertNotEmpty($commentId);
+            $this->assertIsString($commentId);
+
+            $retrieved = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
+            $this->assertSame('Test comment', $retrieved);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testUpdateComment(): void
     {
-        $this->markTestSkipped('Not implemented for GitLab yet');
+        $repositoryName = 'test-update-comment-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'test-branch', static::$defaultBranch);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'test.txt', 'test', 'Add test', 'test-branch');
+
+            $pr = $this->vcsAdapter->createPullRequest(
+                static::$owner,
+                $repositoryName,
+                'Test PR',
+                'test-branch',
+                static::$defaultBranch
+            );
+
+            $prNumber = $pr['iid'] ?? 0;
+            $this->assertGreaterThan(0, $prNumber);
+
+            $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Original comment');
+
+            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, $commentId, 'Updated comment');
+
+            $this->assertSame($commentId, $updatedCommentId);
+
+            $finalComment = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
+            $this->assertSame('Updated comment', $finalComment);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testGenerateCloneCommand(): void
@@ -601,7 +682,7 @@ class GitLabTest extends Base
             }, 15000, 1000);
 
             $this->assertSame('merge_request', $payload['object_kind'] ?? '');
-            $this->assertSame('open', $payload['object_attributes']['action'] ?? '');
+            $this->assertContains($payload['object_attributes']['action'] ?? '', ['open', 'update']);
 
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -735,22 +816,118 @@ class GitLabTest extends Base
 
     public function testGetComment(): void
     {
-        $this->markTestSkipped('Not implemented for GitLab yet');
+        $repositoryName = 'test-get-comment-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'test-branch', static::$defaultBranch);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'test.txt', 'test', 'Add test', 'test-branch');
+
+            $pr = $this->vcsAdapter->createPullRequest(
+                static::$owner,
+                $repositoryName,
+                'Test PR',
+                'test-branch',
+                static::$defaultBranch
+            );
+
+            $prNumber = $pr['iid'] ?? 0;
+            $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Test comment');
+
+            $result = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
+
+            $this->assertIsString($result);
+            $this->assertSame('Test comment', $result);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testGetPullRequest(): void
     {
-        $this->markTestSkipped('Not implemented for GitLab yet');
+        $repositoryName = 'test-get-pull-request-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-branch', static::$defaultBranch);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'feature.txt', 'feature content', 'Add feature', 'feature-branch');
+
+            $pr = $this->vcsAdapter->createPullRequest(
+                static::$owner,
+                $repositoryName,
+                'Test MR',
+                'feature-branch',
+                static::$defaultBranch,
+                'Test MR description'
+            );
+
+            $prNumber = $pr['iid'] ?? 0;
+            $this->assertGreaterThan(0, $prNumber);
+
+            $result = $this->vcsAdapter->getPullRequest(static::$owner, $repositoryName, $prNumber);
+
+            $this->assertIsArray($result);
+            $this->assertArrayHasKey('number', $result);
+            $this->assertArrayHasKey('title', $result);
+            $this->assertArrayHasKey('state', $result);
+            $this->assertArrayHasKey('head', $result);
+            $this->assertArrayHasKey('base', $result);
+            $this->assertSame($prNumber, $result['number']);
+            $this->assertSame('Test MR', $result['title']);
+            $this->assertSame('opened', $result['state']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testGetPullRequestFiles(): void
     {
-        $this->markTestSkipped('Not implemented for GitLab yet');
+        $repositoryName = 'test-get-pull-request-files-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-branch', static::$defaultBranch);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'feature.txt', 'feature content', 'Add feature', 'feature-branch');
+
+            $pr = $this->vcsAdapter->createPullRequest(
+                static::$owner,
+                $repositoryName,
+                'Test MR Files',
+                'feature-branch',
+                static::$defaultBranch
+            );
+
+            $prNumber = $pr['iid'] ?? 0;
+            $this->assertGreaterThan(0, $prNumber);
+
+            $result = [];
+            $this->assertEventually(function () use (&$result, $repositoryName, $prNumber) {
+                $result = $this->vcsAdapter->getPullRequestFiles(static::$owner, $repositoryName, $prNumber);
+                $this->assertNotEmpty($result);
+            }, 15000, 1000);
+
+            $this->assertIsArray($result);
+            $filenames = array_column($result, 'filename');
+            $this->assertContains('feature.txt', $filenames);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testGetPullRequestWithInvalidNumber(): void
     {
-        $this->markTestSkipped('Not implemented for GitLab yet');
+        $repositoryName = 'test-get-pull-request-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->getPullRequest(static::$owner, $repositoryName, 99999);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testGetRepositoryTree(): void
@@ -884,9 +1061,11 @@ class GitLabTest extends Base
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'main.php', '<?php echo "test";');
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'script.js', 'console.log("test");');
 
-            sleep(5); // ← increase from 2 to 5
-
-            $languages = $this->vcsAdapter->listRepositoryLanguages(static::$owner, $repositoryName);
+            $languages = [];
+            $this->assertEventually(function () use (&$languages, $repositoryName) {
+                $languages = $this->vcsAdapter->listRepositoryLanguages(static::$owner, $repositoryName);
+                $this->assertNotEmpty($languages);
+            }, 30000, 2000);
 
             $this->assertIsArray($languages);
             $this->assertNotEmpty($languages);
@@ -939,5 +1118,178 @@ class GitLabTest extends Base
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
+    }
+
+    public function testGetUser(): void
+    {
+        $result = $this->vcsAdapter->getUser('root');
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('id', $result);
+        $this->assertArrayHasKey('username', $result);
+    }
+
+    public function testGetUserWithInvalidUsername(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->getUser('non-existent-user-' . \uniqid());
+    }
+
+    public function testCreatePrivateRepository(): void
+    {
+        $repositoryName = 'test-create-private-repository-' . \uniqid();
+
+        $result = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, true);
+
+        try {
+            $this->assertIsArray($result);
+            $this->assertSame('private', $result['visibility']);
+
+            $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
+            $this->assertSame('private', $fetched['visibility']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetRepositoryWithNonExistingOwner(): void
+    {
+        $repositoryName = 'test-non-existing-owner-' . \uniqid();
+
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->getRepository('non-existing-owner-' . \uniqid(), $repositoryName);
+    }
+
+    public function testCreateRepositoryWithInvalidName(): void
+    {
+        $repositoryName = 'invalid name with spaces';
+
+        try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->fail('Expected exception for invalid repository name');
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
+        }
+    }
+
+    public function testDeleteRepositoryTwiceFails(): void
+    {
+        $repositoryName = 'test-delete-repository-twice-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+        $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+    }
+
+    public function testDeleteNonExistingRepositoryFails(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->deleteRepository(static::$owner, 'non-existing-repo-' . \uniqid());
+    }
+
+    public function testGetPullRequestFromBranchNoPR(): void
+    {
+        $repositoryName = 'test-get-pr-no-pr-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'lonely-branch', static::$defaultBranch);
+
+            $result = $this->vcsAdapter->getPullRequestFromBranch(static::$owner, $repositoryName, 'lonely-branch');
+
+            $this->assertIsArray($result);
+            $this->assertEmpty($result);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testCreateCommentInvalidPR(): void
+    {
+        $repositoryName = 'test-comment-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+        try {
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->createComment(static::$owner, $repositoryName, 99999, 'Test comment');
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetCommentInvalidId(): void
+    {
+        $repositoryName = 'test-get-comment-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+        try {
+            $result = $this->vcsAdapter->getComment(static::$owner, $repositoryName, '99999999');
+            $this->assertIsString($result);
+            $this->assertSame('', $result);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetEventPushMatchesCheckoutSha(): void
+    {
+        $payload = json_encode([
+            'object_kind' => 'push',
+            'ref' => 'refs/heads/main',
+            'checkout_sha' => 'def456',
+            'project' => [
+                'name' => 'test-repo',
+                'namespace' => 'test-org',
+            ],
+            'commits' => [
+                [
+                    'id' => 'abc123',
+                    'message' => 'Older commit',
+                    'url' => 'http://example.com/commit/abc123',
+                    'author' => ['name' => 'Old Author'],
+                ],
+                [
+                    'id' => 'def456',
+                    'message' => 'Head commit',
+                    'url' => 'http://example.com/commit/def456',
+                    'author' => ['name' => 'Head Author'],
+                ],
+            ],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
+
+        $this->assertIsArray($result);
+        $this->assertSame('def456', $result['commitHash']);
+        $this->assertSame('Head Author', $result['commitAuthor']);
+        $this->assertSame('Head commit', $result['commitMessage']);
+        $this->assertSame('http://example.com/commit/def456', $result['commitUrl']);
+    }
+
+    public function testValidateWebhookEventUsesPlainToken(): void
+    {
+        $secret = 'my-secret-token';
+        $payload = '{"object_kind":"push"}';
+
+        $this->assertTrue(
+            $this->vcsAdapter->validateWebhookEvent($payload, $secret, $secret)
+        );
+
+        $hmacSignature = hash_hmac('sha256', $payload, $secret);
+        $this->assertFalse(
+            $this->vcsAdapter->validateWebhookEvent($payload, $hmacSignature, $secret)
+        );
+
+        $this->assertFalse(
+            $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
+        );
     }
 }

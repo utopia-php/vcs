@@ -569,7 +569,7 @@ class Gitea extends Git
         return $responseBody['body'] ?? '';
     }
 
-    public function updateComment(string $owner, string $repositoryName, int $commentId, string $comment): string
+    public function updateComment(string $owner, string $repositoryName, string $commentId, string $comment): string
     {
         $url = "/repos/{$owner}/{$repositoryName}/issues/comments/{$commentId}";
 

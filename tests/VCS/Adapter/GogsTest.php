@@ -130,4 +130,13 @@ class GogsTest extends GiteaTest
     {
         $this->markTestSkipped('Gogs does not support pull request files API');
     }
+    public function testListBranchesEmptyRepo(): void
+    {
+        // The Gogs adapter creates repositories with `auto_init: true` (plus a
+        // default README), so a default branch always exists on creation —
+        // an empty repository is not reachable through this adapter. This
+        // also avoids Gogs' HTTP 500 response from `/branches` on commit-less
+        // repos.
+        $this->markTestSkipped('Gogs adapter creates repositories with auto_init, so a default branch always exists');
+    }
 }

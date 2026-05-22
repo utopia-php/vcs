@@ -100,8 +100,14 @@ class Gitea extends Git
             'private' => $private,
         ]);
 
-        return $response['body'] ?? [];
-        // return is_array($body) ? $body : [];
+        $result = $response['body'] ?? [];
+        if (is_array($result)) {
+            // Gitea's API does not expose `pushed_at`; surface `updated_at` under that key
+            // for parity with the other VCS adapters (GitHub, GitLab).
+            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+        }
+        return is_array($result) ? $result : [];
+        ;
     }
 
     public function createOrganization(string $orgName): string
@@ -207,6 +213,13 @@ class Gitea extends Git
         $offset = ($page - 1) * $per_page;
         $pagedRepos = array_slice($filteredRepos, $offset, $per_page);
 
+        foreach ($pagedRepos as &$repo) {
+            if (is_array($repo)) {
+                $repo['pushed_at'] = $repo['pushed_at'] ?? ($repo['updated_at'] ?? '');
+            }
+        }
+        unset($repo);
+
         return [
             'items' => $pagedRepos,
             'total' => $total,
@@ -241,7 +254,11 @@ class Gitea extends Git
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $response['body'] ?? [];
+        $result = $response['body'] ?? [];
+        if (is_array($result)) {
+            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+        }
+        return is_array($result) ? $result : [];
     }
 
     public function getRepositoryName(string $repositoryId): string
@@ -724,7 +741,7 @@ class Gitea extends Git
         for ($currentPage = 1; $currentPage <= $maxPages; $currentPage++) {
             $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$perPage}";
 
-            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"], decode: false);
 
             $responseHeaders = $response['headers'] ?? [];
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -740,7 +757,7 @@ class Gitea extends Git
                 break;
             }
 
-            $responseBody = $response['body'] ?? [];
+            $responseBody = \json_decode($response['body'] ?? '', true);
 
             if (!is_array($responseBody)) {
                 break;
@@ -896,6 +913,9 @@ class Gitea extends Git
          */
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
     {
+        if (empty($rootDirectory)) {
+            $rootDirectory = '*';
+        }
         $cloneUrl = "{$this->giteaUrl}/{$owner}/{$repositoryName}";
         if (!empty($this->accessToken)) {
             $cloneUrl = str_replace('://', "://{$owner}:{$this->accessToken}@", $this->giteaUrl) . "/{$owner}/{$repositoryName}";

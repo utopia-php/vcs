@@ -1056,6 +1056,22 @@ class GitLabTest extends Base
         }
     }
 
+    public function testListBranchesEmptyRepo(): void
+    {
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+
+        try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testListRepositoryLanguages(): void
     {
         $repositoryName = 'test-list-repository-languages-' . \uniqid();

@@ -23,7 +23,7 @@ class ForgejoTest extends GiteaTest
         return new Forgejo(new Cache(new None()));
     }
 
-    public function setUp(): void
+    public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupForgejo();

@@ -74,6 +74,8 @@ class GitLabTest extends Base
             $this->assertArrayHasKey('name', $result);
             $this->assertSame($repositoryName, $result['name']);
             $this->assertFalse($result['visibility'] === 'private');
+            $this->assertArrayHasKey('pushed_at', $result);
+            $this->assertNotFalse(\strtotime($result['pushed_at']));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -89,6 +91,8 @@ class GitLabTest extends Base
 
             $this->assertIsArray($result);
             $this->assertSame($repositoryName, $result['name']);
+            $this->assertArrayHasKey('pushed_at', $result);
+            $this->assertNotFalse(\strtotime($result['pushed_at']));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -1047,6 +1051,22 @@ class GitLabTest extends Base
             $this->assertContains(static::$defaultBranch, $result);
             $this->assertContains('feature-branch', $result);
             $this->assertContains('another-branch', $result);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListBranchesEmptyRepo(): void
+    {
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+
+        try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

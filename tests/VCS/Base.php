@@ -108,12 +108,19 @@ abstract class Base extends TestCase
         ['items' => $repos, 'total' => $total] = $this->vcsAdapter->searchRepositories('test-kh', 1, 2);
         $this->assertCount(2, $repos);
         $this->assertSame(6, $total);
+        $this->assertArrayHasKey('pushed_at', $repos[0]);
+        $this->assertNotFalse(\strtotime($repos[0]['pushed_at']));
     }
 
     public function testCreateComment(): void
     {
         $commentId = $this->vcsAdapter->createComment('test-kh', 'test2', 1, 'hello');
         $this->assertNotEmpty($commentId);
+    }
+
+    public function testListBranchesEmptyRepo(): void
+    {
+        $this->markTestSkipped('Each adapter handles empty repos differently - override in adapter-specific test');
     }
 
     public function testListBranches(): void
@@ -182,6 +189,8 @@ abstract class Base extends TestCase
         $repository = $this->vcsAdapter->createRepository('test-kh', 'new-repo', true);
         $this->assertIsArray($repository);
         $this->assertSame('test-kh/new-repo', $repository['full_name']);
+        $this->assertArrayHasKey('pushed_at', $repository);
+        $this->assertNotFalse(\strtotime($repository['pushed_at']));
     }
 
     /**

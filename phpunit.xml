@@ -9,8 +9,20 @@
          stopOnFailure="false"
         >
     <testsuites>
-        <testsuite name="Application Test Suite">
-            <directory>./tests/</directory>
+        <testsuite name="gitea">
+            <file>./tests/VCS/Adapter/GiteaTest.php</file>
+        </testsuite>
+        <testsuite name="forgejo">
+            <file>./tests/VCS/Adapter/ForgejoTest.php</file>
+        </testsuite>
+        <testsuite name="github">
+            <file>./tests/VCS/Adapter/GitHubTest.php</file>
+        </testsuite>
+        <testsuite name="gitlab">
+            <file>./tests/VCS/Adapter/GitLabTest.php</file>
+        </testsuite>
+        <testsuite name="gogs">
+            <file>./tests/VCS/Adapter/GogsTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>

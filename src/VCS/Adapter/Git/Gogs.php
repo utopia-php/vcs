@@ -40,7 +40,13 @@ class Gogs extends Gitea
             'readme' => 'Default',
         ]);
 
-        return $response['body'] ?? [];
+        $result = $response['body'] ?? [];
+        if (is_array($result)) {
+            // Gogs' API does not expose `pushed_at`; surface `updated_at` under that key
+            // for parity with the other VCS adapters (GitHub, GitLab).
+            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+        }
+        return is_array($result) ? $result : [];
     }
 
     /**
@@ -87,6 +93,15 @@ class Gogs extends Gitea
         $total = count($responseBody);
         $offset = ($page - 1) * $per_page;
         $pagedRepos = array_slice($responseBody, $offset, $per_page);
+
+        // Gogs' API does not expose `pushed_at`; surface `updated_at` under that key
+        // for parity with the other VCS adapters (GitHub, GitLab).
+        foreach ($pagedRepos as &$repo) {
+            if (is_array($repo)) {
+                $repo['pushed_at'] = $repo['pushed_at'] ?? ($repo['updated_at'] ?? '');
+            }
+        }
+        unset($repo);
 
         return [
             'items' => $pagedRepos,

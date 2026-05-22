@@ -22,7 +22,7 @@ class GitHubTest extends Base
         return new GitHub(new Cache(new None()));
     }
 
-    public function setUp(): void
+    public function setupAdapter(): void
     {
         $privateKey = str_replace('\\n', "\n", System::getEnv('TESTS_GITHUB_PRIVATE_KEY') ?? '');
         $appId = System::getEnv('TESTS_GITHUB_APP_IDENTIFIER') ?? '';

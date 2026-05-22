@@ -23,7 +23,7 @@ class GogsTest extends GiteaTest
         return new Gogs(new Cache(new None()));
     }
 
-    public function setUp(): void
+    public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupGogs();

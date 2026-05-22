@@ -82,7 +82,7 @@ services:
         required: false
     entrypoint: /bin/sh
     environment:
-      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-utopia}
+      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-root}
       - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-password}
       - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-utopia@example.com}
     command: >
@@ -137,7 +137,7 @@ services:
         required: false
     entrypoint: /bin/sh
     environment:
-      - FORGEJO_ADMIN_USERNAME=${FORGEJO_ADMIN_USERNAME:-utopia}
+      - FORGEJO_ADMIN_USERNAME=${FORGEJO_ADMIN_USERNAME:-root}
       - FORGEJO_ADMIN_PASSWORD=${FORGEJO_ADMIN_PASSWORD:-password}
       - FORGEJO_ADMIN_EMAIL=${FORGEJO_ADMIN_EMAIL:-utopia@example.com}
     command: >
@@ -178,7 +178,7 @@ services:
         required: false
     entrypoint: /bin/sh
     environment:
-      - GOGS_ADMIN_USERNAME=${GOGS_ADMIN_USERNAME:-utopia}
+      - GOGS_ADMIN_USERNAME=${GOGS_ADMIN_USERNAME:-root}
       - GOGS_ADMIN_PASSWORD=${GOGS_ADMIN_PASSWORD:-password}
       - GOGS_ADMIN_EMAIL=${GOGS_ADMIN_EMAIL:-utopia@example.com}
     command:

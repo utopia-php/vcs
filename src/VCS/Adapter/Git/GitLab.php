@@ -150,8 +150,11 @@ class GitLab extends Git
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
-        if ($responseHeadersStatusCode >= 400) {
+        if ($responseHeadersStatusCode === 404) {
             throw new RepositoryNotFound("Repository not found");
+        }
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get repository: HTTP {$responseHeadersStatusCode}");
         }
 
         $result = $response['body'] ?? [];
@@ -228,12 +231,20 @@ class GitLab extends Git
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
+            throw new RepositoryNotFound("Repository not found");
+        }
         if ($responseHeadersStatusCode >= 400) {
-            throw new Exception("Repository {$repositoryId} not found");
+            throw new Exception("Failed to get repository {$repositoryId}: HTTP {$responseHeadersStatusCode}");
         }
 
         $responseBody = $response['body'] ?? [];
-        return $responseBody['path'] ?? '';
+
+        if (!is_array($responseBody) || !array_key_exists('path', $responseBody)) {
+            throw new Exception("Unexpected response from provider: missing 'path' field (HTTP $responseHeadersStatusCode)");
+        }
+
+        return $responseBody['path'];
     }
 
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array

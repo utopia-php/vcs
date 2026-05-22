@@ -107,7 +107,6 @@ class Gitea extends Git
             $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
         }
         return is_array($result) ? $result : [];
-        ;
     }
 
     public function createOrganization(string $orgName): string

@@ -155,8 +155,10 @@ class GitLab extends Git
         }
 
         $result = $response['body'] ?? [];
-        $result['pushed_at'] = $result['last_activity_at'] ?? '';
-        return $result;
+        if (is_array($result)) {
+            $result['pushed_at'] = $result['last_activity_at'] ?? '';
+        }
+        return is_array($result) ? $result : [];
     }
 
 

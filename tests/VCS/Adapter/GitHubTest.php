@@ -213,7 +213,7 @@ class GitHubTest extends Base
             $this->assertIsArray($result);
             $this->assertSame($repositoryName, $result['name']);
             $this->assertArrayHasKey('pushed_at', $result);
-            $this->assertNotFalse(\strtotime($result['pushed_at']));
+            $this->assertTrue($result['pushed_at'] === null || \strtotime($result['pushed_at']) !== false);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

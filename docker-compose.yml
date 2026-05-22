@@ -103,6 +103,7 @@ services:
       - gitea
       - forgejo
       - gogs
+      - gitlab
 
   forgejo:
     image: codeberg.org/forgejo/forgejo:9

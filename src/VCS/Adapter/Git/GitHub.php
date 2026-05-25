@@ -791,16 +791,30 @@ class GitHub extends Git
     /**
      * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */
+    /**
+     * Fetches one logical page of prefix-matching branches.
+     *
+     * GitHub's GraphQL query parameter does substring matching, so we request edges
+     * (which carry per-item cursors) and apply str_starts_with client-side. We collect
+     * up to $perPage + 1 matching edges across as many GitHub API pages as needed:
+     * - If we find the +1 probe item, hasNext=true and nextCursor points to the cursor
+     *   of the last returned item, so the next call resumes exactly where we stopped.
+     * - If GitHub is exhausted before the probe, hasNext=false.
+     * This ensures items is never empty while hasNext is true.
+     *
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
+     */
     private function listBranchesPage(string $owner, string $repositoryName, int $perPage, ?string $cursor, string $search): array
     {
-        // refPrefix must be a complete path namespace (e.g. "refs/heads/"); the separate
-        // query param handles prefix filtering on branch names.
-        $query = <<<'GRAPHQL'
+        $gql = <<<'GRAPHQL'
 query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String, $query: String) {
   repository(owner: $owner, name: $name) {
     refs(refPrefix: "refs/heads/", first: $first, after: $after, orderBy: {field: ALPHABETICAL, direction: ASC}, query: $query) {
-      nodes {
-        name
+      edges {
+        cursor
+        node {
+          name
+        }
       }
       pageInfo {
         hasNextPage
@@ -811,51 +825,69 @@ query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String
 }
 GRAPHQL;
 
-        $response = $this->call(self::METHOD_POST, '/graphql', ['Authorization' => "Bearer $this->accessToken"], [
-            'query' => $query,
-            'variables' => [
-                'owner' => $owner,
-                'name' => $repositoryName,
-                'first' => $perPage,
-                'after' => $cursor,
-                'query' => $search !== '' ? $search : null,
-            ],
-        ]);
+        /** @var array<array{name: string, cursor: string}> $collected */
+        $collected = [];
+        $currentCursor = $cursor;
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        $responseBody = $response['body'] ?? [];
+        do {
+            $response = $this->call(self::METHOD_POST, '/graphql', ['Authorization' => "Bearer $this->accessToken"], [
+                'query' => $gql,
+                'variables' => [
+                    'owner' => $owner,
+                    'name' => $repositoryName,
+                    'first' => $perPage,
+                    'after' => $currentCursor,
+                    'query' => $search !== '' ? $search : null,
+                ],
+            ]);
 
-        if ($statusCode < 200 || $statusCode >= 300 || !is_array($responseBody) || array_key_exists('errors', $responseBody)) {
+            $statusCode = $response['headers']['status-code'] ?? 0;
+            $responseBody = $response['body'] ?? [];
+
+            if ($statusCode < 200 || $statusCode >= 300 || !is_array($responseBody) || array_key_exists('errors', $responseBody)) {
+                return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
+            }
+
+            $refs = $responseBody['data']['repository']['refs'] ?? null;
+
+            if (!is_array($refs)) {
+                return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
+            }
+
+            $pageInfo = $refs['pageInfo'] ?? [];
+            $hasNextPage = (bool) ($pageInfo['hasNextPage'] ?? false);
+            $currentCursor = $pageInfo['endCursor'] ?? null;
+
+            $probeFound = false;
+            foreach ($refs['edges'] ?? [] as $edge) {
+                $name = $edge['node']['name'] ?? '';
+                if ($search === '' || str_starts_with($name, $search)) {
+                    $collected[] = ['name' => $name, 'cursor' => $edge['cursor'] ?? ''];
+                    if (count($collected) > $perPage) {
+                        $probeFound = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($probeFound) {
+                break;
+            }
+        } while ($hasNextPage);
+
+        if (count($collected) > $perPage) {
+            $toReturn = array_slice($collected, 0, $perPage);
             return [
-                'items' => [],
-                'hasNext' => false,
-                'nextCursor' => null,
+                'items' => array_column($toReturn, 'name'),
+                'hasNext' => true,
+                'nextCursor' => $toReturn[$perPage - 1]['cursor'],
             ];
-        }
-
-        $refs = $responseBody['data']['repository']['refs'] ?? null;
-
-        if (!is_array($refs)) {
-            return [
-                'items' => [],
-                'hasNext' => false,
-                'nextCursor' => null,
-            ];
-        }
-
-        $pageInfo = $refs['pageInfo'] ?? [];
-        $hasNext = $pageInfo['hasNextPage'] ?? false;
-
-        // GitHub's query param does substring matching; post-filter to enforce prefix semantics.
-        $names = array_map(fn ($branch) => $branch['name'] ?? '', $refs['nodes'] ?? []);
-        if ($search !== '') {
-            $names = array_values(array_filter($names, fn ($name) => str_starts_with($name, $search)));
         }
 
         return [
-            'items' => array_values($names),
-            'hasNext' => $hasNext,
-            'nextCursor' => $hasNext ? ($pageInfo['endCursor'] ?? null) : null,
+            'items' => array_column($collected, 'name'),
+            'hasNext' => false,
+            'nextCursor' => null,
         ];
     }
 

@@ -475,4 +475,10 @@ class GitLabTest extends Base
             $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
         );
     }
+
+    public function testCreateRepositoryWithInvalidName(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
+    }
 }

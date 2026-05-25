@@ -163,16 +163,6 @@ abstract class Base extends TestCase
         $this->vcsAdapter->deleteRepository(static::$owner, 'non-existing-repo-' . \uniqid());
     }
 
-    public function testCreateRepositoryWithInvalidName(): void
-    {
-        try {
-            $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
-            $this->fail('Expected exception for invalid repository name');
-        } catch (\Exception $e) {
-            $this->assertTrue(true);
-        }
-    }
-
     public function testGetRepositoryName(): void
     {
         $repositoryName = 'test-get-repository-name-' . \uniqid();

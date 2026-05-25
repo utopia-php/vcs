@@ -535,15 +535,15 @@ abstract class Base extends TestCase
     public function testGenerateCloneCommandWithCommitHash(): void
     {
         $repositoryName = 'test-clone-commit-' . \uniqid();
+        $directory = '/tmp/test-clone-commit-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
+    
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
+    
             $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
             $commitHash = $commit['commitHash'];
-
-            $directory = '/tmp/test-clone-commit-' . \uniqid();
+    
             $command = $this->vcsAdapter->generateCloneCommand(
                 static::$owner,
                 $repositoryName,
@@ -552,16 +552,19 @@ abstract class Base extends TestCase
                 $directory,
                 '*'
             );
-
+    
             $this->assertIsString($command);
             $this->assertStringContainsString('sparse-checkout', $command);
-
+    
             $output = [];
             \exec($command . ' 2>&1', $output, $exitCode);
             $this->assertSame(0, $exitCode, implode("\n", $output));
             $this->assertFileExists($directory . '/README.md');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            if (\is_dir($directory)) {
+                \exec('rm -rf ' . escapeshellarg($directory));
+            }
         }
     }
 

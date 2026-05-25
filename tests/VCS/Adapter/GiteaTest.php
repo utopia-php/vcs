@@ -70,10 +70,12 @@ class GiteaTest extends Base
         $this->vcsAdapter->createRepository($owner, $repositoryName, false);
 
         try {
-            $branches = $this->vcsAdapter->listBranches($owner, $repositoryName);
+            $result = $this->vcsAdapter->listBranches($owner, $repositoryName);
 
-            $this->assertIsArray($branches);
-            $this->assertEmpty($branches);
+            $this->assertIsArray($result);
+            $this->assertSame([], $result['items']);
+            $this->assertFalse($result['hasNext']);
+            $this->assertNull($result['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository($owner, $repositoryName);
         }

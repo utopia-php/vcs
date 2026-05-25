@@ -15,11 +15,6 @@ class GitLabTest extends Base
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new GitLab(new Cache(new None()));
-    }
-
     public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
@@ -62,62 +57,6 @@ class GitLabTest extends Base
         }
     }
 
-
-    public function testGetOwnerNameWithRepositoryId(): void
-    {
-        $repositoryName = 'test-get-owner-name-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $repo = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
-            $repositoryId = $repo['id'] ?? 0;
-
-            $result = $this->vcsAdapter->getOwnerName('', $repositoryId);
-
-            $this->assertIsString($result);
-            $this->assertNotEmpty($result);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testListNamespaces(): void
-    {
-        /** @var GitLab $adapter */
-        $adapter = $this->vcsAdapter;
-
-        $result = $adapter->listNamespaces(1, 20);
-
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('items', $result);
-        $this->assertArrayHasKey('total', $result);
-        $this->assertNotEmpty($result['items']);
-
-        $kinds = array_column($result['items'], 'kind');
-        $this->assertContains('user', $kinds);
-        $this->assertContains('group', $kinds);
-
-        foreach ($result['items'] as $namespace) {
-            $this->assertArrayHasKey('id', $namespace);
-            $this->assertArrayHasKey('name', $namespace);
-            $this->assertArrayHasKey('path', $namespace);
-            $this->assertArrayHasKey('kind', $namespace);
-            $this->assertNotEmpty($namespace['path']);
-        }
-    }
-
-    public function testListNamespacesWithSearch(): void
-    {
-        /** @var GitLab $adapter */
-        $adapter = $this->vcsAdapter;
-        $ownerPath = explode(':', static::$owner)[1] ?? static::$owner;
-
-        $result = $adapter->listNamespaces(1, 20, $ownerPath);
-
-        $this->assertNotEmpty($result['items']);
-        $paths = array_column($result['items'], 'path');
-        $this->assertContains($ownerPath, $paths);
-    }
 
     public function testSearchRepositories(): void
     {

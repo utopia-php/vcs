@@ -18,11 +18,6 @@ class GogsTest extends GiteaTest
     protected string $avatarDomain = 'gravatar.com';
     protected static string $defaultBranch = 'master';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new Gogs(new Cache(new None()));
-    }
-
     public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

@@ -18,11 +18,6 @@ class ForgejoTest extends GiteaTest
     protected string $webhookSignatureHeader = 'X-Forgejo-Signature';
     protected string $avatarDomain = 'http://localhost:3000/avatars/';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new Forgejo(new Cache(new None()));
-    }
-
     public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

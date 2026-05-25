@@ -16,11 +16,6 @@ class GitHubTest extends Base
     protected static string $installationId = '';
     protected static string $defaultBranch = 'main';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new GitHub(new Cache(new None()));
-    }
-
     public function setupAdapter(): void
     {
         $privateKey = str_replace('\\n', "\n", System::getEnv('TESTS_GITHUB_PRIVATE_KEY') ?? '');

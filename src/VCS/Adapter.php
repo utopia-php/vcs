@@ -221,14 +221,21 @@ abstract class Adapter
     abstract public function getRepositoryName(string $repositoryId): string;
 
     /**
-     * Lists branches for a given repository
+     * Lists branches for a given repository.
+     *
+     * Search is prefix-based: 'feat' matches 'feature-branch' but not 'my-feature'.
+     * GitHub uses true server-side cursor pagination via GraphQL; pass the returned
+     * nextCursor as $page on subsequent calls to advance the page.
+     * Other providers (GitLab, Gitea, Gogs, Forgejo) fetch all matching branches
+     * client-side and slice; for them nextCursor is always null, but hasNext
+     * correctly reflects whether more items exist beyond the current slice.
      *
      * @param string $owner Owner name of the repository
      * @param string $repositoryName Name of the repository
-     * @param int $perPage Number of branches to fetch per page
-     * @param int|string|null $page Page number or cursor to start fetching from
-     * @param string $search Branch name prefix search query
-     * @return array<string>|array{items: array<string>, hasNext: bool, nextCursor?: string|null} List of branch names or branch names with pagination metadata
+     * @param int $perPage Number of results per page, clamped to [1, 100]
+     * @param int|string|null $page 1-based integer page number, or an opaque cursor string from a previous nextCursor (cursor form only supported by GitHub)
+     * @param string $search Prefix filter for branch names; empty string returns all branches
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */
     abstract public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array;
 

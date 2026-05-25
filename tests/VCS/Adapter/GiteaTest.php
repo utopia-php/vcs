@@ -1437,45 +1437,67 @@ class GiteaTest extends Base
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
-            // Create initial file on main branch
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            // Create additional branches
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-1', static::$defaultBranch);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-2', static::$defaultBranch);
 
-            $branches = [];
+            $result = [];
             $maxAttempts = 10;
             for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-                $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+                $result = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
 
-                if (in_array('feature-1', $branches, true) && in_array('feature-2', $branches, true)) {
+                if (in_array('feature-1', $result['items'], true) && in_array('feature-2', $result['items'], true)) {
                     break;
                 }
 
                 usleep(500000);
             }
 
-            $this->assertIsArray($branches);
-            $this->assertNotEmpty($branches);
-            $this->assertContains(static::$defaultBranch, $branches);
-            $this->assertContains('feature-1', $branches);
-            $this->assertContains('feature-2', $branches);
-            $this->assertGreaterThanOrEqual(3, count($branches));
+            $this->assertIsArray($result);
+            $this->assertArrayHasKey('items', $result);
+            $this->assertArrayHasKey('hasNext', $result);
+            $this->assertArrayHasKey('nextCursor', $result);
+            $this->assertNotEmpty($result['items']);
+            $this->assertNull($result['nextCursor']);
+            $this->assertContains(static::$defaultBranch, $result['items']);
+            $this->assertContains('feature-1', $result['items']);
+            $this->assertContains('feature-2', $result['items']);
+            $this->assertGreaterThanOrEqual(3, count($result['items']));
 
+            // Offset pagination: size-1 pages report hasNext until the last slice
             $page1 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 1);
             $page2 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 2);
-            $this->assertSame([$branches[0]], $page1);
-            $this->assertSame([$branches[1]], $page2);
+            $this->assertSame([$result['items'][0]], $page1['items']);
+            $this->assertTrue($page1['hasNext']);
+            $this->assertNull($page1['nextCursor']);
+            $this->assertSame([$result['items'][1]], $page2['items']);
+            $this->assertTrue($page2['hasNext']);
+            $this->assertNull($page2['nextCursor']);
 
+            // Prefix search
             $searchResult = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'feature');
-            $this->assertEqualsCanonicalizing(['feature-1', 'feature-2'], $searchResult);
+            $this->assertEqualsCanonicalizing(['feature-1', 'feature-2'], $searchResult['items']);
+            $this->assertFalse($searchResult['hasNext']);
+            $this->assertNull($searchResult['nextCursor']);
 
+            // Substring (non-prefix) search returns nothing
             $substringSearch = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'eature');
-            $this->assertSame([], $substringSearch);
+            $this->assertSame([], $substringSearch['items']);
+            $this->assertFalse($substringSearch['hasNext']);
+            $this->assertNull($substringSearch['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
+    }
+
+    public function testListBranchesNonExistingRepository(): void
+    {
+        $result = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
+
+        $this->assertIsArray($result);
+        $this->assertSame([], $result['items']);
+        $this->assertFalse($result['hasNext']);
+        $this->assertNull($result['nextCursor']);
     }
 
     public function testCreateTag(): void

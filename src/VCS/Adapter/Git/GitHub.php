@@ -742,14 +742,19 @@ class GitHub extends Git
     }
 
     /**
-     * Lists branches for a given repository
+     * Lists branches using GitHub GraphQL repository.refs with prefix search and cursor pagination.
      *
-     * @param  string  $owner Owner name of the repository
-     * @param  string  $repositoryName Name of the GitHub repository
-     * @param  int  $perPage Number of branches to fetch per page
-     * @param  int|string|null  $page Page number or GraphQL cursor to start fetching from
-     * @param  string  $search Branch name prefix search query
-     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null} List of branch names and pagination metadata
+     * Search matches branch names by prefix only ('feat' → 'feature-x', not 'my-feature').
+     * Pass an integer $page to walk forward page-by-page (each step costs one extra GraphQL call
+     * to resolve the cursor chain); pass a cursor string from a previous nextCursor to jump
+     * directly. perPage is clamped to [1, 100].
+     *
+     * @param  string  $owner
+     * @param  string  $repositoryName
+     * @param  int  $perPage Clamped to [1, 100]
+     * @param  int|string|null  $page 1-based page number or opaque GraphQL cursor
+     * @param  string  $search Prefix filter; empty returns all branches
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */
     public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {

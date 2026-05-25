@@ -748,7 +748,7 @@ class Gitea extends Git
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
 
             if ($responseHeadersStatusCode === 404) {
-                return [];
+                return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
             }
 
             if ($responseHeadersStatusCode >= 400) {
@@ -781,11 +781,13 @@ class Gitea extends Git
             $allBranches = array_values(array_filter($allBranches, fn ($branch) => str_starts_with($branch, $search)));
         }
 
-        if ($search === '' && $requestedPage === 1 && $requestedPerPage === 100) {
-            return $allBranches;
-        }
+        $offset = ($requestedPage - 1) * $requestedPerPage;
 
-        return array_slice($allBranches, ($requestedPage - 1) * $requestedPerPage, $requestedPerPage);
+        return [
+            'items' => array_values(array_slice($allBranches, $offset, $requestedPerPage)),
+            'hasNext' => ($offset + $requestedPerPage) < count($allBranches),
+            'nextCursor' => null,
+        ];
     }
 
     /**

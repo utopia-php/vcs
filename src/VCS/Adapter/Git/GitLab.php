@@ -715,7 +715,7 @@ class GitLab extends Git
             $responseHeaders = $response['headers'] ?? [];
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
             if ($responseHeadersStatusCode >= 400) {
-                return [];
+                return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
             }
             $responseBody = $response['body'] ?? [];
             if (!is_array($responseBody) || empty($responseBody)) {
@@ -731,11 +731,13 @@ class GitLab extends Git
             $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
         }
 
-        if ($search === '' && $requestedPage === 1 && $perPage === 100) {
-            return $branches;
-        }
+        $offset = ($requestedPage - 1) * $perPage;
 
-        return array_slice($branches, ($requestedPage - 1) * $perPage, $perPage);
+        return [
+            'items' => array_values(array_slice($branches, $offset, $perPage)),
+            'hasNext' => ($offset + $perPage) < count($branches),
+            'nextCursor' => null,
+        ];
     }
 
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array

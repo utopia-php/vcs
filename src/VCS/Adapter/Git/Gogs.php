@@ -261,8 +261,8 @@ class Gogs extends Gitea
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
         // Gogs ignores sha param — verify branch exists first
-        $branches = $this->listBranches($owner, $repositoryName);
-        if (!in_array($branch, $branches, true)) {
+        $result = $this->listBranches($owner, $repositoryName);
+        if (!in_array($branch, $result['items'], true)) {
             throw new Exception("Branch '{$branch}' not found");
         }
 
@@ -517,7 +517,7 @@ class Gogs extends Gitea
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
 
         if ($responseHeadersStatusCode === 404) {
-            return [];
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
         }
 
         if ($responseHeadersStatusCode >= 400) {
@@ -527,7 +527,7 @@ class Gogs extends Gitea
         $responseBody = $response['body'] ?? [];
 
         if (!is_array($responseBody)) {
-            return [];
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
         }
 
         $branches = [];
@@ -541,10 +541,12 @@ class Gogs extends Gitea
             $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
         }
 
-        if ($search === '' && $page === 1 && $perPage === 100) {
-            return $branches;
-        }
+        $offset = ($page - 1) * $perPage;
 
-        return array_slice($branches, ($page - 1) * $perPage, $perPage);
+        return [
+            'items' => array_values(array_slice($branches, $offset, $perPage)),
+            'hasNext' => ($offset + $perPage) < count($branches),
+            'nextCursor' => null,
+        ];
     }
 }

@@ -1046,22 +1046,37 @@ class GitLabTest extends Base
             $result = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
 
             $this->assertIsArray($result);
-            $this->assertNotEmpty($result);
+            $this->assertArrayHasKey('items', $result);
+            $this->assertArrayHasKey('hasNext', $result);
+            $this->assertArrayHasKey('nextCursor', $result);
+            $this->assertNotEmpty($result['items']);
+            $this->assertNull($result['nextCursor']);
 
-            $this->assertContains(static::$defaultBranch, $result);
-            $this->assertContains('feature-branch', $result);
-            $this->assertContains('another-branch', $result);
+            $this->assertContains(static::$defaultBranch, $result['items']);
+            $this->assertContains('feature-branch', $result['items']);
+            $this->assertContains('another-branch', $result['items']);
 
+            // Offset pagination: each page of size 1 reports more items ahead
             $page1 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 1);
             $page2 = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 1, 2);
-            $this->assertSame([$result[0]], $page1);
-            $this->assertSame([$result[1]], $page2);
+            $this->assertSame([$result['items'][0]], $page1['items']);
+            $this->assertTrue($page1['hasNext']);
+            $this->assertNull($page1['nextCursor']);
+            $this->assertSame([$result['items'][1]], $page2['items']);
+            $this->assertTrue($page2['hasNext']);
+            $this->assertNull($page2['nextCursor']);
 
+            // Prefix search
             $searchResult = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'feature');
-            $this->assertSame(['feature-branch'], $searchResult);
+            $this->assertSame(['feature-branch'], $searchResult['items']);
+            $this->assertFalse($searchResult['hasNext']);
+            $this->assertNull($searchResult['nextCursor']);
 
+            // Substring (non-prefix) search returns nothing
             $substringSearch = $this->vcsAdapter->listBranches(static::$owner, $repositoryName, 100, 1, 'eature');
-            $this->assertSame([], $substringSearch);
+            $this->assertSame([], $substringSearch['items']);
+            $this->assertFalse($substringSearch['hasNext']);
+            $this->assertNull($substringSearch['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -1074,13 +1089,25 @@ class GitLabTest extends Base
         try {
             $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+            $result = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
 
-            $this->assertIsArray($branches);
-            $this->assertEmpty($branches);
+            $this->assertIsArray($result);
+            $this->assertSame([], $result['items']);
+            $this->assertFalse($result['hasNext']);
+            $this->assertNull($result['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
+    }
+
+    public function testListBranchesNonExistingRepository(): void
+    {
+        $result = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
+
+        $this->assertIsArray($result);
+        $this->assertSame([], $result['items']);
+        $this->assertFalse($result['hasNext']);
+        $this->assertNull($result['nextCursor']);
     }
 
     public function testListRepositoryLanguages(): void

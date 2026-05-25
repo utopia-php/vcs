@@ -930,15 +930,15 @@ GRAPHQL;
         $responseBody = $response['body'] ?? [];
         $responseBodyCommit = $responseBody['commit'] ?? [];
         $responseBodyCommitAuthor = $responseBodyCommit['author'] ?? [];
-        $responseBodyAuthor = $responseBody['author'] ?? [];
+        // GitHub sets author to null for commits from App installations whose email
+        // does not match any GitHub user — treat it as an empty array to allow fallbacks.
+        $responseBodyAuthor = is_array($responseBody['author'] ?? null) ? $responseBody['author'] : [];
 
         if (
             !array_key_exists('name', $responseBodyCommitAuthor) ||
             !array_key_exists('message', $responseBodyCommit) ||
             !array_key_exists('sha', $responseBody) ||
-            !array_key_exists('html_url', $responseBody) ||
-            !array_key_exists('avatar_url', $responseBodyAuthor) ||
-            !array_key_exists('html_url', $responseBodyAuthor)
+            !array_key_exists('html_url', $responseBody)
         ) {
             throw new Exception("Latest commit response is missing required information.");
         }

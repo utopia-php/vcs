@@ -793,11 +793,12 @@ class GitHub extends Git
      */
     private function listBranchesPage(string $owner, string $repositoryName, int $perPage, ?string $cursor, string $search): array
     {
-        $refPrefix = 'refs/heads/' . $search;
+        // refPrefix must be a complete path namespace (e.g. "refs/heads/"); the separate
+        // query param handles prefix filtering on branch names.
         $query = <<<'GRAPHQL'
-query ListBranches($owner: String!, $name: String!, $refPrefix: String!, $first: Int!, $after: String) {
+query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String, $query: String) {
   repository(owner: $owner, name: $name) {
-    refs(refPrefix: $refPrefix, first: $first, after: $after, orderBy: {field: ALPHABETICAL, direction: ASC}) {
+    refs(refPrefix: "refs/heads/", first: $first, after: $after, orderBy: {field: ALPHABETICAL, direction: ASC}, query: $query) {
       nodes {
         name
       }
@@ -815,9 +816,9 @@ GRAPHQL;
             'variables' => [
                 'owner' => $owner,
                 'name' => $repositoryName,
-                'refPrefix' => $refPrefix,
                 'first' => $perPage,
                 'after' => $cursor,
+                'query' => $search !== '' ? $search : null,
             ],
         ]);
 

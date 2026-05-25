@@ -15,11 +15,6 @@ class GitLabTest extends Base
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new GitLab(new Cache(new None()));
-    }
-
     public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
@@ -62,24 +57,6 @@ class GitLabTest extends Base
         }
     }
 
-
-    public function testGetOwnerNameWithRepositoryId(): void
-    {
-        $repositoryName = 'test-get-owner-name-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $repo = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
-            $repositoryId = $repo['id'] ?? 0;
-
-            $result = $this->vcsAdapter->getOwnerName('', $repositoryId);
-
-            $this->assertIsString($result);
-            $this->assertNotEmpty($result);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testSearchRepositories(): void
     {

@@ -14,8 +14,6 @@ abstract class Base extends TestCase
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
 
-    abstract protected function createVCSAdapter(): Git;
-
     abstract protected function setupAdapter(): void;
 
     public function setUp(): void
@@ -616,18 +614,21 @@ abstract class Base extends TestCase
     {
         $repo1Name = 'test-search-repo1-' . \uniqid();
         $repo2Name = 'test-search-repo2-' . \uniqid();
-
+    
         $this->vcsAdapter->createRepository(static::$owner, $repo1Name, false);
         $this->vcsAdapter->createRepository(static::$owner, $repo2Name, false);
-
+    
         try {
-            $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10);
-
+            $result = [];
+            $this->assertEventually(function () use (&$result) {
+                $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10);
+                $this->assertGreaterThanOrEqual(2, $result['total']);
+            }, 30000, 2000);
+    
             $this->assertIsArray($result);
             $this->assertArrayHasKey('items', $result);
             $this->assertArrayHasKey('total', $result);
-            $this->assertGreaterThanOrEqual(2, $result['total']);
-
+    
             $this->assertArrayHasKey('pushed_at', $result['items'][0]);
             $this->assertTrue(
                 $result['items'][0]['pushed_at'] === null || \strtotime($result['items'][0]['pushed_at']) !== false

@@ -19,11 +19,6 @@ class GiteaTest extends Base
     protected string $webhookSignatureHeader = 'X-Gitea-Signature';
     protected string $avatarDomain = 'gravatar.com';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new Gitea(new Cache(new None()));
-    }
-
     public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

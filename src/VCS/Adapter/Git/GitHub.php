@@ -846,8 +846,14 @@ GRAPHQL;
         $pageInfo = $refs['pageInfo'] ?? [];
         $hasNext = $pageInfo['hasNextPage'] ?? false;
 
+        // GitHub's query param does substring matching; post-filter to enforce prefix semantics.
+        $names = array_map(fn ($branch) => $branch['name'] ?? '', $refs['nodes'] ?? []);
+        if ($search !== '') {
+            $names = array_values(array_filter($names, fn ($name) => str_starts_with($name, $search)));
+        }
+
         return [
-            'items' => array_values(array_map(fn ($branch) => $branch['name'] ?? '', $refs['nodes'] ?? [])),
+            'items' => array_values($names),
             'hasNext' => $hasNext,
             'nextCursor' => $hasNext ? ($pageInfo['endCursor'] ?? null) : null,
         ];

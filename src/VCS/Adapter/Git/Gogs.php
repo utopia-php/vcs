@@ -260,9 +260,18 @@ class Gogs extends Gitea
      */
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
-        // Gogs ignores sha param — verify branch exists first
-        $result = $this->listBranches($owner, $repositoryName);
-        if (!in_array($branch, $result['items'], true)) {
+        // Gogs ignores sha param — verify branch exists by scanning all pages
+        $page = 1;
+        $found = false;
+        do {
+            $result = $this->listBranches($owner, $repositoryName, 100, $page);
+            if (in_array($branch, $result['items'], true)) {
+                $found = true;
+                break;
+            }
+            $page++;
+        } while ($result['hasNext']);
+        if (!$found) {
             throw new Exception("Branch '{$branch}' not found");
         }
 

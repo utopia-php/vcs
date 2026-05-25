@@ -595,10 +595,21 @@ abstract class Base extends TestCase
 
     public function testGetOwnerName(): void
     {
-        $result = $this->vcsAdapter->getOwnerName('');
-        $this->assertIsString($result);
-        $this->assertNotEmpty($result);
-        $this->assertSame(static::$owner, $result);
+        $repositoryName = 'test-get-owner-name-' . \uniqid();
+        $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->assertIsArray($created);
+            $this->assertArrayHasKey('id', $created);
+            $repositoryId = (int) ($created['id'] ?? 0);
+
+            $result = $this->vcsAdapter->getOwnerName('', $repositoryId);
+
+            $this->assertIsString($result);
+            $this->assertNotEmpty($result);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testSearchRepositories(): void

@@ -555,28 +555,20 @@ class GitLab extends Git
 
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
-        if ($repositoryId !== null) {
-            $url = "/projects/{$repositoryId}";
-            $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
-            $responseHeaders = $response['headers'] ?? [];
-            $statusCode = $responseHeaders['status-code'] ?? 0;
-            if ($statusCode >= 400) {
-                throw new Exception("Failed to get owner name for repository {$repositoryId}: HTTP {$statusCode}");
-            }
-            $responseBody = $response['body'] ?? [];
-            $namespace = $responseBody['namespace'] ?? [];
-            return $namespace['path'] ?? '';
+        if ($repositoryId === null || $repositoryId <= 0) {
+            throw new Exception("repositoryId is required for this adapter");
         }
 
-        $url = "/user";
+        $url = "/projects/{$repositoryId}";
         $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get current user: HTTP {$statusCode}");
+            throw new Exception("Failed to get owner name for repository {$repositoryId}: HTTP {$statusCode}");
         }
         $responseBody = $response['body'] ?? [];
-        return $responseBody['username'] ?? '';
+        $namespace = $responseBody['namespace'] ?? [];
+        return $namespace['path'] ?? '';
     }
 
     public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array

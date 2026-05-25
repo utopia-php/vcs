@@ -629,6 +629,7 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('items', $result);
             $this->assertArrayHasKey('total', $result);
     
+            $this->assertNotEmpty($result['items']);
             $this->assertArrayHasKey('pushed_at', $result['items'][0]);
             $this->assertTrue(
                 $result['items'][0]['pushed_at'] === null || \strtotime($result['items'][0]['pushed_at']) !== false

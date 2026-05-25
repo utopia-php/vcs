@@ -2,6 +2,7 @@
 
 namespace Utopia\Tests;
 
+use Exception;
 use PHPUnit\Framework\TestCase;
 use Utopia\Fetch\Client;
 use Utopia\System\System;
@@ -128,13 +129,13 @@ abstract class Base extends TestCase
 
     public function testGetDeletedRepositoryFails(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->vcsAdapter->getRepository(static::$owner, 'non-existing-repository-' . \uniqid());
     }
 
     public function testGetRepositoryWithNonExistingOwner(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->vcsAdapter->getRepository('non-existing-owner-' . \uniqid(), 'non-existing-repo');
     }
 
@@ -153,13 +154,13 @@ abstract class Base extends TestCase
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
         $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
 
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
     }
 
     public function testDeleteNonExistingRepositoryFails(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->vcsAdapter->deleteRepository(static::$owner, 'non-existing-repo-' . \uniqid());
     }
 
@@ -184,7 +185,7 @@ abstract class Base extends TestCase
 
     public function testGetRepositoryNameWithInvalidId(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->vcsAdapter->getRepositoryName('99999999');
     }
 
@@ -455,7 +456,7 @@ abstract class Base extends TestCase
             $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $this->expectException(\Exception::class);
+            $this->expectException(Exception::class);
             $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, 'non-existing-branch');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -527,13 +528,13 @@ abstract class Base extends TestCase
         $repositoryName = 'test-clone-commit-' . \uniqid();
         $directory = '/tmp/test-clone-commit-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-    
+
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-    
+
             $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
             $commitHash = $commit['commitHash'];
-    
+
             $command = $this->vcsAdapter->generateCloneCommand(
                 static::$owner,
                 $repositoryName,
@@ -542,10 +543,10 @@ abstract class Base extends TestCase
                 $directory,
                 '*'
             );
-    
+
             $this->assertIsString($command);
             $this->assertStringContainsString('sparse-checkout', $command);
-    
+
             $output = [];
             \exec($command . ' 2>&1', $output, $exitCode);
             $this->assertSame(0, $exitCode, implode("\n", $output));
@@ -607,21 +608,21 @@ abstract class Base extends TestCase
     {
         $repo1Name = 'test-search-repo1-' . \uniqid();
         $repo2Name = 'test-search-repo2-' . \uniqid();
-    
+
         $this->vcsAdapter->createRepository(static::$owner, $repo1Name, false);
         $this->vcsAdapter->createRepository(static::$owner, $repo2Name, false);
-    
+
         try {
             $result = [];
             $this->assertEventually(function () use (&$result) {
                 $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10);
                 $this->assertGreaterThanOrEqual(2, $result['total']);
             }, 30000, 2000);
-    
+
             $this->assertIsArray($result);
             $this->assertArrayHasKey('items', $result);
             $this->assertArrayHasKey('total', $result);
-    
+
             $this->assertNotEmpty($result['items']);
             $this->assertArrayHasKey('pushed_at', $result['items'][0]);
             $this->assertTrue(
@@ -710,7 +711,7 @@ abstract class Base extends TestCase
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
-            $this->expectException(\Exception::class);
+            $this->expectException(Exception::class);
             $this->vcsAdapter->getPullRequest(static::$owner, $repositoryName, 99999);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -863,7 +864,7 @@ abstract class Base extends TestCase
         $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
         try {
-            $this->expectException(\Exception::class);
+            $this->expectException(Exception::class);
             $this->vcsAdapter->createComment(static::$owner, $repositoryName, 99999, 'Test comment');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -895,7 +896,7 @@ abstract class Base extends TestCase
 
     public function testGetUserWithInvalidUsername(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->vcsAdapter->getUser('non-existent-user-' . \uniqid());
     }
 

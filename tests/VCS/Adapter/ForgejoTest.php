@@ -5,7 +5,6 @@ namespace Utopia\Tests\Adapter;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
-use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\Forgejo;
 
 class ForgejoTest extends GiteaTest

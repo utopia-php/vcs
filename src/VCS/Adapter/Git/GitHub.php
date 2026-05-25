@@ -752,7 +752,10 @@ class GitHub extends Git
      * @param  string  $owner
      * @param  string  $repositoryName
      * @param  int  $perPage Clamped to [1, 100]
-     * @param  int|string|null  $page 1-based page number or opaque GraphQL cursor
+     * @param  int|string|null  $page Pass 1 (or null) for the first page. For subsequent pages
+     *   always pass the opaque cursor string from the previous nextCursor — GitHub uses
+     *   cursor-based GraphQL pagination and has no concept of integer page offsets.
+     *   Any integer value other than 1 is treated as page 1.
      * @param  string  $search Prefix filter; empty returns all branches
      * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */
@@ -760,32 +763,7 @@ class GitHub extends Git
     {
         $perPage = min(max($perPage, 1), 100);
         $cursor = is_string($page) ? $page : null;
-        $page = is_int($page) ? max($page, 1) : 1;
-        $result = [
-            'items' => [],
-            'hasNext' => false,
-            'nextCursor' => null,
-        ];
-
-        for ($currentPage = 1; $currentPage <= $page; $currentPage++) {
-            $result = $this->listBranchesPage($owner, $repositoryName, $perPage, $cursor, $search);
-
-            if ($currentPage === $page) {
-                return $result;
-            }
-
-            if ($result['hasNext'] === false) {
-                return [
-                    'items' => [],
-                    'hasNext' => false,
-                    'nextCursor' => null,
-                ];
-            }
-
-            $cursor = $result['nextCursor'];
-        }
-
-        return $result;
+        return $this->listBranchesPage($owner, $repositoryName, $perPage, $cursor, $search);
     }
 
     /**

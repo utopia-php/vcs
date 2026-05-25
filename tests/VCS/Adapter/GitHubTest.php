@@ -546,20 +546,18 @@ class GitHubTest extends Base
             /** @var GitHub $adapter */
             $adapter = $this->vcsAdapter;
 
+            // Cursor-based navigation: always use nextCursor from the previous response
             $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1);
             $this->assertSame(['branch-a'], $page1['items']);
             $this->assertTrue($page1['hasNext']);
             $this->assertNotEmpty($page1['nextCursor']);
 
-            $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, 2);
+            $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, $page1['nextCursor']);
             $this->assertSame(['branch-b'], $page2['items']);
             $this->assertTrue($page2['hasNext']);
             $this->assertNotEmpty($page2['nextCursor']);
 
-            $cursorPage2 = $adapter->listBranches(static::$owner, $repositoryName, 1, $page1['nextCursor']);
-            $this->assertSame($page2, $cursorPage2);
-
-            $page3 = $adapter->listBranches(static::$owner, $repositoryName, 1, 3);
+            $page3 = $adapter->listBranches(static::$owner, $repositoryName, 1, $page2['nextCursor']);
             $this->assertSame([static::$defaultBranch], $page3['items']);
             $this->assertFalse($page3['hasNext']);
             $this->assertNull($page3['nextCursor']);

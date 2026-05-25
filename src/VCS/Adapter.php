@@ -233,7 +233,7 @@ abstract class Adapter
      * @param string $owner Owner name of the repository
      * @param string $repositoryName Name of the repository
      * @param int $perPage Number of results per page, clamped to [1, 100]
-     * @param int|string|null $page 1-based integer page number, or an opaque cursor string from a previous nextCursor (cursor form only supported by GitHub)
+     * @param int|string|null $page For GitHub: pass 1 for the first page; for subsequent pages always pass the opaque cursor string from nextCursor — GitHub has no concept of integer offset pages and any integer other than 1 is treated as page 1. For other providers: 1-based integer page number; string cursors are ignored and treated as page 1.
      * @param string $search Prefix filter for branch names; empty string returns all branches
      * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */

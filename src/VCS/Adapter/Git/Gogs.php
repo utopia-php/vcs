@@ -501,9 +501,9 @@ class Gogs extends Gitea
     /**
      * List branches
      *
-     * Gogs supports listing branches but without pagination parameters.
+     * Gogs API returns all branches in a single request (no pagination support).
      *
-     * @return array<string>
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */
     public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {

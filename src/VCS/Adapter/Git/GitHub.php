@@ -783,10 +783,15 @@ query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String
 }
 GRAPHQL;
 
-        // GitHub's GraphQL query param does substring matching, so we request edges
-        // (which carry per-item cursors) and enforce prefix semantics client-side with
-        // str_starts_with. We collect up to $perPage + 1 matching edges across as many
-        // GitHub API pages as needed:
+        // We use GraphQL instead of REST for two reasons that the REST API cannot satisfy:
+        //  1. Server-side search narrowing: REST GET /repos/{owner}/{repo}/branches has no
+        //     search or filter parameter at all; GraphQL refs() accepts a `query` variable.
+        //  2. Per-edge cursors: REST only supports integer ?page=N offsets; GraphQL edges
+        //     carry individual cursors so we can resume from an exact item across calls.
+        //
+        // GraphQL `query` does substring matching, so we additionally enforce prefix
+        // semantics client-side with str_starts_with. We collect up to $perPage + 1
+        // matching edges across as many GraphQL pages as needed:
         //  - If we find the +1 probe item, hasNext=true and nextCursor points to the
         //    cursor of the last returned item, so the next call resumes exactly where
         //    we stopped.

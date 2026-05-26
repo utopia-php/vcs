@@ -685,6 +685,47 @@ class GitHubTest extends Base
         }
     }
 
+    public function testUpdateCheckRun(): void
+    {
+        $repositoryName = 'test-update-check-run-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            $checkRun = $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'in_progress',
+                startedAt: gmdate('Y-m-d\TH:i:s\Z'),
+            );
+
+            $this->assertArrayHasKey('id', $checkRun);
+            $this->assertEquals('in_progress', $checkRun['status']);
+
+            $updated = $this->vcsAdapter->updateCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                checkRunId: $checkRun['id'],
+                status: 'completed',
+                conclusion: 'neutral',
+                title: 'Deployment skipped',
+                summary: 'Deployment skipped because the branch does not match the configured branch triggers.',
+                completedAt: gmdate('Y-m-d\TH:i:s\Z'),
+            );
+
+            $this->assertEquals($checkRun['id'], $updated['id']);
+            $this->assertEquals('completed', $updated['status']);
+            $this->assertEquals('neutral', $updated['conclusion']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGenerateCloneCommand(): void
     {
         $repositoryName = 'test-clone-command-' . \uniqid();

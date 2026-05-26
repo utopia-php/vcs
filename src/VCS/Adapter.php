@@ -275,6 +275,35 @@ abstract class Adapter
     }
 
     /**
+     * Updates an existing check run.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @return array<mixed>
+     */
+    public function updateCheckRun(
+        string $owner,
+        string $repositoryName,
+        int $checkRunId,
+        string $name = '',
+        string $status = '',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        throw new \Exception('updateCheckRun() is not implemented for ' . $this->getName());
+    }
+
+    /**
      * Get repository tree
      *
      * @param string $owner Owner name of the repository

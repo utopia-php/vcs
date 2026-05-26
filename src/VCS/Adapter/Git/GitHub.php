@@ -954,6 +954,66 @@ class GitHub extends Git
     }
 
     /**
+     * Updates an existing check run.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @return array<mixed>
+     */
+    public function updateCheckRun(
+        string $owner,
+        string $repositoryName,
+        int $checkRunId,
+        string $name = '',
+        string $status = '',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
+
+        $body = array_filter([
+            'name' => $name,
+            'status' => $status,
+            'details_url' => $detailsUrl,
+            'external_id' => $externalId,
+            'started_at' => $startedAt,
+            'conclusion' => $conclusion,
+            'completed_at' => $completedAt,
+        ], fn ($value) => !empty($value));
+
+        if (!empty($title) || !empty($summary)) {
+            $output = array_filter([
+                'title' => $title,
+                'summary' => $summary,
+                'text' => $text,
+            ], fn ($value) => !empty($value));
+
+            if (!empty($annotations)) {
+                $output['annotations'] = $annotations;
+            }
+            if (!empty($images)) {
+                $output['images'] = $images;
+            }
+
+            $body['output'] = $output;
+        }
+
+        $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+
+        return $response['body'] ?? [];
+    }
+
+    /**
      * Generates a clone command using app access token
      */
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string

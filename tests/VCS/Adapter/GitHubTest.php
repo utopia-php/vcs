@@ -659,18 +659,27 @@ class GitHubTest extends Base
             $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
             $commitHash = $commit['commitHash'];
 
-            // Should not throw
-            $this->vcsAdapter->createCheckRun(
-                static::$owner,
-                $repositoryName,
-                $commitHash,
-                'ci/build',
-                'neutral',
-                'Deployment skipped',
-                'Deployment skipped because the commit message contains a skip pattern.'
+            $checkRun = $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'completed',
+                conclusion: 'neutral',
+                title: 'Deployment skipped',
+                summary: 'Deployment skipped because the commit message contains a skip pattern.',
+                completedAt: gmdate('Y-m-d\TH:i:s\Z'),
             );
 
-            $this->assertTrue(true);
+            $this->assertArrayHasKey('id', $checkRun);
+            $this->assertEquals('completed', $checkRun['status']);
+            $this->assertEquals('neutral', $checkRun['conclusion']);
+            $this->assertEquals('ci/build', $checkRun['name']);
+
+            $fetched = $this->vcsAdapter->getCheckRun(static::$owner, $repositoryName, $checkRun['id']);
+            $this->assertEquals($checkRun['id'], $fetched['id']);
+            $this->assertEquals('neutral', $fetched['conclusion']);
+            $this->assertEquals('completed', $fetched['status']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

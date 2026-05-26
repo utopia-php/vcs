@@ -873,26 +873,77 @@ class GitHub extends Git
     }
 
     /**
-     * Creates a completed check run for a commit.
-     * conclusion can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     * Creates a check run for a commit.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     *
+     * @return array<mixed>
      */
-    public function createCheckRun(string $owner, string $repositoryName, string $headSha, string $name, string $conclusion, string $title, string $summary): void
-    {
+    public function createCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $headSha,
+        string $name,
+        string $status = 'queued',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
         $url = "/repos/$owner/$repositoryName/check-runs";
 
         $body = [
             'name' => $name,
             'head_sha' => $headSha,
-            'status' => 'completed',
-            'conclusion' => $conclusion,
-            'completed_at' => gmdate('Y-m-d\TH:i:s\Z'),
-            'output' => [
-                'title' => $title,
-                'summary' => $summary,
-            ],
+            'status' => $status,
         ];
 
-        $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+        if (!empty($detailsUrl)) {
+            $body['details_url'] = $detailsUrl;
+        }
+        if (!empty($externalId)) {
+            $body['external_id'] = $externalId;
+        }
+        if (!empty($startedAt)) {
+            $body['started_at'] = $startedAt;
+        }
+        if (!empty($conclusion)) {
+            $body['conclusion'] = $conclusion;
+        }
+        if (!empty($completedAt)) {
+            $body['completed_at'] = $completedAt;
+        }
+        if (!empty($title) || !empty($summary)) {
+            $body['output'] = [
+                'title' => $title,
+                'summary' => $summary,
+            ];
+            if (!empty($text)) {
+                $body['output']['text'] = $text;
+            }
+        }
+
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+
+        return $response['body'] ?? [];
+    }
+
+    /**
+     * Gets a check run by ID.
+     *
+     * @return array<mixed>
+     */
+    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    {
+        $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        return $response['body'] ?? [];
     }
 
     /**

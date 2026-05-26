@@ -236,12 +236,38 @@ abstract class Adapter
     abstract public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void;
 
     /**
-     * Creates a completed check run for a commit.
-     * conclusion can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     * Creates a check run for a commit.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     *
+     * @return array<mixed>
      */
-    public function createCheckRun(string $owner, string $repositoryName, string $headSha, string $name, string $conclusion, string $title, string $summary): void
-    {
+    public function createCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $headSha,
+        string $name,
+        string $status = 'queued',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
         throw new \Exception('createCheckRun() is not implemented for ' . $this->getName());
+    }
+
+    /**
+     * Gets a check run by ID.
+     *
+     * @return array<mixed>
+     */
+    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    {
+        throw new \Exception('getCheckRun() is not implemented for ' . $this->getName());
     }
 
     /**

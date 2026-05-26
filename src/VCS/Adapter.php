@@ -240,6 +240,8 @@ abstract class Adapter
      * status can be one of: queued, in_progress, completed
      * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
      *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
      * @return array<mixed>
      */
     public function createCheckRun(
@@ -252,6 +254,8 @@ abstract class Adapter
         string $title = '',
         string $summary = '',
         string $text = '',
+        array $annotations = [],
+        array $images = [],
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',

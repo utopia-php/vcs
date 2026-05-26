@@ -879,6 +879,10 @@ class GitHub extends Git
      *
      * @return array<mixed>
      */
+    /**
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     */
     public function createCheckRun(
         string $owner,
         string $repositoryName,
@@ -889,6 +893,8 @@ class GitHub extends Git
         string $title = '',
         string $summary = '',
         string $text = '',
+        array $annotations = [],
+        array $images = [],
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',
@@ -912,11 +918,20 @@ class GitHub extends Git
         );
 
         if (!empty($title) || !empty($summary)) {
-            $body['output'] = array_filter([
+            $output = array_filter([
                 'title' => $title,
                 'summary' => $summary,
                 'text' => $text,
             ], fn ($value) => !empty($value));
+
+            if (!empty($annotations)) {
+                $output['annotations'] = $annotations;
+            }
+            if (!empty($images)) {
+                $output['images'] = $images;
+            }
+
+            $body['output'] = $output;
         }
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);

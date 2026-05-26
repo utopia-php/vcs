@@ -733,6 +733,9 @@ class Gitea extends Git
      */
     public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
+        // Gitea's branches endpoint only supports page/limit pagination — it has no
+        // server-side search or filter parameter (a q param is silently ignored).
+        // We must fetch all pages and apply str_starts_with client-side.
         $allBranches = [];
         $requestedPerPage = min(max($perPage, 1), 100);
         $requestedPage = is_int($page) ? max($page, 1) : 1;

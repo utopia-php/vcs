@@ -763,27 +763,7 @@ class GitHub extends Git
     {
         $perPage = min(max($perPage, 1), 100);
         $cursor = is_string($page) ? $page : null;
-        return $this->listBranchesPage($owner, $repositoryName, $perPage, $cursor, $search);
-    }
 
-    /**
-     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
-     */
-    /**
-     * Fetches one logical page of prefix-matching branches.
-     *
-     * GitHub's GraphQL query parameter does substring matching, so we request edges
-     * (which carry per-item cursors) and apply str_starts_with client-side. We collect
-     * up to $perPage + 1 matching edges across as many GitHub API pages as needed:
-     * - If we find the +1 probe item, hasNext=true and nextCursor points to the cursor
-     *   of the last returned item, so the next call resumes exactly where we stopped.
-     * - If GitHub is exhausted before the probe, hasNext=false.
-     * This ensures items is never empty while hasNext is true.
-     *
-     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
-     */
-    private function listBranchesPage(string $owner, string $repositoryName, int $perPage, ?string $cursor, string $search): array
-    {
         $gql = <<<'GRAPHQL'
 query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String, $query: String) {
   repository(owner: $owner, name: $name) {
@@ -803,9 +783,19 @@ query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String
 }
 GRAPHQL;
 
+        // GitHub's GraphQL query param does substring matching, so we request edges
+        // (which carry per-item cursors) and enforce prefix semantics client-side with
+        // str_starts_with. We collect up to $perPage + 1 matching edges across as many
+        // GitHub API pages as needed:
+        //  - If we find the +1 probe item, hasNext=true and nextCursor points to the
+        //    cursor of the last returned item, so the next call resumes exactly where
+        //    we stopped.
+        //  - If GitHub is exhausted before the probe, hasNext=false.
+        // This ensures items is never empty while hasNext is true.
         /** @var array<array{name: string, cursor: string}> $collected */
         $collected = [];
         $currentCursor = $cursor;
+        $hasNextPage = false;
 
         do {
             $response = $this->call(self::METHOD_POST, '/graphql', ['Authorization' => "Bearer $this->accessToken"], [

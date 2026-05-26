@@ -873,6 +873,28 @@ class GitHub extends Git
     }
 
     /**
+     * Creates a completed check run for a commit.
+     * conclusion can be one of: action_required, cancelled, failure, neutral, success, skipped, stale, timed_out
+     */
+    public function createCheckRun(string $owner, string $repositoryName, string $headSha, string $name, string $conclusion, string $title, string $summary): void
+    {
+        $url = "/repos/$owner/$repositoryName/check-runs";
+
+        $body = [
+            'name' => $name,
+            'head_sha' => $headSha,
+            'status' => 'completed',
+            'conclusion' => $conclusion,
+            'output' => [
+                'title' => $title,
+                'summary' => $summary,
+            ],
+        ];
+
+        $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+    }
+
+    /**
      * Generates a clone command using app access token
      */
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string

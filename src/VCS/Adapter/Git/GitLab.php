@@ -707,35 +707,38 @@ class GitLab extends Git
         $perPage = min(max($perPage, 1), 100);
         $requestedPage = is_int($page) ? max($page, 1) : 1;
 
-        $branches = [];
-        $currentPage = 1;
-        do {
-            $pagedUrl = "/projects/{$projectPath}/repository/branches?per_page=100&page={$currentPage}";
-            $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
-            $responseHeaders = $response['headers'] ?? [];
-            $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
-            if ($responseHeadersStatusCode >= 400) {
-                return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
-            }
-            $responseBody = $response['body'] ?? [];
-            if (!is_array($responseBody) || empty($responseBody)) {
-                break;
-            }
-            foreach ($responseBody as $branch) {
-                $branches[] = $branch['name'] ?? '';
-            }
-            $currentPage++;
-        } while (count($responseBody) === 100);
-
+        $query = "per_page={$perPage}&page={$requestedPage}";
         if ($search !== '') {
-            $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
+            // GitLab's search param accepts ^term to match branches that begin with
+            // term, giving us server-side prefix semantics without fetching all branches.
+            $query .= '&search=' . urlencode('^' . $search);
         }
 
-        $offset = ($requestedPage - 1) * $perPage;
+        $url = "/projects/{$projectPath}/repository/branches?{$query}";
+        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+
+        if ($responseHeadersStatusCode >= 400) {
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
+        }
+
+        $responseBody = $response['body'] ?? [];
+        if (!is_array($responseBody)) {
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
+        }
+
+        $branches = [];
+        foreach ($responseBody as $branch) {
+            $branches[] = $branch['name'] ?? '';
+        }
+
+        // X-Next-Page is an empty string when there is no further page
+        $hasNext = !empty($responseHeaders['x-next-page']);
 
         return [
-            'items' => array_values(array_slice($branches, $offset, $perPage)),
-            'hasNext' => ($offset + $perPage) < count($branches),
+            'items' => $branches,
+            'hasNext' => $hasNext,
             'nextCursor' => null,
         ];
     }

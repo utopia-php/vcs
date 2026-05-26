@@ -874,7 +874,7 @@ class GitHub extends Git
 
     /**
      * Creates a completed check run for a commit.
-     * conclusion can be one of: action_required, cancelled, failure, neutral, success, skipped, stale, timed_out
+     * conclusion can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
      */
     public function createCheckRun(string $owner, string $repositoryName, string $headSha, string $name, string $conclusion, string $title, string $summary): void
     {
@@ -885,6 +885,7 @@ class GitHub extends Git
             'head_sha' => $headSha,
             'status' => 'completed',
             'conclusion' => $conclusion,
+            'completed_at' => date('Y-m-d\TH:i:s\Z'),
             'output' => [
                 'title' => $title,
                 'summary' => $summary,

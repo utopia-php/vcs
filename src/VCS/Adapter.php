@@ -236,6 +236,15 @@ abstract class Adapter
     abstract public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void;
 
     /**
+     * Creates a completed check run for a commit.
+     * conclusion can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     */
+    public function createCheckRun(string $owner, string $repositoryName, string $headSha, string $name, string $conclusion, string $title, string $summary): void
+    {
+        throw new \Exception('createCheckRun() is not implemented for ' . $this->getName());
+    }
+
+    /**
      * Get repository tree
      *
      * @param string $owner Owner name of the repository

@@ -664,22 +664,17 @@ class GitHubTest extends Base
                 repositoryName: $repositoryName,
                 headSha: $commitHash,
                 name: 'ci/build',
-                status: 'completed',
-                conclusion: 'neutral',
-                title: 'Deployment skipped',
-                summary: 'Deployment skipped because the commit message contains a skip pattern.',
-                completedAt: gmdate('Y-m-d\TH:i:s\Z'),
+                status: 'in_progress',
+                startedAt: gmdate('Y-m-d\TH:i:s\Z'),
             );
 
             $this->assertArrayHasKey('id', $checkRun);
-            $this->assertEquals('completed', $checkRun['status']);
-            $this->assertEquals('neutral', $checkRun['conclusion']);
+            $this->assertEquals('in_progress', $checkRun['status']);
             $this->assertEquals('ci/build', $checkRun['name']);
 
             $fetched = $this->vcsAdapter->getCheckRun(static::$owner, $repositoryName, $checkRun['id']);
             $this->assertEquals($checkRun['id'], $fetched['id']);
-            $this->assertEquals('neutral', $fetched['conclusion']);
-            $this->assertEquals('completed', $fetched['status']);
+            $this->assertEquals('in_progress', $fetched['status']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

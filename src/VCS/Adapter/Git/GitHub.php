@@ -874,11 +874,12 @@ class GitHub extends Git
 
     /**
      * Creates a check run for a commit.
-     * status can be one of: queued, in_progress, completed
-     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     * status can be one of: queued, in_progress
+     * Use updateCheckRun() to set conclusion and mark the run as completed.
      *
      * @param array<mixed> $annotations
      * @param array<mixed> $images
+     * @param array<mixed> $actions
      * @return array<mixed>
      */
     public function createCheckRun(
@@ -887,26 +888,17 @@ class GitHub extends Git
         string $headSha,
         string $name,
         string $status = 'queued',
-        string $conclusion = '',
         string $title = '',
         string $summary = '',
         string $text = '',
         array $annotations = [],
         array $images = [],
+        array $actions = [],
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',
-        string $completedAt = '',
     ): array {
         $url = "/repos/$owner/$repositoryName/check-runs";
-
-        // Conclusion requires status=completed; auto-set completed_at if not provided.
-        if (!empty($conclusion)) {
-            $status = 'completed';
-            if (empty($completedAt)) {
-                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
-            }
-        }
 
         $body = array_merge(
             [
@@ -918,8 +910,6 @@ class GitHub extends Git
                 'details_url' => $detailsUrl,
                 'external_id' => $externalId,
                 'started_at' => $startedAt,
-                'conclusion' => $conclusion,
-                'completed_at' => $completedAt,
             ], fn ($value) => !empty($value))
         );
 
@@ -933,6 +923,10 @@ class GitHub extends Git
                 $output['images'] = $images;
             }
             $body['output'] = $output;
+        }
+
+        if (!empty($actions)) {
+            $body['actions'] = $actions;
         }
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
@@ -975,6 +969,7 @@ class GitHub extends Git
         string $text = '',
         array $annotations = [],
         array $images = [],
+        array $actions = [],
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',
@@ -1010,6 +1005,10 @@ class GitHub extends Git
                 $output['images'] = $images;
             }
             $body['output'] = $output;
+        }
+
+        if (!empty($actions)) {
+            $body['actions'] = $actions;
         }
 
         $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], $body);

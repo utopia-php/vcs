@@ -237,11 +237,12 @@ abstract class Adapter
 
     /**
      * Creates a check run for a commit.
-     * status can be one of: queued, in_progress, completed
-     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     * status can be one of: queued, in_progress
+     * Use updateCheckRun() to set conclusion and mark the run as completed.
      *
      * @param array<mixed> $annotations
      * @param array<mixed> $images
+     * @param array<mixed> $actions
      * @return array<mixed>
      */
     public function createCheckRun(
@@ -250,16 +251,15 @@ abstract class Adapter
         string $headSha,
         string $name,
         string $status = 'queued',
-        string $conclusion = '',
         string $title = '',
         string $summary = '',
         string $text = '',
         array $annotations = [],
         array $images = [],
+        array $actions = [],
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',
-        string $completedAt = '',
     ): array {
         throw new \Exception('createCheckRun() is not implemented for ' . $this->getName());
     }
@@ -281,6 +281,7 @@ abstract class Adapter
      *
      * @param array<mixed> $annotations
      * @param array<mixed> $images
+     * @param array<mixed> $actions
      * @return array<mixed>
      */
     public function updateCheckRun(
@@ -295,6 +296,7 @@ abstract class Adapter
         string $text = '',
         array $annotations = [],
         array $images = [],
+        array $actions = [],
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',

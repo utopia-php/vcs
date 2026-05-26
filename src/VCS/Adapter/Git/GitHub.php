@@ -877,11 +877,9 @@ class GitHub extends Git
      * status can be one of: queued, in_progress, completed
      * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
      *
-     * @return array<mixed>
-     */
-    /**
      * @param array<mixed> $annotations
      * @param array<mixed> $images
+     * @return array<mixed>
      */
     public function createCheckRun(
         string $owner,
@@ -917,20 +915,8 @@ class GitHub extends Git
             ], fn ($value) => !empty($value))
         );
 
-        if (!empty($title) || !empty($summary)) {
-            $output = array_filter([
-                'title' => $title,
-                'summary' => $summary,
-                'text' => $text,
-            ], fn ($value) => !empty($value));
-
-            if (!empty($annotations)) {
-                $output['annotations'] = $annotations;
-            }
-            if (!empty($images)) {
-                $output['images'] = $images;
-            }
-
+        $output = $this->buildCheckRunOutput($title, $summary, $text, $annotations, $images);
+        if (!empty($output)) {
             $body['output'] = $output;
         }
 
@@ -991,26 +977,43 @@ class GitHub extends Git
             'completed_at' => $completedAt,
         ], fn ($value) => !empty($value));
 
-        if (!empty($title) || !empty($summary)) {
-            $output = array_filter([
-                'title' => $title,
-                'summary' => $summary,
-                'text' => $text,
-            ], fn ($value) => !empty($value));
-
-            if (!empty($annotations)) {
-                $output['annotations'] = $annotations;
-            }
-            if (!empty($images)) {
-                $output['images'] = $images;
-            }
-
+        $output = $this->buildCheckRunOutput($title, $summary, $text, $annotations, $images);
+        if (!empty($output)) {
             $body['output'] = $output;
         }
 
         $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
 
         return $response['body'] ?? [];
+    }
+
+    /**
+     * Builds the output block for a check run.
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @return array<mixed>
+     */
+    private function buildCheckRunOutput(string $title, string $summary, string $text, array $annotations, array $images): array
+    {
+        if (empty($title) && empty($summary)) {
+            return [];
+        }
+
+        $output = array_filter([
+            'title' => $title,
+            'summary' => $summary,
+            'text' => $text,
+        ], fn ($value) => !empty($value));
+
+        if (!empty($annotations)) {
+            $output['annotations'] = $annotations;
+        }
+        if (!empty($images)) {
+            $output['images'] = $images;
+        }
+
+        return $output;
     }
 
     /**

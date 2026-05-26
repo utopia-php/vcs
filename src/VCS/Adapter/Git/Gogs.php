@@ -516,8 +516,10 @@ class Gogs extends Gitea
      */
     public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
+        // Gogs returns all branches in one response with no server-side pagination or
+        // search support, so we fetch everything and slice/filter client-side.
         $perPage = min(max($perPage, 1), 100);
-        $page = is_int($page) ? max($page, 1) : 1;
+        $requestedPage = is_int($page) ? max($page, 1) : 1;
         $url = "/repos/{$owner}/{$repositoryName}/branches";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -550,7 +552,7 @@ class Gogs extends Gitea
             $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
         }
 
-        $offset = ($page - 1) * $perPage;
+        $offset = ($requestedPage - 1) * $perPage;
 
         return [
             'items' => array_values(array_slice($branches, $offset, $perPage)),

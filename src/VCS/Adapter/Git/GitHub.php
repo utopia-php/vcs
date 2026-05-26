@@ -900,6 +900,14 @@ class GitHub extends Git
     ): array {
         $url = "/repos/$owner/$repositoryName/check-runs";
 
+        // Conclusion requires status=completed; auto-set completed_at if not provided.
+        if (!empty($conclusion)) {
+            $status = 'completed';
+            if (empty($completedAt)) {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
+            }
+        }
+
         $body = array_merge(
             [
                 'name' => $name,
@@ -915,7 +923,8 @@ class GitHub extends Git
             ], fn ($value) => !empty($value))
         );
 
-        if (!empty($title) || !empty($summary)) {
+        // Output requires both title and summary.
+        if (!empty($title) && !empty($summary)) {
             $output = array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn ($value) => !empty($value));
             if (!empty($annotations)) {
                 $output['annotations'] = $annotations;
@@ -973,6 +982,14 @@ class GitHub extends Git
     ): array {
         $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
 
+        // Conclusion requires status=completed; auto-set completed_at if not provided.
+        if (!empty($conclusion)) {
+            $status = 'completed';
+            if (empty($completedAt)) {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
+            }
+        }
+
         $body = array_filter([
             'name' => $name,
             'status' => $status,
@@ -983,7 +1000,8 @@ class GitHub extends Git
             'completed_at' => $completedAt,
         ], fn ($value) => !empty($value));
 
-        if (!empty($title) || !empty($summary)) {
+        // Output requires both title and summary.
+        if (!empty($title) && !empty($summary)) {
             $output = array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn ($value) => !empty($value));
             if (!empty($annotations)) {
                 $output['annotations'] = $annotations;

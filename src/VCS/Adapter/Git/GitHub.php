@@ -885,7 +885,7 @@ class GitHub extends Git
             'head_sha' => $headSha,
             'status' => 'completed',
             'conclusion' => $conclusion,
-            'completed_at' => date('Y-m-d\TH:i:s\Z'),
+            'completed_at' => gmdate('Y-m-d\TH:i:s\Z'),
             'output' => [
                 'title' => $title,
                 'summary' => $summary,

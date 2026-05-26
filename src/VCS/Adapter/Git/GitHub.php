@@ -896,35 +896,27 @@ class GitHub extends Git
     ): array {
         $url = "/repos/$owner/$repositoryName/check-runs";
 
-        $body = [
-            'name' => $name,
-            'head_sha' => $headSha,
-            'status' => $status,
-        ];
+        $body = array_merge(
+            [
+                'name' => $name,
+                'head_sha' => $headSha,
+                'status' => $status,
+            ],
+            array_filter([
+                'details_url' => $detailsUrl,
+                'external_id' => $externalId,
+                'started_at' => $startedAt,
+                'conclusion' => $conclusion,
+                'completed_at' => $completedAt,
+            ], fn ($value) => !empty($value))
+        );
 
-        if (!empty($detailsUrl)) {
-            $body['details_url'] = $detailsUrl;
-        }
-        if (!empty($externalId)) {
-            $body['external_id'] = $externalId;
-        }
-        if (!empty($startedAt)) {
-            $body['started_at'] = $startedAt;
-        }
-        if (!empty($conclusion)) {
-            $body['conclusion'] = $conclusion;
-        }
-        if (!empty($completedAt)) {
-            $body['completed_at'] = $completedAt;
-        }
         if (!empty($title) || !empty($summary)) {
-            $body['output'] = [
+            $body['output'] = array_filter([
                 'title' => $title,
                 'summary' => $summary,
-            ];
-            if (!empty($text)) {
-                $body['output']['text'] = $text;
-            }
+                'text' => $text,
+            ], fn ($value) => !empty($value));
         }
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);

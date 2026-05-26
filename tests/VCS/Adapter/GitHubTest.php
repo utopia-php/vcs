@@ -649,6 +649,33 @@ class GitHubTest extends Base
         }
     }
 
+    public function testCreateCheckRun(): void
+    {
+        $repositoryName = 'test-create-check-run-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            // Should not throw
+            $this->vcsAdapter->createCheckRun(
+                static::$owner,
+                $repositoryName,
+                $commitHash,
+                'ci/build',
+                'neutral',
+                'Deployment skipped',
+                'Deployment skipped because the commit message contains a skip pattern.'
+            );
+
+            $this->assertTrue(true);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGenerateCloneCommand(): void
     {
         $repositoryName = 'test-clone-command-' . \uniqid();

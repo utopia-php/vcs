@@ -251,6 +251,7 @@ abstract class Adapter
         string $headSha,
         string $name,
         string $status = 'queued',
+        string $conclusion = '',
         string $title = '',
         string $summary = '',
         string $text = '',
@@ -260,6 +261,7 @@ abstract class Adapter
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',
+        string $completedAt = '',
     ): array {
         throw new \Exception('createCheckRun() is not implemented for ' . $this->getName());
     }

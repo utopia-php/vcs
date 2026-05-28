@@ -1035,6 +1035,11 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
 
+        $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to update check run $checkRunId: HTTP $responseHeadersStatusCode");
+        }
+
         return $response['body'] ?? [];
     }
 

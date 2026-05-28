@@ -873,6 +873,65 @@ class GitHubTest extends Base
         }
     }
 
+    public function testUpdateCheckRunWithInvalidRepository(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->updateCheckRun(
+            owner: static::$owner,
+            repositoryName: 'non-existing-repository-' . \uniqid(),
+            checkRunId: 999999999,
+            conclusion: 'success',
+        );
+    }
+
+    public function testUpdateCheckRunWithInvalidId(): void
+    {
+        $repositoryName = 'test-update-check-run-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->updateCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                checkRunId: 999999999,
+                conclusion: 'success',
+            );
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testUpdateCheckRunWithMissingConclusion(): void
+    {
+        $repositoryName = 'test-update-check-run-no-conclusion-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            $checkRun = $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'in_progress',
+            );
+
+            $this->expectException(\Exception::class);
+            $this->vcsAdapter->updateCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                checkRunId: $checkRun['id'],
+                status: 'completed',
+            );
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGenerateCloneCommand(): void
     {
         $repositoryName = 'test-clone-command-' . \uniqid();

@@ -874,8 +874,8 @@ class GitHub extends Git
 
     /**
      * Creates a check run for a commit.
-     * status can be one of: queued, in_progress
-     * Use updateCheckRun() to set conclusion and mark the run as completed.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
      *
      * @param array<mixed> $annotations
      * @param array<mixed> $images
@@ -888,6 +888,7 @@ class GitHub extends Git
         string $headSha,
         string $name,
         string $status = 'queued',
+        string $conclusion = '',
         string $title = '',
         string $summary = '',
         string $text = '',
@@ -897,8 +898,17 @@ class GitHub extends Git
         string $detailsUrl = '',
         string $externalId = '',
         string $startedAt = '',
+        string $completedAt = '',
     ): array {
         $url = "/repos/$owner/$repositoryName/check-runs";
+
+        // Conclusion requires status=completed; auto-set completed_at if not provided.
+        if (!empty($conclusion)) {
+            $status = 'completed';
+            if (empty($completedAt)) {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
+            }
+        }
 
         $body = array_merge(
             [
@@ -907,6 +917,8 @@ class GitHub extends Git
                 'status' => $status,
             ],
             array_filter([
+                'conclusion' => $conclusion,
+                'completed_at' => $completedAt,
                 'details_url' => $detailsUrl,
                 'external_id' => $externalId,
                 'started_at' => $startedAt,

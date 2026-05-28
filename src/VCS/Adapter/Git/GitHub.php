@@ -902,6 +902,10 @@ class GitHub extends Git
     ): array {
         $url = "/repos/$owner/$repositoryName/check-runs";
 
+        if ($status === 'completed' && empty($conclusion)) {
+            throw new Exception("conclusion is required when status is 'completed'");
+        }
+
         // Conclusion requires status=completed; auto-set completed_at if not provided.
         if (!empty($conclusion)) {
             $status = 'completed';
@@ -998,6 +1002,10 @@ class GitHub extends Git
         string $completedAt = '',
     ): array {
         $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
+
+        if ($status === 'completed' && empty($conclusion)) {
+            throw new Exception("conclusion is required when status is 'completed'");
+        }
 
         // Conclusion requires status=completed; auto-set completed_at if not provided.
         if (!empty($conclusion)) {

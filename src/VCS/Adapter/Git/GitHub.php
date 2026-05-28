@@ -943,6 +943,11 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
 
+        $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create check run: HTTP $responseHeadersStatusCode");
+        }
+
         return $response['body'] ?? [];
     }
 
@@ -956,6 +961,11 @@ class GitHub extends Git
         $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get check run $checkRunId: HTTP $responseHeadersStatusCode");
+        }
 
         return $response['body'] ?? [];
     }

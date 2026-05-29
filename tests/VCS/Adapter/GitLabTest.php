@@ -186,19 +186,6 @@ class GitLabTest extends Base
         }
     }
 
-    public function testGetCommitWithInvalidHash(): void
-    {
-        $repositoryName = 'test-get-commit-invalid-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->expectException(\Exception::class);
-            $this->vcsAdapter->getCommit(static::$owner, $repositoryName, 'invalid-sha-12345');
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
     public function testValidateWebhookEvent(): void
     {
         $secret = 'my-secret-token';

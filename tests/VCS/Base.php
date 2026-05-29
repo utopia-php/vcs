@@ -914,4 +914,115 @@ abstract class Base extends TestCase
     {
         $this->markTestSkipped('Override in adapter-specific test');
     }
+
+    public function testGetCommitWithInvalidHash(): void
+    {
+        $repositoryName = 'test-get-commit-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->expectException(Exception::class);
+            $this->vcsAdapter->getCommit(static::$owner, $repositoryName, 'invalid-sha-12345');
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetEventUnsupportedEvent(): void
+    {
+        $payload = json_encode(['test' => 'data']);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $result = $this->vcsAdapter->getEvent('unsupported_event', $payload);
+
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+    }
+
+    public function testCreateFile(): void
+    {
+        $repositoryName = 'test-create-file-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $result = $this->vcsAdapter->createFile(
+                static::$owner,
+                $repositoryName,
+                'test.md',
+                '# Test',
+                'Add test file'
+            );
+
+            $this->assertIsArray($result);
+            $this->assertNotEmpty($result);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testCreateFileOnBranch(): void
+    {
+        $repositoryName = 'test-create-file-branch-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Main');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature', static::$defaultBranch);
+
+            $result = $this->vcsAdapter->createFile(
+                static::$owner,
+                $repositoryName,
+                'feature.md',
+                '# Feature',
+                'Add feature file',
+                'feature'
+            );
+
+            $this->assertIsArray($result);
+
+            $content = $this->vcsAdapter->getRepositoryContent(
+                static::$owner,
+                $repositoryName,
+                'feature.md',
+                'feature'
+            );
+            $this->assertSame('# Feature', $content['content']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListRepositoryContentsInSubdirectory(): void
+    {
+        $repositoryName = 'test-list-repository-contents-subdir-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/file1.php', '<?php');
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/file2.php', '<?php');
+
+            $contents = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src');
+
+            $this->assertIsArray($contents);
+            $this->assertCount(2, $contents);
+
+            $names = array_column($contents, 'name');
+            $this->assertContains('file1.php', $names);
+            $this->assertContains('file2.php', $names);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListBranchesNonExistingRepository(): void
+    {
+        $branches = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
+
+        $this->assertIsArray($branches);
+        $this->assertEmpty($branches);
+    }
 }

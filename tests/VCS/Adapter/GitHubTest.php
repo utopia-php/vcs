@@ -180,21 +180,6 @@ class GitHubTest extends Base
         }
     }
 
-    public function testGetCommitWithInvalidHash(): void
-    {
-        $repositoryName = 'test-get-commit-invalid-' . \uniqid();
-
-        try {
-            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            $this->expectException(\Exception::class);
-            $this->vcsAdapter->getCommit(static::$owner, $repositoryName, 'invalid-sha-12345');
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
     public function testListBranchesPagination(): void
     {
         $repositoryName = 'test-list-branches-pages-' . \uniqid();
@@ -234,14 +219,6 @@ class GitHubTest extends Base
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
-    }
-
-    public function testListBranchesNonExistingRepository(): void
-    {
-        $branches = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
-
-        $this->assertIsArray($branches);
-        $this->assertEmpty($branches);
     }
 
     public function testHasAccessToAllRepositories(): void

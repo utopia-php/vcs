@@ -236,6 +236,78 @@ abstract class Adapter
     abstract public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void;
 
     /**
+     * Creates a check run for a commit.
+     * status can be one of: queued, in_progress
+     * Use updateCheckRun() to set conclusion and mark the run as completed.
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @param array<mixed> $actions
+     * @return array<mixed>
+     */
+    public function createCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $headSha,
+        string $name,
+        string $status = 'queued',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        throw new \Exception('createCheckRun() is not implemented for ' . $this->getName());
+    }
+
+    /**
+     * Gets a check run by ID.
+     *
+     * @return array<mixed>
+     */
+    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    {
+        throw new \Exception('getCheckRun() is not implemented for ' . $this->getName());
+    }
+
+    /**
+     * Updates an existing check run.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @param array<mixed> $actions
+     * @return array<mixed>
+     */
+    public function updateCheckRun(
+        string $owner,
+        string $repositoryName,
+        int $checkRunId,
+        string $name = '',
+        string $status = '',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        throw new \Exception('updateCheckRun() is not implemented for ' . $this->getName());
+    }
+
+    /**
      * Get repository tree
      *
      * @param string $owner Owner name of the repository

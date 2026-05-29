@@ -873,6 +873,185 @@ class GitHub extends Git
     }
 
     /**
+     * Creates a check run for a commit.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @param array<mixed> $actions
+     * @return array<mixed>
+     */
+    public function createCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $headSha,
+        string $name,
+        string $status = 'queued',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        $url = "/repos/$owner/$repositoryName/check-runs";
+
+        if ($status === 'completed' && empty($conclusion)) {
+            throw new Exception("conclusion is required when status is 'completed'");
+        }
+
+        // Conclusion requires status=completed; auto-set completed_at if not provided.
+        if (!empty($conclusion)) {
+            $status = 'completed';
+            if (empty($completedAt)) {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
+            }
+        }
+
+        $body = array_merge(
+            [
+                'name' => $name,
+                'head_sha' => $headSha,
+                'status' => $status,
+            ],
+            array_filter([
+                'conclusion' => $conclusion,
+                'completed_at' => $completedAt,
+                'details_url' => $detailsUrl,
+                'external_id' => $externalId,
+                'started_at' => $startedAt,
+            ], fn ($value) => !empty($value))
+        );
+
+        // Output requires both title and summary.
+        if (!empty($title) && !empty($summary)) {
+            $output = array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn ($value) => !empty($value));
+            if (!empty($annotations)) {
+                $output['annotations'] = $annotations;
+            }
+            if (!empty($images)) {
+                $output['images'] = $images;
+            }
+            $body['output'] = $output;
+        }
+
+        if (!empty($actions)) {
+            $body['actions'] = $actions;
+        }
+
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+
+        $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create check run: HTTP $responseHeadersStatusCode");
+        }
+
+        return $response['body'] ?? [];
+    }
+
+    /**
+     * Gets a check run by ID.
+     *
+     * @return array<mixed>
+     */
+    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    {
+        $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get check run $checkRunId: HTTP $responseHeadersStatusCode");
+        }
+
+        return $response['body'] ?? [];
+    }
+
+    /**
+     * Updates an existing check run.
+     * status can be one of: queued, in_progress, completed
+     * conclusion (required when status=completed) can be one of: action_required, cancelled, failure, neutral, success, skipped, timed_out
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @return array<mixed>
+     */
+    public function updateCheckRun(
+        string $owner,
+        string $repositoryName,
+        int $checkRunId,
+        string $name = '',
+        string $status = '',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
+
+        if ($status === 'completed' && empty($conclusion)) {
+            throw new Exception("conclusion is required when status is 'completed'");
+        }
+
+        // Conclusion requires status=completed; auto-set completed_at if not provided.
+        if (!empty($conclusion)) {
+            $status = 'completed';
+            if (empty($completedAt)) {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
+            }
+        }
+
+        $body = array_filter([
+            'name' => $name,
+            'status' => $status,
+            'details_url' => $detailsUrl,
+            'external_id' => $externalId,
+            'started_at' => $startedAt,
+            'conclusion' => $conclusion,
+            'completed_at' => $completedAt,
+        ], fn ($value) => !empty($value));
+
+        // Output requires both title and summary.
+        if (!empty($title) && !empty($summary)) {
+            $output = array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn ($value) => !empty($value));
+            if (!empty($annotations)) {
+                $output['annotations'] = $annotations;
+            }
+            if (!empty($images)) {
+                $output['images'] = $images;
+            }
+            $body['output'] = $output;
+        }
+
+        if (!empty($actions)) {
+            $body['actions'] = $actions;
+        }
+
+        $response = $this->call(self::METHOD_PATCH, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+
+        $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to update check run $checkRunId: HTTP $responseHeadersStatusCode");
+        }
+
+        return $response['body'] ?? [];
+    }
+
+    /**
      * Generates a clone command using app access token
      */
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string

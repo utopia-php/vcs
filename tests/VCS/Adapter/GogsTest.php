@@ -5,7 +5,6 @@ namespace Utopia\Tests\Adapter;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
-use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\Gogs;
 
 class GogsTest extends GiteaTest
@@ -18,12 +17,7 @@ class GogsTest extends GiteaTest
     protected string $avatarDomain = 'gravatar.com';
     protected static string $defaultBranch = 'master';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new Gogs(new Cache(new None()));
-    }
-
-    public function setUp(): void
+    public function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupGogs();

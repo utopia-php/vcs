@@ -1025,4 +1025,51 @@ abstract class Base extends TestCase
         $this->assertIsArray($branches);
         $this->assertEmpty($branches);
     }
+
+    public function testUpdateCommitStatusWithInvalidCommit(): void
+    {
+        $repositoryName = 'test-update-status-invalid-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->expectException(Exception::class);
+            $this->vcsAdapter->updateCommitStatus(
+                $repositoryName,
+                'invalid-commit-hash',
+                static::$owner,
+                'success'
+            );
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testUpdateCommitStatusWithNonExistingRepository(): void
+    {
+        $this->expectException(Exception::class);
+        $this->vcsAdapter->updateCommitStatus(
+            'nonexistent-repo-' . \uniqid(),
+            'abc123def456abc123def456abc123def456abc123',
+            static::$owner,
+            'success'
+        );
+    }
+
+    public function testSearchRepositoriesNoResults(): void
+    {
+        $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10, 'nonexistent-repo-xyz-' . \uniqid());
+
+        $this->assertIsArray($result);
+        $this->assertEmpty($result['items']);
+        $this->assertSame(0, $result['total']);
+    }
+
+    public function testSearchRepositoriesInvalidOwner(): void
+    {
+        $result = $this->vcsAdapter->searchRepositories('nonexistent-owner-' . \uniqid(), 1, 10);
+
+        $this->assertIsArray($result);
+        $this->assertEmpty($result['items']);
+        $this->assertSame(0, $result['total']);
+    }
 }

@@ -729,16 +729,21 @@ class Gitea extends Git
      *
      * @param string $owner Owner of the repository
      * @param string $repositoryName Name of the repository
-     * @return array<string> Array of branch names
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
+        // Gitea's branches endpoint only supports page/limit pagination — it has no
+        // server-side search or filter parameter (a q param is silently ignored).
+        // We must fetch all pages and apply str_starts_with client-side.
         $allBranches = [];
-        $perPage = 50;
+        $requestedPerPage = min(max($perPage, 1), 100);
+        $requestedPage = is_int($page) ? max($page, 1) : 1;
+        $apiPerPage = 50;
         $maxPages = 100;
 
         for ($currentPage = 1; $currentPage <= $maxPages; $currentPage++) {
-            $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$perPage}";
+            $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$apiPerPage}";
 
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"], decode: false);
 
@@ -746,7 +751,7 @@ class Gitea extends Git
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
 
             if ($responseHeadersStatusCode === 404) {
-                return [];
+                return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
             }
 
             if ($responseHeadersStatusCode >= 400) {
@@ -770,12 +775,22 @@ class Gitea extends Git
                 }
             }
 
-            if ($pageCount < $perPage) {
+            if ($pageCount < $apiPerPage) {
                 break;
             }
         }
 
-        return $allBranches;
+        if ($search !== '') {
+            $allBranches = array_values(array_filter($allBranches, fn ($branch) => str_starts_with($branch, $search)));
+        }
+
+        $offset = ($requestedPage - 1) * $requestedPerPage;
+
+        return [
+            'items' => array_values(array_slice($allBranches, $offset, $requestedPerPage)),
+            'hasNext' => ($offset + $requestedPerPage) < count($allBranches),
+            'nextCursor' => null,
+        ];
     }
 
     /**

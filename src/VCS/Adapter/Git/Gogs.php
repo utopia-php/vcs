@@ -260,9 +260,18 @@ class Gogs extends Gitea
      */
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
-        // Gogs ignores sha param — verify branch exists first
-        $branches = $this->listBranches($owner, $repositoryName);
-        if (!in_array($branch, $branches, true)) {
+        // Gogs ignores sha param — verify branch exists by scanning all pages
+        $page = 1;
+        $found = false;
+        do {
+            $result = $this->listBranches($owner, $repositoryName, 100, $page);
+            if (in_array($branch, $result['items'], true)) {
+                $found = true;
+                break;
+            }
+            $page++;
+        } while ($result['hasNext']);
+        if (!$found) {
             throw new Exception("Branch '{$branch}' not found");
         }
 
@@ -501,12 +510,16 @@ class Gogs extends Gitea
     /**
      * List branches
      *
-     * Gogs supports listing branches but without pagination parameters.
+     * Gogs API returns all branches in a single request (no pagination support).
      *
-     * @return array<string>
+     * @return array{items: array<string>, hasNext: bool, nextCursor: string|null}
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
+        // Gogs returns all branches in one response with no server-side pagination or
+        // search support, so we fetch everything and slice/filter client-side.
+        $perPage = min(max($perPage, 1), 100);
+        $requestedPage = is_int($page) ? max($page, 1) : 1;
         $url = "/repos/{$owner}/{$repositoryName}/branches";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -515,7 +528,7 @@ class Gogs extends Gitea
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
 
         if ($responseHeadersStatusCode === 404) {
-            return [];
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
         }
 
         if ($responseHeadersStatusCode >= 400) {
@@ -525,7 +538,7 @@ class Gogs extends Gitea
         $responseBody = $response['body'] ?? [];
 
         if (!is_array($responseBody)) {
-            return [];
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
         }
 
         $branches = [];
@@ -535,6 +548,16 @@ class Gogs extends Gitea
             }
         }
 
-        return $branches;
+        if ($search !== '') {
+            $branches = array_values(array_filter($branches, fn ($branch) => str_starts_with($branch, $search)));
+        }
+
+        $offset = ($requestedPage - 1) * $perPage;
+
+        return [
+            'items' => array_values(array_slice($branches, $offset, $perPage)),
+            'hasNext' => ($offset + $perPage) < count($branches),
+            'nextCursor' => null,
+        ];
     }
 }

@@ -700,32 +700,47 @@ class GitLab extends Git
         ];
     }
 
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int|string|null $page = 1, string $search = ''): array
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+        $perPage = min(max($perPage, 1), 100);
+        $requestedPage = is_int($page) ? max($page, 1) : 1;
+
+        $query = "per_page={$perPage}&page={$requestedPage}";
+        if ($search !== '') {
+            // GitLab's search param accepts ^term to match branches that begin with
+            // term, giving us server-side prefix semantics without fetching all branches.
+            $query .= '&search=' . urlencode('^' . $search);
+        }
+
+        $url = "/projects/{$projectPath}/repository/branches?{$query}";
+        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+
+        if ($responseHeadersStatusCode >= 400) {
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
+        }
+
+        $responseBody = $response['body'] ?? [];
+        if (!is_array($responseBody)) {
+            return ['items' => [], 'hasNext' => false, 'nextCursor' => null];
+        }
 
         $branches = [];
-        $page = 1;
-        do {
-            $pagedUrl = "/projects/{$projectPath}/repository/branches?per_page=100&page={$page}";
-            $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
-            $responseHeaders = $response['headers'] ?? [];
-            $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
-            if ($responseHeadersStatusCode >= 400) {
-                return [];
-            }
-            $responseBody = $response['body'] ?? [];
-            if (!is_array($responseBody) || empty($responseBody)) {
-                break;
-            }
-            foreach ($responseBody as $branch) {
-                $branches[] = $branch['name'] ?? '';
-            }
-            $page++;
-        } while (count($responseBody) === 100);
+        foreach ($responseBody as $branch) {
+            $branches[] = $branch['name'] ?? '';
+        }
 
-        return $branches;
+        // X-Next-Page is an empty string when there is no further page
+        $hasNext = !empty($responseHeaders['x-next-page']);
+
+        return [
+            'items' => $branches,
+            'hasNext' => $hasNext,
+            'nextCursor' => null,
+        ];
     }
 
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array

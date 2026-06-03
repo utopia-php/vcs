@@ -469,4 +469,12 @@ class GitLabTest extends Base
         $this->expectException(\Exception::class);
         $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
     }
+
+    public function testGetOwnerName(): void
+    {
+        // Test with no repositoryId — should fall back to /user
+        $result = $this->vcsAdapter->getOwnerName('');
+        $this->assertIsString($result);
+        $this->assertNotEmpty($result);
+    }
 }

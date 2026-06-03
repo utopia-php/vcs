@@ -86,9 +86,11 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('name', $result);
             $this->assertSame($repositoryName, $result['name']);
             $this->assertArrayHasKey('pushed_at', $result);
-            $this->assertTrue(
-                $result['pushed_at'] === null || \strtotime($result['pushed_at']) !== false
-            );
+
+            $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
+            $isPublic = ($fetched['private'] ?? null) === false
+                || ($fetched['visibility'] ?? null) !== 'private';
+            $this->assertTrue($isPublic);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -103,6 +105,12 @@ abstract class Base extends TestCase
         try {
             $this->assertIsArray($result);
             $this->assertArrayHasKey('name', $result);
+            $this->assertSame($repositoryName, $result['name']);
+
+            $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
+            $isPrivate = ($fetched['private'] ?? null) === true
+                || ($fetched['visibility'] ?? null) === 'private';
+            $this->assertTrue($isPrivate);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -470,6 +478,7 @@ abstract class Base extends TestCase
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
             $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
             $commitHash = $commit['commitHash'];
 
@@ -483,7 +492,18 @@ abstract class Base extends TestCase
                 'ci/build'
             );
 
-            $this->assertTrue(true);
+            $statuses = $this->vcsAdapter->getCommitStatuses(static::$owner, $repositoryName, $commitHash);
+            $this->assertIsArray($statuses);
+            $this->assertNotEmpty($statuses);
+
+            $found = false;
+            foreach ($statuses as $status) {
+                if (($status['context'] ?? $status['state'] ?? '') !== '') {
+                    $found = true;
+                    break;
+                }
+            }
+            $this->assertTrue($found, 'Expected at least one commit status');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

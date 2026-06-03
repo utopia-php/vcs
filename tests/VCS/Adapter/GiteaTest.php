@@ -627,4 +627,9 @@ class GiteaTest extends Base
         }
     }
 
+    public function testCreateRepositoryWithInvalidName(): void
+    {
+        $this->markTestSkipped('Gitea accepts repository names with spaces');
+    }
+
 }

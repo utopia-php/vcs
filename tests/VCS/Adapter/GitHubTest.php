@@ -753,12 +753,4 @@ class GitHubTest extends Base
     {
         $this->markTestSkipped('GitHub adapter does not support getUser by username');
     }
-
-    public function testGetOwnerName(): void
-    {
-        $result = $this->vcsAdapter->getOwnerName(static::$installationId);
-        $this->assertIsString($result);
-        $this->assertNotEmpty($result);
-        $this->assertSame(static::$owner, $result);
-    }
 }

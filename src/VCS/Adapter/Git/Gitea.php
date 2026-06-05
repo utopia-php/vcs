@@ -1289,6 +1289,21 @@ class Gitea extends Git
             throw new Exception("Failed to get commit statuses: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
         }
 
-        return $response['body'] ?? [];
+        $responseBody = $response['body'] ?? [];
+        if (!is_array($responseBody)) {
+            return [];
+        }
+
+        $statuses = [];
+        foreach ($responseBody as $status) {
+            $statuses[] = [
+                'state' => $status['status'] ?? '',
+                'description' => $status['description'] ?? '',
+                'target_url' => $status['target_url'] ?? '',
+                'context' => $status['context'] ?? '',
+            ];
+        }
+
+        return $statuses;
     }
 }

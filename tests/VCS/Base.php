@@ -253,6 +253,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertArrayHasKey('content', $result);
             $this->assertArrayHasKey('sha', $result);
+            $this->assertIsString($result['sha']);
             $this->assertArrayHasKey('size', $result);
             $this->assertSame($fileContent, $result['content']);
             $this->assertGreaterThan(0, $result['size']);
@@ -382,8 +383,15 @@ abstract class Base extends TestCase
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-1', static::$defaultBranch);
+            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-2', static::$defaultBranch);
 
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+            $branches = [];
+            $this->assertEventually(function () use (&$branches, $repositoryName) {
+                $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+                $this->assertContains('feature-1', $branches);
+                $this->assertContains('feature-2', $branches);
+            }, 15000, 500);
 
             $this->assertIsArray($branches);
             $this->assertNotEmpty($branches);
@@ -496,14 +504,8 @@ abstract class Base extends TestCase
             $this->assertIsArray($statuses);
             $this->assertNotEmpty($statuses);
 
-            $found = false;
-            foreach ($statuses as $status) {
-                if (($status['context'] ?? $status['state'] ?? '') !== '') {
-                    $found = true;
-                    break;
-                }
-            }
-            $this->assertTrue($found, 'Expected at least one commit status');
+            $states = array_column($statuses, 'state');
+            $this->assertContains('success', $states);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -686,6 +688,7 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('base', $result);
             $this->assertSame($prNumber, $result['number']);
             $this->assertSame('Test PR', $result['title']);
+            $this->assertNotEmpty($result['state']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

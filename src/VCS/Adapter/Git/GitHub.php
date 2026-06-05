@@ -713,7 +713,10 @@ class GitHub extends Git
             ]);
 
             $files = $response['body'] ?? [];
-            $allFiles = array_merge($allFiles, $files);
+            foreach ($files as $file) {
+                unset($file['patch']);
+                $allFiles[] = $file;
+            }
 
             if (\count($files) < $perPage) {
                 break;

@@ -961,8 +961,8 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
             'check_name' => $checkName,
-            'filter'     => 'latest',
-            'per_page'   => 1,
+            'filter'     => 'all',
+            'per_page'   => 100,
         ]);
 
         $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
@@ -974,8 +974,12 @@ class GitHub extends Git
         }
 
         $runs = $response['body']['check_runs'] ?? [];
+        if (empty($runs)) {
+            return 0;
+        }
 
-        return (int) ($runs[0]['id'] ?? 0);
+        // GitHub IDs are monotonically increasing; the highest ID is the most recently created run.
+        return (int) max(array_column($runs, 'id'));
     }
 
     /**

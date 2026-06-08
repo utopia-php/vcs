@@ -266,6 +266,11 @@ abstract class Adapter
         throw new \Exception('createCheckRun() is not implemented for ' . $this->getName());
     }
 
+    public function getCheckRunByName(string $owner, string $repositoryName, string $ref, string $checkName): int
+    {
+        throw new \Exception('getCheckRunByName() is not implemented for ' . $this->getName());
+    }
+
     /**
      * Gets a check run by ID.
      *

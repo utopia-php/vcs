@@ -402,7 +402,8 @@ abstract class Adapter
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             }
 
-            $responseBody = \curl_exec($ch) ?: '';
+            $rawResponse = \curl_exec($ch);
+            $responseBody = is_string($rawResponse) ? $rawResponse : '';
 
             $curlErrno = curl_errno($ch);
             $curlError = curl_error($ch);
@@ -427,7 +428,7 @@ abstract class Adapter
             // Safe to retry any method: the server explicitly rejected the request before processing.
             if ($responseStatus === 429 || ($responseStatus === 403 && isset($responseHeaders['x-ratelimit-remaining']) && $responseHeaders['x-ratelimit-remaining'] === '0')) {
                 if ($attempt < $this->maxAttempts) {
-                    $retryAfter = isset($responseHeaders['retry-after']) ? $this->parseRetryAfter($responseHeaders['retry-after']) : null;
+                    $retryAfter = isset($responseHeaders['retry-after']) ? $this->parseRetryAfter((string) $responseHeaders['retry-after']) : null;
                     $delay = $retryAfter !== null ? min($retryAfter, $this->maxRetryAfterSeconds) * 1_000_000 : $this->getRetryDelay($attempt);
                     \usleep($delay);
                     continue;
@@ -455,7 +456,7 @@ abstract class Adapter
             // (common from gateways/proxies during outages) still triggers retry
             // instead of being mis-classified as a JSON parse failure.
             if ($decode) {
-                $responseType = $responseHeaders['content-type'] ?? '';
+                $responseType = (string) ($responseHeaders['content-type'] ?? '');
                 $length = strpos($responseType, ';') ?: strlen($responseType);
                 switch (substr($responseType, 0, $length)) {
                     case 'application/json':

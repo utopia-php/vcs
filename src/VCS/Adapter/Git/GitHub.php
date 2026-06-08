@@ -966,8 +966,11 @@ class GitHub extends Git
         ]);
 
         $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
-        if ($responseHeadersStatusCode >= 400) {
+        if ($responseHeadersStatusCode === 404) {
             return 0;
+        }
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get check run by name: HTTP $responseHeadersStatusCode");
         }
 
         $runs = $response['body']['check_runs'] ?? [];

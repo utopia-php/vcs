@@ -996,10 +996,8 @@ class GitHubTest extends Base
         }
     }
 
-    public function testGetCheckRunByNameInvalidRepositoryReturnsZero(): void
+    public function testGetCheckRunByNameNotFoundRepositoryReturnsZero(): void
     {
-        // Non-existent repo must return 0, not throw — callers rely on this
-        // for graceful fallback to the legacy commit status API.
         $foundId = $this->vcsAdapter->getCheckRunByName(
             static::$owner,
             'non-existing-repository-' . \uniqid(),

@@ -301,9 +301,18 @@ abstract class Adapter
     abstract public function getLatestCommit(string $owner, string $repositoryName, string $branch): array;
 
     /**
-     * Maximum number of retry attempts for transient failures
+     * Maximum number of attempts (1 original + retries) for transient failures
      */
-    protected int $maxRetries = 3;
+    protected int $maxAttempts = 3;
+
+    /**
+     * Maximum seconds we will honor from a server-provided Retry-After header
+     * before falling back to our own exponential backoff. Prevents a single
+     * unusually long server-side cooldown (e.g. GitHub secondary rate limits
+     * returning Retry-After: 3600) from blocking a build indefinitely, while
+     * still allowing typical Retry-After: 60 values through unchanged.
+     */
+    protected int $maxRetryAfterSeconds = 300;
 
     /**
      * Call
@@ -350,11 +359,8 @@ abstract class Adapter
         }
 
         $lastException = null;
-        $lastResponseStatus = 0;
-        $lastResponseBody = '';
-        $lastResponseHeaders = [];
 
-        for ($attempt = 1; $attempt <= $this->maxRetries; $attempt++) {
+        for ($attempt = 1; $attempt <= $this->maxAttempts; $attempt++) {
             $responseHeaders = [];
             $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
 
@@ -368,6 +374,9 @@ abstract class Adapter
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
             curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36');
             curl_setopt($ch, CURLOPT_HTTPHEADER, $formattedHeaders);
+            // 5s connect / 15s total: fail fast for build pipelines where a hung TCP
+            // handshake (previously unbounded with CONNECTTIMEOUT=0) could pin a build
+            // worker until the kernel's TCP timeout (~2 min) elapsed.
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
             curl_setopt($ch, CURLOPT_TIMEOUT, 15);
             curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $header) use (&$responseHeaders) {
@@ -395,28 +404,58 @@ abstract class Adapter
 
             $responseBody = \curl_exec($ch) ?: '';
 
-            if ($responseBody === true) {
-                $responseBody = '';
-            }
-
             $curlErrno = curl_errno($ch);
             $curlError = curl_error($ch);
             $responseStatus = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            // Handle curl-level network errors (retry)
+            // Handle curl-level network errors. Only retry idempotent methods —
+            // a POST that errored at the transport layer may already have been
+            // received and processed by the server.
             if ($curlErrno) {
                 $lastException = new ProviderRequestFailed($curlError . ' with status code ' . $responseStatus, $responseStatus);
-                if ($attempt < $this->maxRetries) {
+                if ($attempt < $this->maxAttempts && $this->isIdempotent($method)) {
                     \usleep($this->getRetryDelay($attempt));
                     continue;
                 }
                 throw $lastException;
             }
 
-            $responseType = $responseHeaders['content-type'] ?? '';
+            $responseHeaders['status-code'] = $responseStatus;
 
+            // Rate limited (429 or 403 with rate-limit headers — GitHub-specific x-ratelimit-remaining detection).
+            // Safe to retry any method: the server explicitly rejected the request before processing.
+            if ($responseStatus === 429 || ($responseStatus === 403 && isset($responseHeaders['x-ratelimit-remaining']) && $responseHeaders['x-ratelimit-remaining'] === '0')) {
+                if ($attempt < $this->maxAttempts) {
+                    $retryAfter = isset($responseHeaders['retry-after']) ? $this->parseRetryAfter($responseHeaders['retry-after']) : null;
+                    $delay = $retryAfter !== null ? min($retryAfter, $this->maxRetryAfterSeconds) * 1_000_000 : $this->getRetryDelay($attempt);
+                    \usleep($delay);
+                    continue;
+                }
+                throw new ProviderRateLimited('Rate limited by provider (HTTP ' . $responseStatus . ')', $responseStatus);
+            }
+
+            // Server errors (5xx) — retry idempotent methods only. A 5xx means
+            // the server hit an error after receiving the request; whether it
+            // processed the side effect is undefined, so do not retry POST/PATCH.
+            if ($responseStatus >= 500) {
+                $lastException = new ProviderServerError(
+                    'Provider returned server error (HTTP ' . $responseStatus . ') for ' . $method . ' ' . $path,
+                    $responseStatus
+                );
+                if ($attempt < $this->maxAttempts && $this->isIdempotent($method)) {
+                    \usleep($this->getRetryDelay($attempt));
+                    continue;
+                }
+                throw $lastException;
+            }
+
+            // Decode body only for success / 4xx responses. Doing this *after* the
+            // 5xx branch ensures a transient 5xx with a non-JSON or empty body
+            // (common from gateways/proxies during outages) still triggers retry
+            // instead of being mis-classified as a JSON parse failure.
             if ($decode) {
+                $responseType = $responseHeaders['content-type'] ?? '';
                 $length = strpos($responseType, ';') ?: strlen($responseType);
                 switch (substr($responseType, 0, $length)) {
                     case 'application/json':
@@ -427,37 +466,8 @@ abstract class Adapter
                         }
 
                         $responseBody = $json;
-                        $json = null;
                         break;
                 }
-            }
-
-            $responseHeaders['status-code'] = $responseStatus;
-
-            // Rate limited (429 or 403 with rate-limit headers)
-            if ($responseStatus === 429 || ($responseStatus === 403 && isset($responseHeaders['x-ratelimit-remaining']) && $responseHeaders['x-ratelimit-remaining'] === '0')) {
-                if ($attempt < $this->maxRetries) {
-                    $retryAfter = isset($responseHeaders['retry-after']) ? (int) $responseHeaders['retry-after'] : null;
-                    $delay = $retryAfter !== null ? $retryAfter * 1_000_000 : $this->getRetryDelay($attempt);
-                    \usleep($delay);
-                    continue;
-                }
-                throw new ProviderRateLimited('Rate limited by provider (HTTP ' . $responseStatus . ')', $responseStatus);
-            }
-
-            // Server errors (5xx) — retry
-            if ($responseStatus >= 500) {
-                $lastResponseStatus = $responseStatus;
-                $lastResponseBody = $responseBody;
-                $lastResponseHeaders = $responseHeaders;
-                if ($attempt < $this->maxRetries) {
-                    \usleep($this->getRetryDelay($attempt));
-                    continue;
-                }
-                throw new ProviderServerError(
-                    'Provider returned server error (HTTP ' . $responseStatus . ') for ' . $method . ' ' . $path,
-                    $responseStatus
-                );
             }
 
             // Success or client error (4xx) — return immediately, no retry
@@ -467,27 +477,68 @@ abstract class Adapter
             ];
         }
 
-        // Should not reach here, but handle gracefully
-        if ($lastException) {
-            throw $lastException;
-        }
-
-        throw new ProviderServerError(
-            'Provider returned server error (HTTP ' . $lastResponseStatus . ') for ' . $method . ' ' . $path,
-            $lastResponseStatus
-        );
+        // Every branch in the loop above returns, throws, or continues, so this
+        // is only reachable defensively (e.g. if maxAttempts is ever set to 0).
+        throw $lastException ?? new ProviderServerError('All retry attempts exhausted for ' . $method . ' ' . $path, 0);
     }
 
     /**
-     * Get retry delay in microseconds using exponential backoff
+     * Get retry delay in microseconds using exponential backoff with jitter
      *
      * @param  int  $attempt Current attempt number (1-based)
      * @return int Delay in microseconds
      */
     protected function getRetryDelay(int $attempt): int
     {
-        // 1s, 2s, 4s
-        return (int) (pow(2, $attempt - 1) * 1_000_000);
+        // Exponential backoff (1s, 2s, 4s base) with ±50% jitter, producing a
+        // multiplier in [0.5, 1.5] so concurrent callers spread out instead of
+        // re-synchronising on the same backoff schedule.
+        $baseDelay = pow(2, $attempt - 1) * 1_000_000;
+        $jitter = 0.5 + (mt_rand() / mt_getrandmax());
+        return (int) ($baseDelay * $jitter);
+    }
+
+    /**
+     * Whether the given HTTP method is safe to retry automatically on transport
+     * or 5xx failures. RFC 7231 idempotent methods only — POST and PATCH may
+     * have non-idempotent side effects and are excluded.
+     *
+     * @param  string  $method HTTP method (uppercase)
+     */
+    protected function isIdempotent(string $method): bool
+    {
+        return in_array($method, [
+            self::METHOD_GET,
+            self::METHOD_HEAD,
+            self::METHOD_PUT,
+            self::METHOD_DELETE,
+            self::METHOD_OPTIONS,
+        ], true);
+    }
+
+    /**
+     * Parse Retry-After header value which can be either delta-seconds or an HTTP-date (RFC 7231)
+     *
+     * @param  string  $value Raw Retry-After header value
+     * @return int Delay in seconds, minimum 1
+     */
+    protected function parseRetryAfter(string $value): int
+    {
+        $value = trim($value);
+
+        // If it's a pure integer, treat as delta-seconds
+        if (ctype_digit($value)) {
+            return max((int) $value, 1);
+        }
+
+        // Try to parse as HTTP-date
+        $timestamp = strtotime($value);
+        if ($timestamp !== false) {
+            return max($timestamp - time(), 1);
+        }
+
+        // Fallback: treat as seconds, (int) cast handles edge cases
+        return max((int) $value, 1);
     }
 
     /**

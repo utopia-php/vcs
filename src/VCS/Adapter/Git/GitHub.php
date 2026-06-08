@@ -1094,4 +1094,22 @@ class GitHub extends Git
     {
         throw new Exception('getCommitStatuses() is not implemented for GitHub');
     }
+
+    /**
+     * GitHub signals primary rate limits with HTTP 403 + `x-ratelimit-remaining: 0`
+     * rather than 429 (429 is reserved for secondary/abuse limits). Treat both as
+     * retryable; the base implementation only handles 429.
+     *
+     * @param  array<string, mixed>  $headers Response headers (keys lowercased)
+     */
+    protected function isRateLimited(int $status, array $headers): bool
+    {
+        if (parent::isRateLimited($status, $headers)) {
+            return true;
+        }
+
+        return $status === 403
+            && isset($headers['x-ratelimit-remaining'])
+            && (string) $headers['x-ratelimit-remaining'] === '0';
+    }
 }

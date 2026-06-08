@@ -424,9 +424,10 @@ abstract class Adapter
 
             $responseHeaders['status-code'] = $responseStatus;
 
-            // Rate limited (429 or 403 with rate-limit headers — GitHub-specific x-ratelimit-remaining detection).
-            // Safe to retry any method: the server explicitly rejected the request before processing.
-            if ($responseStatus === 429 || ($responseStatus === 403 && isset($responseHeaders['x-ratelimit-remaining']) && $responseHeaders['x-ratelimit-remaining'] === '0')) {
+            // Rate limited. Safe to retry any method: the server explicitly
+            // rejected the request before processing. Detection is delegated to
+            // isRateLimited() so providers can override with their own conventions.
+            if ($this->isRateLimited($responseStatus, $responseHeaders)) {
                 if ($attempt < $this->maxAttempts) {
                     $retryAfter = isset($responseHeaders['retry-after']) ? $this->parseRetryAfter((string) $responseHeaders['retry-after']) : null;
                     $delay = $retryAfter !== null ? min($retryAfter, $this->maxRetryAfterSeconds) * 1_000_000 : $this->getRetryDelay($attempt);
@@ -436,9 +437,10 @@ abstract class Adapter
                 throw new ProviderRateLimited('Rate limited by provider (HTTP ' . $responseStatus . ')', $responseStatus);
             }
 
-            // Server errors (5xx) — retry idempotent methods only. A 5xx means
-            // the server hit an error after receiving the request; whether it
-            // processed the side effect is undefined, so do not retry POST/PATCH.
+            // Server errors (5xx) — retry idempotent methods only. Any 5xx
+            // (including gateway codes like 502/504) may have been partially
+            // processed by the backend before the failure surfaced, so
+            // retrying non-idempotent methods risks duplicate side effects.
             if ($responseStatus >= 500) {
                 $lastException = new ProviderServerError(
                     'Provider returned server error (HTTP ' . $responseStatus . ') for ' . $method . ' ' . $path,
@@ -497,6 +499,21 @@ abstract class Adapter
         $baseDelay = pow(2, $attempt - 1) * 1_000_000;
         $jitter = 0.5 + (mt_rand() / mt_getrandmax());
         return (int) ($baseDelay * $jitter);
+    }
+
+    /**
+     * Whether a response should be treated as rate-limited and therefore
+     * retried. Defaults to the standard 429. Providers that signal rate limits
+     * differently (e.g. GitHub's 403 + x-ratelimit-remaining: 0) should
+     * override this method rather than expanding the base heuristic, so other
+     * providers' 403s aren't misclassified as rate limits.
+     *
+     * @param  int  $status HTTP status code
+     * @param  array<string, mixed>  $headers Response headers (keys lowercased)
+     */
+    protected function isRateLimited(int $status, array $headers): bool
+    {
+        return $status === 429;
     }
 
     /**

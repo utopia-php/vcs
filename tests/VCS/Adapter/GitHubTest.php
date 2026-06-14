@@ -473,11 +473,12 @@ class GitHubTest extends Base
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+            $result = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
 
-            $this->assertIsArray($branches);
-            $this->assertNotEmpty($branches);
-            $this->assertContains(static::$defaultBranch, $branches);
+            $this->assertIsArray($result['items']);
+            $this->assertNotEmpty($result['items']);
+            $this->assertContains(static::$defaultBranch, $result['items']);
+            $this->assertGreaterThan(0, $result['total']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -540,14 +541,30 @@ class GitHubTest extends Base
             /** @var GitHub $adapter */
             $adapter = $this->vcsAdapter;
 
-            $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1);
-            $this->assertSame(['branch-a'], $page1);
+            // Page 1: first branch alphabetically
+            $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1);
+            $this->assertSame(['branch-a'], $page1['items']);
+            $this->assertSame(3, $page1['total']);
+            $this->assertNotNull($page1['nextCursor']);
 
-            $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, 2);
-            $this->assertSame(['branch-b'], $page2);
+            // Page 2: use cursor from page 1
+            $page2 = $adapter->listBranches(static::$owner, $repositoryName, 1, $page1['nextCursor']);
+            $this->assertSame(['branch-b'], $page2['items']);
+            $this->assertNotNull($page2['nextCursor']);
 
-            $all = $adapter->listBranches(static::$owner, $repositoryName, 100, 1);
-            $this->assertEqualsCanonicalizing([static::$defaultBranch, 'branch-a', 'branch-b'], $all);
+            // All branches
+            $all = $adapter->listBranches(static::$owner, $repositoryName, 100);
+            $this->assertEqualsCanonicalizing([static::$defaultBranch, 'branch-a', 'branch-b'], $all['items']);
+            $this->assertSame(3, $all['total']);
+            $this->assertNull($all['nextCursor']);
+
+            // Search: substring matching
+            $searchResults = $adapter->listBranches(static::$owner, $repositoryName, 100, null, 'branch');
+            $this->assertEqualsCanonicalizing(['branch-a', 'branch-b'], $searchResults['items']);
+
+            // GitHub refs(query:) does substring matching, so 'ranch' matches 'branch-a' and 'branch-b'
+            $substringSearch = $adapter->listBranches(static::$owner, $repositoryName, 100, null, 'ranch');
+            $this->assertEqualsCanonicalizing(['branch-a', 'branch-b'], $substringSearch['items']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -559,10 +576,11 @@ class GitHubTest extends Base
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+            $result = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
 
-            $this->assertIsArray($branches);
-            $this->assertEmpty($branches);
+            $this->assertEmpty($result['items']);
+            $this->assertSame(0, $result['total']);
+            $this->assertNull($result['nextCursor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -570,10 +588,11 @@ class GitHubTest extends Base
 
     public function testListBranchesNonExistingRepository(): void
     {
-        $branches = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
+        $result = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
 
-        $this->assertIsArray($branches);
-        $this->assertEmpty($branches);
+        $this->assertEmpty($result['items']);
+        $this->assertSame(0, $result['total']);
+        $this->assertNull($result['nextCursor']);
     }
 
     public function testGetLatestCommit(): void

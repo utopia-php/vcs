@@ -636,8 +636,9 @@ class GitHub extends Git
         $this->jwtToken = $token;
         $response = $this->call(self::METHOD_POST, '/app/installations/' . $this->installationId . '/access_tokens', ['Authorization' => 'Bearer ' . $token]);
         $responseBody = $response['body'] ?? [];
+        $statusCode = $response['headers']['status-code'] ?? 0;
         if (!array_key_exists('token', $responseBody)) {
-            throw new Exception('Failed to retrieve access token from GitHub API.');
+            throw new Exception('Failed to retrieve access token from GitHub API. Status: ' . $statusCode . '. Response: ' . \json_encode($responseBody));
         }
         $this->accessToken = $responseBody['token'] ?? '';
     }

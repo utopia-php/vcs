@@ -370,13 +370,19 @@ class GitHub extends Git
         $url = "/repositories/$repositoryId";
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
-        $responseBody = $response['body'] ?? [];
-
-        if (!array_key_exists('name', $responseBody)) {
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
             throw new RepositoryNotFound("Repository not found");
         }
 
-        return $responseBody['name'] ?? '';
+        $responseBody = $response['body'] ?? [];
+
+        if (!is_array($responseBody) || !array_key_exists('name', $responseBody)) {
+            throw new Exception("Unexpected response from provider: missing 'name' field (HTTP $responseHeadersStatusCode)");
+        }
+
+        return $responseBody['name'];
     }
 
     /**
@@ -1291,5 +1297,23 @@ class GitHub extends Git
     public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array
     {
         throw new Exception('getCommitStatuses() is not implemented for GitHub');
+    }
+
+    /**
+     * GitHub signals primary rate limits with HTTP 403 + `x-ratelimit-remaining: 0`
+     * rather than 429 (429 is reserved for secondary/abuse limits). Treat both as
+     * retryable; the base implementation only handles 429.
+     *
+     * @param  array<string, mixed>  $headers Response headers (keys lowercased)
+     */
+    protected function isRateLimited(int $status, array $headers): bool
+    {
+        if (parent::isRateLimited($status, $headers)) {
+            return true;
+        }
+
+        return $status === 403
+            && isset($headers['x-ratelimit-remaining'])
+            && (string) $headers['x-ratelimit-remaining'] === '0';
     }
 }

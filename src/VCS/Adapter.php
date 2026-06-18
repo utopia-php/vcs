@@ -3,6 +3,9 @@
 namespace Utopia\VCS;
 
 use Exception;
+use Utopia\VCS\Exception\ProviderRateLimited;
+use Utopia\VCS\Exception\ProviderRequestFailed;
+use Utopia\VCS\Exception\ProviderServerError;
 
 abstract class Adapter
 {
@@ -370,32 +373,39 @@ abstract class Adapter
     abstract public function getLatestCommit(string $owner, string $repositoryName, string $branch): array;
 
     /**
+     * Maximum number of attempts (1 original + retries) for transient failures
+     */
+    protected int $maxAttempts = 3;
+
+    /**
+     * Maximum seconds we will honor from a server-provided Retry-After header
+     * before falling back to our own exponential backoff. Prevents a single
+     * unusually long server-side cooldown (e.g. GitHub secondary rate limits
+     * returning Retry-After: 3600) from blocking a build indefinitely, while
+     * still allowing typical Retry-After: 60 values through unchanged.
+     */
+    protected int $maxRetryAfterSeconds = 300;
+
+    /**
      * Call
      *
-     * Make an API call
+     * Make an API call with automatic retries for transient failures.
      *
      * @param  string  $method
      * @param  string  $path
+     * @param  array<mixed>  $headers
      * @param  array<mixed>  $params
-     * @param  array<string, string>  $headers
      * @param  bool  $decode
      * @return array<mixed>
      *
      * @throws Exception
+     * @throws ProviderServerError
+     * @throws ProviderRateLimited
+     * @throws ProviderRequestFailed
      */
     protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true)
     {
         $headers = array_merge($this->headers, $headers);
-        $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
-
-        if (!$ch) {
-            throw new Exception('Curl failed to initialize');
-        }
-
-        $responseHeaders = [];
-        $responseStatus = -1;
-        $responseType = '';
-        $responseBody = '';
 
         switch ($headers['content-type']) {
             case 'application/json':
@@ -415,81 +425,210 @@ abstract class Adapter
                 break;
         }
 
+        $formattedHeaders = [];
         foreach ($headers as $i => $header) {
-            $headers[] = $i . ':' . $header;
-            unset($headers[$i]);
+            $formattedHeaders[] = $i . ':' . $header;
         }
 
-        curl_setopt($ch, CURLOPT_PATH_AS_IS, 1);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $header) use (&$responseHeaders) {
-            $len = strlen($header);
-            $header = explode(':', $header, 2);
+        $lastException = null;
 
-            if (count($header) < 2) { // ignore invalid headers
+        for ($attempt = 1; $attempt <= $this->maxAttempts; $attempt++) {
+            $responseHeaders = [];
+            $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
+
+            if (!$ch) {
+                throw new Exception('Curl failed to initialize');
+            }
+
+            curl_setopt($ch, CURLOPT_PATH_AS_IS, 1);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36');
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $formattedHeaders);
+            // 5s connect / 15s total: fail fast for build pipelines where a hung TCP
+            // handshake (previously unbounded with CONNECTTIMEOUT=0) could pin a build
+            // worker until the kernel's TCP timeout (~2 min) elapsed.
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $header) use (&$responseHeaders) {
+                $len = strlen($header);
+                $header = explode(':', $header, 2);
+
+                if (count($header) < 2) { // ignore invalid headers
+                    return $len;
+                }
+
+                $responseHeaders[strtolower(trim($header[0]))] = trim($header[1]);
+
                 return $len;
+            });
+
+            if ($method != self::METHOD_GET) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
             }
 
-            $responseHeaders[strtolower(trim($header[0]))] = trim($header[1]);
-
-            return $len;
-        });
-
-        if ($method != self::METHOD_GET) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
-        }
-
-        // Allow self signed certificates
-        if ($this->selfSigned) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        }
-
-        $responseBody = \curl_exec($ch) ?: '';
-
-        if ($responseBody === true) {
-            $responseBody = '';
-        }
-
-        $responseType = $responseHeaders['content-type'] ?? '';
-        $responseStatus = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        if ($decode) {
-            $length = strpos($responseType, ';') ?: strlen($responseType);
-            switch (substr($responseType, 0, $length)) {
-                case 'application/json':
-                    $json = \json_decode($responseBody, true);
-
-                    if ($json === null) {
-                        throw new Exception('Failed to parse response: ' . $responseBody);
-                    }
-
-                    $responseBody = $json;
-                    $json = null;
-                    break;
+            // Allow self signed certificates
+            if ($this->selfSigned) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             }
+
+            $rawResponse = \curl_exec($ch);
+            $responseBody = is_string($rawResponse) ? $rawResponse : '';
+
+            $curlErrno = curl_errno($ch);
+            $curlError = curl_error($ch);
+            $responseStatus = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            // Handle curl-level network errors. Only retry idempotent methods —
+            // a POST that errored at the transport layer may already have been
+            // received and processed by the server.
+            if ($curlErrno) {
+                $lastException = new ProviderRequestFailed($curlError . ' with status code ' . $responseStatus, $responseStatus);
+                if ($attempt < $this->maxAttempts && $this->isIdempotent($method)) {
+                    \usleep($this->getRetryDelay($attempt));
+                    continue;
+                }
+                throw $lastException;
+            }
+
+            $responseHeaders['status-code'] = $responseStatus;
+
+            // Rate limited. Safe to retry any method: the server explicitly
+            // rejected the request before processing. Detection is delegated to
+            // isRateLimited() so providers can override with their own conventions.
+            if ($this->isRateLimited($responseStatus, $responseHeaders)) {
+                if ($attempt < $this->maxAttempts) {
+                    $retryAfter = isset($responseHeaders['retry-after']) ? $this->parseRetryAfter((string) $responseHeaders['retry-after']) : null;
+                    $delay = $retryAfter !== null ? min($retryAfter, $this->maxRetryAfterSeconds) * 1_000_000 : $this->getRetryDelay($attempt);
+                    \usleep($delay);
+                    continue;
+                }
+                throw new ProviderRateLimited('Rate limited by provider (HTTP ' . $responseStatus . ')', $responseStatus);
+            }
+
+            // Server errors (5xx) — retry idempotent methods only. Any 5xx
+            // (including gateway codes like 502/504) may have been partially
+            // processed by the backend before the failure surfaced, so
+            // retrying non-idempotent methods risks duplicate side effects.
+            if ($responseStatus >= 500) {
+                $lastException = new ProviderServerError(
+                    'Provider returned server error (HTTP ' . $responseStatus . ') for ' . $method . ' ' . $path,
+                    $responseStatus
+                );
+                if ($attempt < $this->maxAttempts && $this->isIdempotent($method)) {
+                    \usleep($this->getRetryDelay($attempt));
+                    continue;
+                }
+                throw $lastException;
+            }
+
+            // Decode body only for success / 4xx responses. Doing this *after* the
+            // 5xx branch ensures a transient 5xx with a non-JSON or empty body
+            // (common from gateways/proxies during outages) still triggers retry
+            // instead of being mis-classified as a JSON parse failure.
+            if ($decode) {
+                $responseType = (string) ($responseHeaders['content-type'] ?? '');
+                $length = strpos($responseType, ';') ?: strlen($responseType);
+                switch (substr($responseType, 0, $length)) {
+                    case 'application/json':
+                        $json = \json_decode($responseBody, true);
+
+                        if ($json === null) {
+                            throw new ProviderRequestFailed('Failed to parse response: ' . $responseBody, $responseStatus);
+                        }
+
+                        $responseBody = $json;
+                        break;
+                }
+            }
+
+            // Success or client error (4xx) — return immediately, no retry
+            return [
+                'headers' => $responseHeaders,
+                'body' => $responseBody,
+            ];
         }
 
-        if ((curl_errno($ch)/* || 200 != $responseStatus*/)) {
-            throw new Exception(curl_error($ch) . ' with status code ' . $responseStatus, $responseStatus);
+        // Every branch in the loop above returns, throws, or continues, so this
+        // is only reachable defensively (e.g. if maxAttempts is ever set to 0).
+        throw $lastException ?? new ProviderServerError('All retry attempts exhausted for ' . $method . ' ' . $path, 0);
+    }
+
+    /**
+     * Get retry delay in microseconds using exponential backoff with jitter
+     *
+     * @param  int  $attempt Current attempt number (1-based)
+     * @return int Delay in microseconds
+     */
+    protected function getRetryDelay(int $attempt): int
+    {
+        // Exponential backoff (1s, 2s, 4s base) with ±50% jitter, producing a
+        // multiplier in [0.5, 1.5] so concurrent callers spread out instead of
+        // re-synchronising on the same backoff schedule.
+        $baseDelay = pow(2, $attempt - 1) * 1_000_000;
+        $jitter = 0.5 + (mt_rand() / mt_getrandmax());
+        return (int) ($baseDelay * $jitter);
+    }
+
+    /**
+     * Whether a response should be treated as rate-limited and therefore
+     * retried. Defaults to the standard 429. Providers that signal rate limits
+     * differently (e.g. GitHub's 403 + x-ratelimit-remaining: 0) should
+     * override this method rather than expanding the base heuristic, so other
+     * providers' 403s aren't misclassified as rate limits.
+     *
+     * @param  int  $status HTTP status code
+     * @param  array<string, mixed>  $headers Response headers (keys lowercased)
+     */
+    protected function isRateLimited(int $status, array $headers): bool
+    {
+        return $status === 429;
+    }
+
+    /**
+     * Whether the given HTTP method is safe to retry automatically on transport
+     * or 5xx failures. RFC 7231 idempotent methods only — POST and PATCH may
+     * have non-idempotent side effects and are excluded.
+     *
+     * @param  string  $method HTTP method (uppercase)
+     */
+    protected function isIdempotent(string $method): bool
+    {
+        return in_array($method, [
+            self::METHOD_GET,
+            self::METHOD_HEAD,
+            self::METHOD_PUT,
+            self::METHOD_DELETE,
+            self::METHOD_OPTIONS,
+        ], true);
+    }
+
+    /**
+     * Parse Retry-After header value which can be either delta-seconds or an HTTP-date (RFC 7231)
+     *
+     * @param  string  $value Raw Retry-After header value
+     * @return int Delay in seconds, minimum 1
+     */
+    protected function parseRetryAfter(string $value): int
+    {
+        $value = trim($value);
+
+        // If it's a pure integer, treat as delta-seconds
+        if (ctype_digit($value)) {
+            return max((int) $value, 1);
         }
 
-        $responseHeaders['status-code'] = $responseStatus;
-
-        if ($responseStatus === 500) {
-            echo 'Server error(' . $method . ': ' . $path . '. Params: ' . json_encode($params) . '): ' . json_encode($responseBody) . "\n";
+        // Try to parse as HTTP-date
+        $timestamp = strtotime($value);
+        if ($timestamp !== false) {
+            return max($timestamp - time(), 1);
         }
 
-        return [
-            'headers' => $responseHeaders,
-            'body' => $responseBody,
-        ];
+        // Fallback: treat as seconds, (int) cast handles edge cases
+        return max((int) $value, 1);
     }
 
     /**

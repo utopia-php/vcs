@@ -240,7 +240,7 @@ class GitHubTest extends Base
             $secondMessage = 'Second commit';
 
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test', $firstMessage);
-            $commit1 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit1 = $this->getLatestCommitEventually($repositoryName);
 
             $this->assertIsArray($commit1);
             $this->assertNotEmpty($commit1['commitHash']);
@@ -252,7 +252,12 @@ class GitHubTest extends Base
             $commit1Hash = $commit1['commitHash'];
 
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'test.txt', 'test', $secondMessage);
-            $commit2 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+
+            $commit2 = [];
+            $this->assertEventually(function () use (&$commit2, $repositoryName, $commit1Hash) {
+                $commit2 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+                $this->assertNotSame($commit1Hash, $commit2['commitHash']);
+            }, 15000, 1000);
 
             $this->assertStringStartsWith($secondMessage, $commit2['commitMessage']);
             $this->assertNotSame($commit1Hash, $commit2['commitHash']);

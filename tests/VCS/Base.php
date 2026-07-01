@@ -394,10 +394,9 @@ abstract class Base extends TestCase
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->getLatestCommitEventually($repositoryName);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-1', static::$defaultBranch);
-            $this->getLatestCommitEventually($repositoryName);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-2', static::$defaultBranch);
-            $this->getLatestCommitEventually($repositoryName);
 
             $branches = [];
             $this->assertEventually(function () use (&$branches, $repositoryName) {

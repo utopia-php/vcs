@@ -64,6 +64,17 @@ abstract class Base extends TestCase
         throw $lastException ?? new \Exception('assertEventually timed out');
     }
 
+    /** @return array<string, mixed> */
+    protected function getLatestCommitEventually(string $repositoryName): array
+    {
+        $commit = [];
+        $this->assertEventually(function () use (&$commit, $repositoryName) {
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $this->assertNotEmpty($commit['commitHash']);
+        }, 15000, 1000);
+        return $commit;
+    }
+
     protected function deleteLastWebhookRequest(): void
     {
         $catcherUrl = System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000');
@@ -384,7 +395,9 @@ abstract class Base extends TestCase
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-1', static::$defaultBranch);
+            $this->getLatestCommitEventually($repositoryName);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-2', static::$defaultBranch);
+            $this->getLatestCommitEventually($repositoryName);
 
             $branches = [];
             $this->assertEventually(function () use (&$branches, $repositoryName) {
@@ -415,7 +428,9 @@ abstract class Base extends TestCase
             $customMessage = 'Test commit message';
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test', $customMessage);
 
-            $latestCommit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $latestCommit = $this->getLatestCommitEventually($repositoryName);
+            $commitHash = $latestCommit['commitHash'];
+
             $commitHash = $latestCommit['commitHash'];
 
             $result = $this->vcsAdapter->getCommit(static::$owner, $repositoryName, $commitHash);
@@ -445,7 +460,9 @@ abstract class Base extends TestCase
             $secondMessage = 'Second commit';
 
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test', $firstMessage);
-            $commit1 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+
+            // Wait for first commit to be indexed
+            $commit1 = $this->getLatestCommitEventually($repositoryName);
 
             $this->assertIsArray($commit1);
             $this->assertNotEmpty($commit1['commitHash']);
@@ -455,7 +472,13 @@ abstract class Base extends TestCase
             $commit1Hash = $commit1['commitHash'];
 
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'test.txt', 'test', $secondMessage);
-            $commit2 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+
+            // Wait until commit hash is DIFFERENT from first — not just non-empty
+            $commit2 = [];
+            $this->assertEventually(function () use (&$commit2, $repositoryName, $commit1Hash) {
+                $commit2 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+                $this->assertNotSame($commit1Hash, $commit2['commitHash']);
+            }, 15000, 1000);
 
             $this->assertStringStartsWith($secondMessage, $commit2['commitMessage']);
             $this->assertNotSame($commit1Hash, $commit2['commitHash']);
@@ -487,7 +510,7 @@ abstract class Base extends TestCase
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $this->vcsAdapter->updateCommitStatus(
@@ -554,7 +577,7 @@ abstract class Base extends TestCase
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $command = $this->vcsAdapter->generateCloneCommand(
@@ -777,6 +800,7 @@ abstract class Base extends TestCase
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->getLatestCommitEventually($repositoryName);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'lonely-branch', static::$defaultBranch);
 
             $result = $this->vcsAdapter->getPullRequestFromBranch(static::$owner, $repositoryName, 'lonely-branch');
@@ -994,6 +1018,7 @@ abstract class Base extends TestCase
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Main');
+            $this->getLatestCommitEventually($repositoryName);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature', static::$defaultBranch);
 
             $result = $this->vcsAdapter->createFile(

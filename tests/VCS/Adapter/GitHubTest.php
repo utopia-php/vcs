@@ -187,6 +187,7 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->getLatestCommitEventually($repositoryName);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-a', static::$defaultBranch);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-b', static::$defaultBranch);
 
@@ -287,7 +288,7 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $checkRun = $this->vcsAdapter->createCheckRun(
@@ -354,7 +355,8 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $first = $this->vcsAdapter->createCheckRun(
@@ -392,11 +394,11 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commit1 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit1 = $this->getLatestCommitEventually($repositoryName);
             $commitHash1 = $commit1['commitHash'];
 
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'second.md', '# Second');
-            $commit2 = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit2 = $this->getLatestCommitEventually($repositoryName);
             $commitHash2 = $commit2['commitHash'];
 
             $first = $this->vcsAdapter->createCheckRun(
@@ -434,7 +436,8 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $checkRun = $this->vcsAdapter->createCheckRun(
@@ -470,7 +473,7 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $checkRun = $this->vcsAdapter->createCheckRun(
@@ -540,7 +543,8 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $checkRun = $this->vcsAdapter->createCheckRun(
@@ -605,7 +609,7 @@ class GitHubTest extends Base
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commit = $this->getLatestCommitEventually($repositoryName);
             $commitHash = $commit['commitHash'];
 
             $directory = '/tmp/test-clone-commit-' . \uniqid();

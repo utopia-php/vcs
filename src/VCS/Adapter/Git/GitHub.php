@@ -872,6 +872,50 @@ class GitHub extends Git
     }
 
     /**
+     * Get a short-lived presigned URL to download the repository archive.
+     *
+     * GitHub answers its tarball/zipball endpoints with a temporary redirect to a
+     * signed codeload URL. We capture that URL instead of following the redirect,
+     * so callers can download the archive directly without proxying the token.
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the repository
+     * @param  string  $ref Branch, tag or commit to download (defaults to the default branch)
+     * @param  string  $format Archive format: 'tarball' or 'zipball'
+     * @return string Presigned download URL
+     */
+    public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
+    {
+        if (!\in_array($format, ['tarball', 'zipball'], true)) {
+            throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'.");
+        }
+
+        $url = "/repos/$owner/$repositoryName/$format";
+        if (!empty($ref)) {
+            // Encode the ref but keep slashes so nested branch names (e.g. feature/foo) still resolve
+            $url .= '/' . \str_replace('%2F', '/', \rawurlencode($ref));
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [], false, false);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
+            throw new RepositoryNotFound("Repository or ref not found.");
+        }
+        if ($responseHeadersStatusCode === 401 || $responseHeadersStatusCode === 403) {
+            throw new Exception("Access denied to repository archive; check the access token and its permissions.", $responseHeadersStatusCode);
+        }
+
+        $presignedUrl = $responseHeaders['location'] ?? '';
+        if (empty($presignedUrl)) {
+            throw new Exception("Failed to get presigned URL: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
+        }
+
+        return $presignedUrl;
+    }
+
+    /**
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */

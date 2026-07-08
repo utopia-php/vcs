@@ -162,6 +162,40 @@ class GitLab extends Git
     }
 
 
+    /**
+     * Get a short-lived presigned URL to download the repository archive.
+     *
+     * GitLab only signs archive URLs when backed by object storage, so we build
+     * a directly downloadable archive URL with the access token embedded as a
+     * query parameter. Since the adapter's tokens are short-lived, the URL is
+     * effectively time-limited. Note the URL carries the token; treat it as a
+     * secret.
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the repository
+     * @param  string  $ref Branch, tag or commit to download (defaults to the default branch)
+     * @param  string  $format Archive format: 'tarball' or 'zipball'
+     * @return string Presigned download URL
+     */
+    public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
+    {
+        $extension = match ($format) {
+            'tarball' => 'tar.gz',
+            'zipball' => 'zip',
+            default => throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'."),
+        };
+
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+
+        $url = "{$this->endpoint}/projects/{$projectPath}/repository/archive.{$extension}?private_token=" . urlencode($this->accessToken);
+        if (!empty($ref)) {
+            $url .= "&sha=" . urlencode($ref);
+        }
+
+        return $url;
+    }
+
     public function hasAccessToAllRepositories(): bool
     {
         return true;

@@ -1532,6 +1532,54 @@ class GiteaTest extends Base
         }
     }
 
+    public function testListTags(): void
+    {
+        $repositoryName = 'test-list-tags-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commitHash = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch)['commitHash'];
+
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.0.0', $commitHash);
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.1.0', $commitHash);
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v2.0.0', $commitHash);
+
+            $tags = [];
+            for ($attempt = 0; $attempt < 10; $attempt++) {
+                $tags = $this->vcsAdapter->listTags(static::$owner, $repositoryName);
+                if (count($tags) >= 3) {
+                    break;
+                }
+                usleep(500000);
+            }
+
+            $this->assertEqualsCanonicalizing(['v1.0.0', 'v1.1.0', 'v2.0.0'], $tags);
+
+            // Glob filtering
+            $this->assertEqualsCanonicalizing(['v1.0.0', 'v1.1.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v1.*'));
+            $this->assertSame(['v2.0.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v2.0.0'));
+            $this->assertEmpty($this->vcsAdapter->listTags(static::$owner, $repositoryName, 'nope-*'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListTagsEmptyAndMissingRepo(): void
+    {
+        $repositoryName = 'test-list-tags-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+
+        $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, 'non-existing-repo-' . \uniqid()));
+    }
+
     public function testListRepositoryLanguages(): void
     {
         $repositoryName = 'test-list-repository-languages-' . \uniqid();

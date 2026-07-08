@@ -796,6 +796,34 @@ class GitHub extends Git
     }
 
     /**
+     * Lists tags for a given repository, optionally filtered by a glob pattern.
+     *
+     * Uses GET /repos/{owner}/{repo}/git/matching-refs/tags to fetch every tag ref
+     * in a single call, then filters client-side with the glob pattern.
+     *
+     * @param  string  $owner
+     * @param  string  $repositoryName
+     * @param  string  $search Glob pattern (e.g. 'v1.*'); empty returns all tags
+     * @return array<string> List of tag names
+     */
+    public function listTags(string $owner, string $repositoryName, string $search = ''): array
+    {
+        $url = "/repos/$owner/$repositoryName/git/matching-refs/tags/";
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        $responseBody = $response['body'] ?? [];
+
+        if ($statusCode < 200 || $statusCode >= 300 || !is_array($responseBody)) {
+            return [];
+        }
+
+        $tags = array_map(fn ($ref) => str_replace('refs/tags/', '', $ref['ref'] ?? ''), $responseBody);
+
+        return $this->matchGlob($tags, $search);
+    }
+
+    /**
      * Get details of a commit using commit hash
      *
      * @param  string  $owner Owner name of the repository

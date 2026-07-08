@@ -32,7 +32,7 @@ class GitHub extends Git
 
     protected string $endpoint = 'https://api.github.com';
 
-    protected string $accessToken;
+    protected string $accessToken = '';
 
     protected string $jwtToken;
 
@@ -809,7 +809,8 @@ class GitHub extends Git
     public function listTags(string $owner, string $repositoryName, string $search = ''): array
     {
         $url = "/repos/$owner/$repositoryName/git/matching-refs/tags/";
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+        $headers = empty($this->accessToken) ? [] : ['Authorization' => "Bearer $this->accessToken"];
+        $response = $this->call(self::METHOD_GET, $url, $headers);
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         $responseBody = $response['body'] ?? [];

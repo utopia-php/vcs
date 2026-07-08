@@ -815,6 +815,61 @@ class Gitea extends Git
     }
 
     /**
+     * Lists tags for a given repository, optionally filtered by a glob pattern.
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $search Glob pattern (e.g. 'v1.*'); empty returns all tags
+     * @return array<string> Array of tag names
+     */
+    public function listTags(string $owner, string $repositoryName, string $search = ''): array
+    {
+        $allTags = [];
+        $perPage = 50;
+        $maxPages = 100;
+
+        for ($currentPage = 1; $currentPage <= $maxPages; $currentPage++) {
+            $url = "/repos/{$owner}/{$repositoryName}/tags?page={$currentPage}&limit={$perPage}";
+
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"], decode: false);
+
+            $responseHeaders = $response['headers'] ?? [];
+            $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+
+            if ($responseHeadersStatusCode === 404) {
+                return [];
+            }
+
+            if ($responseHeadersStatusCode >= 400) {
+                if ($currentPage === 1) {
+                    throw new Exception("Failed to list tags: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
+                }
+                break;
+            }
+
+            $responseBody = \json_decode($response['body'] ?? '', true);
+
+            if (!is_array($responseBody)) {
+                break;
+            }
+
+            $pageCount = 0;
+            foreach ($responseBody as $tag) {
+                if (is_array($tag) && array_key_exists('name', $tag)) {
+                    $allTags[] = $tag['name'] ?? '';
+                    $pageCount++;
+                }
+            }
+
+            if ($pageCount < $perPage) {
+                break;
+            }
+        }
+
+        return $this->matchGlob($allTags, $search);
+    }
+
+    /**
      * Get details of a commit using commit hash
      *
      * @param string $owner Owner name of the repository

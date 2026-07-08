@@ -537,4 +537,45 @@ class Gogs extends Gitea
 
         return $branches;
     }
+
+    /**
+     * List tags
+     *
+     * Gogs supports listing tags but without pagination parameters.
+     *
+     * @param string $search Glob pattern (e.g. 'v1.*'); empty returns all tags
+     * @return array<string>
+     */
+    public function listTags(string $owner, string $repositoryName, string $search = ''): array
+    {
+        $url = "/repos/{$owner}/{$repositoryName}/tags";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+
+        if ($responseHeadersStatusCode === 404) {
+            return [];
+        }
+
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to list tags: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
+        }
+
+        $responseBody = $response['body'] ?? [];
+
+        if (!is_array($responseBody)) {
+            return [];
+        }
+
+        $tags = [];
+        foreach ($responseBody as $tag) {
+            if (is_array($tag) && array_key_exists('name', $tag)) {
+                $tags[] = $tag['name'];
+            }
+        }
+
+        return $this->matchGlob($tags, $search);
+    }
 }

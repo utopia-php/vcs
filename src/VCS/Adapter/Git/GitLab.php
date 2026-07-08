@@ -762,6 +762,34 @@ class GitLab extends Git
         return $branches;
     }
 
+    public function listTags(string $owner, string $repositoryName, string $search = ''): array
+    {
+        $ownerPath = $this->getOwnerPath($owner);
+        $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
+
+        $tags = [];
+        $page = 1;
+        do {
+            $pagedUrl = "/projects/{$projectPath}/repository/tags?per_page=100&page={$page}";
+            $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
+            $responseHeaders = $response['headers'] ?? [];
+            $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+            if ($responseHeadersStatusCode >= 400) {
+                return [];
+            }
+            $responseBody = $response['body'] ?? [];
+            if (!is_array($responseBody) || empty($responseBody)) {
+                break;
+            }
+            foreach ($responseBody as $tag) {
+                $tags[] = $tag['name'] ?? '';
+            }
+            $page++;
+        } while (count($responseBody) === 100);
+
+        return $this->matchGlob($tags, $search);
+    }
+
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array
     {
         $ownerPath = $this->getOwnerPath($owner);

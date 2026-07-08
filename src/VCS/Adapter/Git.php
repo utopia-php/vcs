@@ -105,4 +105,20 @@ abstract class Git extends Adapter
      * @return array<mixed> List of commit statuses
      */
     abstract public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array;
+
+    /**
+     * Filter ref names by a shell glob pattern (e.g. 'v1.*', 'v?.0.0').
+     * An empty pattern returns every name unchanged.
+     *
+     * @param array<string> $names
+     * @return array<string>
+     */
+    protected function matchGlob(array $names, string $pattern): array
+    {
+        if ($pattern === '') {
+            return \array_values($names);
+        }
+
+        return \array_values(\array_filter($names, fn (string $name) => \fnmatch($pattern, $name)));
+    }
 }

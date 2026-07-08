@@ -622,6 +622,31 @@ class GitHubTest extends Base
         $this->assertEmpty($branches);
     }
 
+    public function testListTagsEmptyRepository(): void
+    {
+        $repositoryName = 'test-list-tags-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $tags = $this->vcsAdapter->listTags(static::$owner, $repositoryName);
+            $this->assertSame([], $tags);
+
+            // Glob against a repo with no tags stays empty
+            $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v*'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListTagsNonExistingRepository(): void
+    {
+        $tags = $this->vcsAdapter->listTags(static::$owner, 'non-existing-repo-' . \uniqid());
+
+        $this->assertSame([], $tags);
+    }
+
     public function testGetLatestCommit(): void
     {
         $repositoryName = 'test-get-latest-commit-' . \uniqid();

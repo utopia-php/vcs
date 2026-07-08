@@ -230,6 +230,16 @@ abstract class Adapter
     abstract public function listBranches(string $owner, string $repositoryName): array;
 
     /**
+     * Lists tags for a given repository, optionally filtered by a glob pattern.
+     *
+     * @param string $owner Owner name of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $search Glob pattern (e.g. 'v1.*'); empty returns all tags
+     * @return array<string> List of tag names as array
+     */
+    abstract public function listTags(string $owner, string $repositoryName, string $search = ''): array;
+
+    /**
      * Updates status check of each commit
      * state can be one of: error, failure, pending, success
      */

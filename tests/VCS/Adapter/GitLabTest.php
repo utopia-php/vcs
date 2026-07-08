@@ -1093,6 +1093,41 @@ class GitLabTest extends Base
         }
     }
 
+    public function testListTags(): void
+    {
+        $repositoryName = 'test-list-tags-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commitHash = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch)['commitHash'];
+
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.0.0', $commitHash);
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.1.0', $commitHash);
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v2.0.0', $commitHash);
+
+            $this->assertEqualsCanonicalizing(['v1.0.0', 'v1.1.0', 'v2.0.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName));
+            $this->assertEqualsCanonicalizing(['v1.0.0', 'v1.1.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v1.*'));
+            $this->assertSame(['v2.0.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v2.0.0'));
+            $this->assertEmpty($this->vcsAdapter->listTags(static::$owner, $repositoryName, 'nope-*'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListTagsEmptyRepo(): void
+    {
+        $repositoryName = 'test-list-tags-empty-' . \uniqid();
+
+        try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+            $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testListRepositoryLanguages(): void
     {
         $repositoryName = 'test-list-repository-languages-' . \uniqid();

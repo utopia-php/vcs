@@ -370,6 +370,20 @@ abstract class Adapter
     abstract public function getLatestCommit(string $owner, string $repositoryName, string $branch): array;
 
     /**
+     * Get a short-lived presigned URL to download the repository archive.
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the repository
+     * @param  string  $ref Branch, tag or commit to download (defaults to the default branch)
+     * @param  string  $format Archive format, e.g. 'tarball' or 'zipball'
+     * @return string Presigned download URL
+     */
+    public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
+    {
+        throw new Exception('getRepositoryPresignedUrl() is not implemented for ' . $this->getName());
+    }
+
+    /**
      * Call
      *
      * Make an API call
@@ -379,11 +393,12 @@ abstract class Adapter
      * @param  array<mixed>  $params
      * @param  array<string, string>  $headers
      * @param  bool  $decode
+     * @param  bool  $followRedirects When false, a redirect response is returned as-is instead of being followed
      * @return array<mixed>
      *
      * @throws Exception
      */
-    protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true)
+    protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true, bool $followRedirects = true)
     {
         $headers = array_merge($this->headers, $headers);
         $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
@@ -423,7 +438,7 @@ abstract class Adapter
         curl_setopt($ch, CURLOPT_PATH_AS_IS, 1);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $followRedirects);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36');
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);

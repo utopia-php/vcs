@@ -516,6 +516,42 @@ class GitHubTest extends Base
         }
     }
 
+    public function testGetRepositoryPresignedUrl(): void
+    {
+        $repositoryName = 'test-presigned-url-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            /** @var GitHub $adapter */
+            $adapter = $this->vcsAdapter;
+
+            $tarballUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName, static::$defaultBranch);
+            $this->assertNotEmpty($tarballUrl);
+            $this->assertStringStartsWith('https://', $tarballUrl);
+
+            $zipballUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName, static::$defaultBranch, 'zipball');
+            $this->assertNotEmpty($zipballUrl);
+            $this->assertStringStartsWith('https://', $zipballUrl);
+
+            // Defaults to the default branch when no ref is given
+            $defaultUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName);
+            $this->assertNotEmpty($defaultUrl);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetRepositoryPresignedUrlWithInvalidFormat(): void
+    {
+        /** @var GitHub $adapter */
+        $adapter = $this->vcsAdapter;
+
+        $this->expectException(\Exception::class);
+        $adapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch, 'invalid');
+    }
+
     public function testGetCommitWithInvalidHash(): void
     {
         $repositoryName = 'test-get-commit-invalid-' . \uniqid();

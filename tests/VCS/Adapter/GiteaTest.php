@@ -79,6 +79,22 @@ class GiteaTest extends Base
         }
     }
 
+    public function testGetRepositoryPresignedUrl(): void
+    {
+        /** @var Gitea $adapter */
+        $adapter = $this->vcsAdapter;
+        $owner = static::$owner;
+
+        $url = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch);
+        $this->assertStringContainsString("/repos/{$owner}/some-repo/archive/" . static::$defaultBranch . '.tar.gz?token=', $url);
+
+        $zip = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'zipball');
+        $this->assertStringContainsString('.zip?token=', $zip);
+
+        $this->expectException(\Exception::class);
+        $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
+    }
+
     public function testCreateRepository(): void
     {
         $owner = static::$owner;

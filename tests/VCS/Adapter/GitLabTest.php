@@ -63,6 +63,27 @@ class GitLabTest extends Base
     }
 
 
+    public function testGetRepositoryPresignedUrl(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+        $owner = static::$owner;
+
+        $url = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch);
+        $this->assertStringContainsString('/repository/archive.tar.gz?private_token=', $url);
+        $this->assertStringContainsString('&sha=' . static::$defaultBranch, $url);
+
+        $zip = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'zipball');
+        $this->assertStringContainsString('/repository/archive.zip?private_token=', $zip);
+
+        // Without a ref the sha param is omitted so the server uses the default branch
+        $noRef = $adapter->getRepositoryPresignedUrl($owner, 'some-repo');
+        $this->assertStringNotContainsString('sha=', $noRef);
+
+        $this->expectException(\Exception::class);
+        $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
+    }
+
     public function testCreateRepository(): void
     {
         $repositoryName = 'test-create-repository-' . \uniqid();

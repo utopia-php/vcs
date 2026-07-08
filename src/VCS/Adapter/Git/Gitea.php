@@ -260,6 +260,39 @@ class Gitea extends Git
         return is_array($result) ? $result : [];
     }
 
+    /**
+     * Get a short-lived presigned URL to download the repository archive.
+     *
+     * Gitea has no signing service for local storage, so we build a directly
+     * downloadable archive URL with the access token embedded as a query
+     * parameter. Since the adapter's tokens are short-lived, the URL is
+     * effectively time-limited. Note the URL carries the token; treat it as a
+     * secret.
+     *
+     * @param  string  $owner Owner name of the repository
+     * @param  string  $repositoryName Name of the repository
+     * @param  string  $ref Branch, tag or commit to download (defaults to the default branch)
+     * @param  string  $format Archive format: 'tarball' or 'zipball'
+     * @return string Presigned download URL
+     */
+    public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
+    {
+        $extension = match ($format) {
+            'tarball' => 'tar.gz',
+            'zipball' => 'zip',
+            default => throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'."),
+        };
+
+        if (empty($ref)) {
+            $ref = $this->getRepository($owner, $repositoryName)['default_branch'] ?? '';
+            if (empty($ref)) {
+                throw new Exception('Unable to resolve default branch for archive download.');
+            }
+        }
+
+        return "{$this->endpoint}/repos/{$owner}/{$repositoryName}/archive/{$ref}.{$extension}?token=" . urlencode($this->accessToken);
+    }
+
     public function getRepositoryName(string $repositoryId): string
     {
         $url = "/repositories/{$repositoryId}";

@@ -91,6 +91,16 @@ class GiteaTest extends Base
         $zip = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'zipball');
         $this->assertStringContainsString('.zip?token=', $zip);
 
+        // No ref: the default branch is resolved from the repository
+        $repositoryName = 'test-presigned-url-' . \uniqid();
+        $adapter->createRepository($owner, $repositoryName, false);
+        try {
+            $noRef = $adapter->getRepositoryPresignedUrl($owner, $repositoryName);
+            $this->assertStringContainsString("/archive/" . static::$defaultBranch . '.tar.gz?token=', $noRef);
+        } finally {
+            $adapter->deleteRepository($owner, $repositoryName);
+        }
+
         $this->expectException(\Exception::class);
         $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
     }

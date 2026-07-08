@@ -377,6 +377,8 @@ abstract class Adapter
      * @param  string  $ref Branch, tag or commit to download (defaults to the default branch)
      * @param  string  $format Archive format, e.g. 'tarball' or 'zipball'
      * @return string Presigned download URL
+     *
+     * @throws Exception when the adapter does not implement it (opt-in, mirrors createCheckRun())
      */
     public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
     {

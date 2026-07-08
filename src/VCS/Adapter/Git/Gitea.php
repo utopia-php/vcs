@@ -290,7 +290,10 @@ class Gitea extends Git
             }
         }
 
-        return "{$this->endpoint}/repos/{$owner}/{$repositoryName}/archive/{$ref}.{$extension}?token=" . urlencode($this->accessToken);
+        // Encode the ref but keep slashes so nested branch names (e.g. feature/foo) still resolve
+        $encodedRef = \str_replace('%2F', '/', \rawurlencode($ref));
+
+        return "{$this->endpoint}/repos/{$owner}/{$repositoryName}/archive/{$encodedRef}.{$extension}?token=" . urlencode($this->accessToken);
     }
 
     public function getRepositoryName(string $repositoryId): string

@@ -892,7 +892,8 @@ class GitHub extends Git
 
         $url = "/repos/$owner/$repositoryName/$format";
         if (!empty($ref)) {
-            $url .= "/$ref";
+            // Encode the ref but keep slashes so nested branch names (e.g. feature/foo) still resolve
+            $url .= '/' . \str_replace('%2F', '/', \rawurlencode($ref));
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [], false, false);
@@ -901,6 +902,9 @@ class GitHub extends Git
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
         if ($responseHeadersStatusCode === 404) {
             throw new RepositoryNotFound("Repository or ref not found.");
+        }
+        if ($responseHeadersStatusCode === 401 || $responseHeadersStatusCode === 403) {
+            throw new Exception("Access denied to repository archive; check the access token and its permissions.", $responseHeadersStatusCode);
         }
 
         $presignedUrl = $responseHeaders['location'] ?? '';

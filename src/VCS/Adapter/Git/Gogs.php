@@ -22,6 +22,16 @@ class Gogs extends Gitea
         return 'gogs';
     }
 
+    public function getEventHeaderName(): string
+    {
+        return 'x-gogs-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-gogs-signature';
+    }
+
     /**
      * Create new repository
      *

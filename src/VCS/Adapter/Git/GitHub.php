@@ -1195,6 +1195,41 @@ class GitHub extends Git
         return $fullCommand;
     }
 
+    public function getEventHeaderName(): string
+    {
+        return 'x-github-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-hub-signature-256';
+    }
+
+    public function requiresRepositoryWebhook(): bool
+    {
+        return false;
+    }
+
+    public function getRepositoryUrl(string $owner, string $repositoryName): string
+    {
+        return "https://github.com/{$owner}/{$repositoryName}";
+    }
+
+    public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/tree/{$branch}";
+    }
+
+    public function getCommitUrl(string $owner, string $repositoryName, string $commitHash): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/commit/{$commitHash}";
+    }
+
+    public function getFileUrl(string $owner, string $repositoryName, string $reference): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/blob/{$reference}";
+    }
+
     /**
      * Parses webhook event payload
      *

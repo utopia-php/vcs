@@ -663,10 +663,63 @@ class Gitea extends Git
         return $response['body'] ?? [];
     }
 
+    protected function getAuthenticatedUserLogin(): string
+    {
+        $response = $this->call(self::METHOD_GET, '/user', ['Authorization' => "token $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get authenticated user: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
+        }
+
+        $login = $response['body']['login'] ?? '';
+        if (empty($login)) {
+            throw new Exception("Authenticated user login missing or empty in response");
+        }
+
+        return $login;
+    }
+
+    public function getEventHeaderName(): string
+    {
+        return 'x-gitea-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-gitea-signature';
+    }
+
+    public function requiresRepositoryWebhook(): bool
+    {
+        return true;
+    }
+
+    public function getRepositoryUrl(string $owner, string $repositoryName): string
+    {
+        return "{$this->giteaUrl}/{$owner}/{$repositoryName}";
+    }
+
+    public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/branch/{$branch}";
+    }
+
+    public function getCommitUrl(string $owner, string $repositoryName, string $commitHash): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/commit/{$commitHash}";
+    }
+
+    public function getFileUrl(string $owner, string $repositoryName, string $reference): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/branch/{$reference}";
+    }
+
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
         if ($repositoryId === null || $repositoryId <= 0) {
-            throw new Exception("repositoryId is required for this adapter");
+            return $this->getAuthenticatedUserLogin();
         }
 
         $url = "/repositories/{$repositoryId}";
@@ -767,14 +820,14 @@ class Gitea extends Git
      * @param string $repositoryName Name of the repository
      * @return array<string> Array of branch names
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1, string $search = ''): array
     {
         $allBranches = [];
-        $perPage = 50;
+        $fetchPerPage = 50;
         $maxPages = 100;
 
         for ($currentPage = 1; $currentPage <= $maxPages; $currentPage++) {
-            $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$perPage}";
+            $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$fetchPerPage}";
 
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"], decode: false);
 
@@ -806,12 +859,16 @@ class Gitea extends Git
                 }
             }
 
-            if ($pageCount < $perPage) {
+            if ($pageCount < $fetchPerPage) {
                 break;
             }
         }
 
-        return $allBranches;
+        if (!empty($search)) {
+            $allBranches = \array_values(\array_filter($allBranches, fn ($branch) => \str_contains($branch, $search)));
+        }
+
+        return \array_slice($allBranches, ($page - 1) * $perPage, $perPage);
     }
 
     /**

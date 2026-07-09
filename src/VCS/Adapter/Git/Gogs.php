@@ -505,7 +505,7 @@ class Gogs extends Gitea
      *
      * @return array<string>
      */
-    public function listBranches(string $owner, string $repositoryName): array
+    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1, string $search = ''): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/branches";
 
@@ -535,7 +535,11 @@ class Gogs extends Gitea
             }
         }
 
-        return $branches;
+        if (!empty($search)) {
+            $branches = \array_values(\array_filter($branches, fn ($branch) => \str_contains($branch, $search)));
+        }
+
+        return \array_slice($branches, ($page - 1) * $perPage, $perPage);
     }
 
     /**

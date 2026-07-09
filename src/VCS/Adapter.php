@@ -213,6 +213,43 @@ abstract class Adapter
     abstract public function getEvent(string $event, string $payload): array;
 
     /**
+     * HTTP header name carrying the webhook event type (e.g. 'x-github-event').
+     */
+    abstract public function getEventHeaderName(): string;
+
+    /**
+     * HTTP header name carrying the webhook payload signature (e.g. 'x-hub-signature-256').
+     */
+    abstract public function getSignatureHeaderName(): string;
+
+    /**
+     * Whether this provider needs an explicit webhook created per repository
+     * to receive push/pull_request events. False for providers that deliver
+     * events platform-wide once installed (e.g. a GitHub App).
+     */
+    abstract public function requiresRepositoryWebhook(): bool;
+
+    /**
+     * Browser-facing URL for a repository's home page.
+     */
+    abstract public function getRepositoryUrl(string $owner, string $repositoryName): string;
+
+    /**
+     * Browser-facing URL for a branch within a repository.
+     */
+    abstract public function getBranchUrl(string $owner, string $repositoryName, string $branch): string;
+
+    /**
+     * Browser-facing URL for a commit within a repository.
+     */
+    abstract public function getCommitUrl(string $owner, string $repositoryName, string $commitHash): string;
+
+    /**
+     * Browser-facing URL for a file at a given ref within a repository.
+     */
+    abstract public function getFileUrl(string $owner, string $repositoryName, string $reference): string;
+
+    /**
      * Fetches repository name using repository id
      *
      * @param string $repositoryId ID of the repository

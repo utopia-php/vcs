@@ -38,6 +38,41 @@ class GitLab extends Git
         return 'gitlab';
     }
 
+    public function getEventHeaderName(): string
+    {
+        return 'x-gitlab-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-gitlab-token';
+    }
+
+    public function requiresRepositoryWebhook(): bool
+    {
+        return true;
+    }
+
+    public function getRepositoryUrl(string $owner, string $repositoryName): string
+    {
+        return "{$this->gitlabUrl}/{$owner}/{$repositoryName}";
+    }
+
+    public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/-/tree/{$branch}";
+    }
+
+    public function getCommitUrl(string $owner, string $repositoryName, string $commitHash): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/-/commit/{$commitHash}";
+    }
+
+    public function getFileUrl(string $owner, string $repositoryName, string $reference): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/-/blob/{$reference}";
+    }
+
     public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
         if (!empty($accessToken)) {

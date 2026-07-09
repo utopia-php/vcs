@@ -769,15 +769,15 @@ class GitLab extends Git
         ];
     }
 
-    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1, string $search = ''): array
+    public function listBranches(string $owner, string $repositoryName): array
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
 
         $branches = [];
-        $fetchPage = 1;
+        $page = 1;
         do {
-            $pagedUrl = "/projects/{$projectPath}/repository/branches?per_page=100&page={$fetchPage}";
+            $pagedUrl = "/projects/{$projectPath}/repository/branches?per_page=100&page={$page}";
             $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -791,14 +791,10 @@ class GitLab extends Git
             foreach ($responseBody as $branch) {
                 $branches[] = $branch['name'] ?? '';
             }
-            $fetchPage++;
+            $page++;
         } while (count($responseBody) === 100);
 
-        if (!empty($search)) {
-            $branches = \array_values(\array_filter($branches, fn ($branch) => \str_contains($branch, $search)));
-        }
-
-        return \array_slice($branches, ($page - 1) * $perPage, $perPage);
+        return $branches;
     }
 
     public function listTags(string $owner, string $repositoryName, string $search = ''): array

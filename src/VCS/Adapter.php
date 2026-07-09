@@ -218,7 +218,11 @@ abstract class Adapter
     abstract public function getEventHeaderName(): string;
 
     /**
-     * HTTP header name carrying the webhook payload signature (e.g. 'x-hub-signature-256').
+     * HTTP header name carrying webhook verification data. Usually an HMAC
+     * signature of the payload (e.g. 'x-hub-signature-256'), but some
+     * providers (e.g. GitLab's 'x-gitlab-token') send a plain shared secret
+     * instead — check validateWebhookEvent()'s implementation per adapter
+     * before assuming uniform HMAC comparison.
      */
     abstract public function getSignatureHeaderName(): string;
 
@@ -262,12 +266,9 @@ abstract class Adapter
      *
      * @param string $owner Owner name of the repository
      * @param string $repositoryName Name of the repository
-     * @param int $perPage Number of branches to return
-     * @param int $page Page number, 1-indexed
-     * @param string $search Substring filter on branch name; empty returns all branches
      * @return array<string> List of branch names as array
      */
-    abstract public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1, string $search = ''): array;
+    abstract public function listBranches(string $owner, string $repositoryName): array;
 
     /**
      * Lists tags for a given repository, optionally filtered by a glob pattern.

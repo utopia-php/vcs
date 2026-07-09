@@ -713,7 +713,10 @@ class Gitea extends Git
 
     public function getFileUrl(string $owner, string $repositoryName, string $reference): string
     {
-        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/branch/{$reference}";
+        // Gitea requires a ref-type qualifier (branch/commit/tag) for a canonical
+        // path, which this method's signature doesn't carry; the untyped /src/{ref}
+        // form redirects to the correct canonical URL for whichever type it resolves to.
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/{$reference}";
     }
 
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string

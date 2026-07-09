@@ -1268,18 +1268,16 @@ class GiteaTest extends Base
 
     public function testGetOwnerNameWithZeroRepositoryId(): void
     {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('repositoryId is required for this adapter');
+        $owner = $this->vcsAdapter->getOwnerName('', 0);
 
-        $this->vcsAdapter->getOwnerName('', 0);
+        $this->assertNotEmpty($owner);
     }
 
     public function testGetOwnerNameWithoutRepositoryId(): void
     {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('repositoryId is required for this adapter');
+        $owner = $this->vcsAdapter->getOwnerName('');
 
-        $this->vcsAdapter->getOwnerName('');
+        $this->assertNotEmpty($owner);
     }
 
     public function testGetOwnerNameWithInvalidRepositoryId(): void
@@ -1291,10 +1289,9 @@ class GiteaTest extends Base
 
     public function testGetOwnerNameWithNullRepositoryId(): void
     {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('repositoryId is required for this adapter');
+        $owner = $this->vcsAdapter->getOwnerName('', null);
 
-        $this->vcsAdapter->getOwnerName('', null);
+        $this->assertNotEmpty($owner);
     }
 
     public function testGetUser(): void

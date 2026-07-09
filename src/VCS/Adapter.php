@@ -262,9 +262,12 @@ abstract class Adapter
      *
      * @param string $owner Owner name of the repository
      * @param string $repositoryName Name of the repository
+     * @param int $perPage Number of branches to return
+     * @param int $page Page number, 1-indexed
+     * @param string $search Substring filter on branch name; empty returns all branches
      * @return array<string> List of branch names as array
      */
-    abstract public function listBranches(string $owner, string $repositoryName): array;
+    abstract public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1, string $search = ''): array;
 
     /**
      * Lists tags for a given repository, optionally filtered by a glob pattern.

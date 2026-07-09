@@ -823,14 +823,14 @@ class Gitea extends Git
      * @param string $repositoryName Name of the repository
      * @return array<string> Array of branch names
      */
-    public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1, string $search = ''): array
+    public function listBranches(string $owner, string $repositoryName): array
     {
         $allBranches = [];
-        $fetchPerPage = 50;
+        $perPage = 50;
         $maxPages = 100;
 
         for ($currentPage = 1; $currentPage <= $maxPages; $currentPage++) {
-            $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$fetchPerPage}";
+            $url = "/repos/{$owner}/{$repositoryName}/branches?page={$currentPage}&limit={$perPage}";
 
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"], decode: false);
 
@@ -862,16 +862,12 @@ class Gitea extends Git
                 }
             }
 
-            if ($pageCount < $fetchPerPage) {
+            if ($pageCount < $perPage) {
                 break;
             }
         }
 
-        if (!empty($search)) {
-            $allBranches = \array_values(\array_filter($allBranches, fn ($branch) => \str_contains($branch, $search)));
-        }
-
-        return \array_slice($allBranches, ($page - 1) * $perPage, $perPage);
+        return $allBranches;
     }
 
     /**

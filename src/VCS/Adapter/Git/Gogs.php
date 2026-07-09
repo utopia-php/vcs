@@ -32,6 +32,12 @@ class Gogs extends Gitea
         return 'x-gogs-signature';
     }
 
+    public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
+    {
+        // Gogs' web UI omits the "branch" path segment Gitea uses; /src/branch/{branch} 404s here.
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/{$branch}";
+    }
+
     /**
      * Create new repository
      *

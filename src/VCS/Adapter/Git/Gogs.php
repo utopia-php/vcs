@@ -271,7 +271,7 @@ class Gogs extends Gitea
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
         // Gogs ignores sha param — verify branch exists first
-        $branches = $this->listBranches($owner, $repositoryName);
+        $branches = $this->fetchAllBranches($owner, $repositoryName);
         if (!in_array($branch, $branches, true)) {
             throw new Exception("Branch '{$branch}' not found");
         }
@@ -517,6 +517,22 @@ class Gogs extends Gitea
      */
     public function listBranches(string $owner, string $repositoryName, int $perPage = 100, int $page = 1, string $search = ''): array
     {
+        $branches = $this->fetchAllBranches($owner, $repositoryName);
+
+        if (!empty($search)) {
+            $branches = \array_values(\array_filter($branches, fn ($branch) => \str_contains($branch, $search)));
+        }
+
+        return \array_slice($branches, ($page - 1) * $perPage, $perPage);
+    }
+
+    /**
+     * Fetches every branch name for a repository, unpaginated.
+     *
+     * @return array<string>
+     */
+    private function fetchAllBranches(string $owner, string $repositoryName): array
+    {
         $url = "/repos/{$owner}/{$repositoryName}/branches";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -545,11 +561,7 @@ class Gogs extends Gitea
             }
         }
 
-        if (!empty($search)) {
-            $branches = \array_values(\array_filter($branches, fn ($branch) => \str_contains($branch, $search)));
-        }
-
-        return \array_slice($branches, ($page - 1) * $perPage, $perPage);
+        return $branches;
     }
 
     /**

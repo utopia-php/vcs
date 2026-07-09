@@ -167,7 +167,7 @@ class Gogs extends Gitea
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
         if ($repositoryId === null || $repositoryId <= 0) {
-            throw new Exception("repositoryId is required for this adapter");
+            return $this->getAuthenticatedUserLogin();
         }
 
         $repo = $this->findRepositoryById($repositoryId);

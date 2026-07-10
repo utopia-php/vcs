@@ -1231,19 +1231,6 @@ class Gitea extends Git
     }
 
     /**
-     * Validate webhook event
-     *
-     * @param string $payload Raw body of HTTP request
-     * @param string $signature Signature provided by Gitea in X-Gitea-Signature header
-     * @param string $signatureKey Webhook secret configured on Gitea
-     * @return bool
-     */
-    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
-    {
-        return hash_equals($signature, hash_hmac('sha256', $payload, $signatureKey));
-    }
-
-    /**
      * Create a tag in a repository
      *
      * @param string $owner Owner of the repository

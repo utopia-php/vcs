@@ -3,6 +3,7 @@
 namespace Utopia\VCS;
 
 use Exception;
+use Utopia\VCS\Exception\SignatureVerificationException;
 
 abstract class Adapter
 {
@@ -194,14 +195,25 @@ abstract class Adapter
     abstract public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string;
 
     /**
-     * Parses webhook event payload
+     * Verifies a webhook payload signature.
+     *
+     * Default covers unprefixed HMAC-SHA256, the scheme most providers use.
+     * Override for providers with a different scheme (a prefixed digest, a
+     * plain secret-token compare, etc).
      *
      * @param  string  $payload Raw body of HTTP request
      * @param  string  $signature Signature provided by Git provider in header
      * @param  string  $signatureKey Webhook secret configured on Git provider
-     * @return bool
+     * @throws SignatureVerificationException if the signature does not match
      */
-    abstract public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool;
+    public function verifySignature(string $payload, string $signature, string $signatureKey): void
+    {
+        $expected = \hash_hmac('sha256', $payload, $signatureKey);
+
+        if (!\hash_equals($expected, $signature)) {
+            throw new SignatureVerificationException('Webhook signature verification failed.');
+        }
+    }
 
     /**
      * Parses webhook event payload
@@ -221,8 +233,8 @@ abstract class Adapter
      * HTTP header name carrying webhook verification data. Usually an HMAC
      * signature of the payload (e.g. 'x-hub-signature-256'), but some
      * providers (e.g. GitLab's 'x-gitlab-token') send a plain shared secret
-     * instead — check validateWebhookEvent()'s implementation per adapter
-     * before assuming uniform HMAC comparison.
+     * instead — check verifySignature()'s implementation per adapter before
+     * assuming uniform HMAC comparison.
      */
     abstract public function getSignatureHeaderName(): string;
 

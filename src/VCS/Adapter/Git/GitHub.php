@@ -8,6 +8,7 @@ use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Exception\FileNotFound;
 use Utopia\VCS\Exception\RepositoryNotFound;
+use Utopia\VCS\Exception\SignatureVerificationException;
 
 class GitHub extends Git
 {
@@ -1373,16 +1374,15 @@ class GitHub extends Git
 
 
     /**
-     * Validate webhook event
-     *
-     * @param  string  $payload Raw body of HTTP request
-     * @param  string  $signature Signature provided by GitHub in header
-     * @param  string  $signatureKey Webhook secret configured on GitHub
-     * @return bool
+     * @throws SignatureVerificationException if the signature does not match
      */
-    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
+    public function verifySignature(string $payload, string $signature, string $signatureKey): void
     {
-        return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
+        $expected = 'sha256=' . hash_hmac('sha256', $payload, $signatureKey);
+
+        if (!hash_equals($expected, $signature)) {
+            throw new SignatureVerificationException('Webhook signature verification failed.');
+        }
     }
 
     public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array

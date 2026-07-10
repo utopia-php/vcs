@@ -10,6 +10,7 @@ use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitHub;
 use Utopia\VCS\Exception\FileNotFound;
 use Utopia\VCS\Exception\RepositoryNotFound;
+use Utopia\VCS\Exception\SignatureVerificationException;
 
 class GitHubTest extends Base
 {
@@ -162,14 +163,16 @@ class GitHubTest extends Base
         $this->assertSame('1234', $result['installationId']);
     }
 
-    public function testValidateWebhookEvent(): void
+    public function testVerifySignature(): void
     {
         $payload = '{"action":"push"}';
         $secret = 'my-webhook-secret';
         $signature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
 
-        $this->assertTrue($this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret));
-        $this->assertFalse($this->vcsAdapter->validateWebhookEvent($payload, 'sha256=wrongsig', $secret));
+        $this->vcsAdapter->verifySignature($payload, $signature, $secret);
+
+        $this->expectException(SignatureVerificationException::class);
+        $this->vcsAdapter->verifySignature($payload, 'sha256=wrongsig', $secret);
     }
 
     public function testCreateRepository(): void

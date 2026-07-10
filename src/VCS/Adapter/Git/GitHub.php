@@ -146,7 +146,12 @@ class GitHub extends Git
             throw new Exception("Failed to create webhook: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
         }
 
-        return (int) ($response['body']['id'] ?? 0);
+        $id = $response['body']['id'] ?? null;
+        if ($id === null) {
+            throw new Exception('Webhook created but response did not include an id');
+        }
+
+        return (int) $id;
     }
 
     /**

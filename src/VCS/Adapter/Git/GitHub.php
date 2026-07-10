@@ -1205,7 +1205,7 @@ class GitHub extends Git
         return 'x-hub-signature-256';
     }
 
-    public function hasPerRepositoryWebhooks(): bool
+    public function supportsRepositoryWebhooks(): bool
     {
         return false;
     }

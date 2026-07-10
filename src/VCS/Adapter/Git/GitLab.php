@@ -48,7 +48,7 @@ class GitLab extends Git
         return 'x-gitlab-token';
     }
 
-    public function hasPerRepositoryWebhooks(): bool
+    public function supportsRepositoryWebhooks(): bool
     {
         return true;
     }

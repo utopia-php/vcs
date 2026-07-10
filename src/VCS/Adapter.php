@@ -236,13 +236,13 @@ abstract class Adapter
     abstract public function getSignatureHeaderName(): string;
 
     /**
-     * Whether this provider's webhook delivery is scoped per repository --
-     * true if push/pull_request events only arrive once a webhook is
-     * registered on each individual repository, false if events are
-     * delivered platform-wide once the integration itself is installed
-     * (e.g. a GitHub App).
+     * Whether this provider supports registering a webhook on an individual
+     * repository (i.e. createWebhook() is implemented and will succeed).
+     * False for providers where webhook delivery is managed at the
+     * integration level instead (e.g. a GitHub App, where createWebhook()
+     * is not applicable).
      */
-    abstract public function hasPerRepositoryWebhooks(): bool;
+    abstract public function supportsRepositoryWebhooks(): bool;
 
     /**
      * Browser-facing URL for a repository's home page.

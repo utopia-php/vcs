@@ -691,7 +691,7 @@ class Gitea extends Git
         return 'x-gitea-signature';
     }
 
-    public function hasPerRepositoryWebhooks(): bool
+    public function supportsRepositoryWebhooks(): bool
     {
         return true;
     }

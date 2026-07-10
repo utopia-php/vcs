@@ -121,12 +121,32 @@ class GitHub extends Git
 
     /**
      * Create a webhook on a repository
-     *
-     * Note: Not applicable for GitHub - webhooks are managed via GitHub Apps
      */
     public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): int
     {
-        throw new Exception('Not applicable for GitHub - webhooks are managed via GitHub Apps');
+        $response = $this->call(
+            self::METHOD_POST,
+            "/repos/{$owner}/{$repositoryName}/hooks",
+            ['Authorization' => "Bearer $this->accessToken"],
+            [
+                'name' => 'web',
+                'active' => true,
+                'events' => $events,
+                'config' => [
+                    'url' => $url,
+                    'content_type' => 'json',
+                    'secret' => $secret,
+                ],
+            ]
+        );
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create webhook: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
+        }
+
+        return (int) ($response['body']['id'] ?? 0);
     }
 
     /**
@@ -1207,7 +1227,7 @@ class GitHub extends Git
 
     public function getSupportedWebhookScopes(): array
     {
-        return [self::WEBHOOK_SCOPE_INSTALLATION];
+        return [self::WEBHOOK_SCOPE_INSTALLATION, self::WEBHOOK_SCOPE_REPOSITORY];
     }
 
     public function getRepositoryUrl(string $owner, string $repositoryName): string

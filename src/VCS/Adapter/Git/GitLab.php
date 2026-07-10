@@ -6,7 +6,6 @@ use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Exception\RepositoryNotFound;
-use Utopia\VCS\Exception\SignatureVerificationException;
 
 class GitLab extends Git
 {
@@ -49,7 +48,7 @@ class GitLab extends Git
         return 'x-gitlab-token';
     }
 
-    public function requiresRepositoryWebhook(): bool
+    public function hasPerRepositoryWebhooks(): bool
     {
         return true;
     }
@@ -1044,14 +1043,10 @@ class GitLab extends Git
     /**
      * GitLab doesn't sign the payload -- it just echoes back the configured
      * secret token verbatim, so there's no HMAC to compute here.
-     *
-     * @throws SignatureVerificationException if the token does not match
      */
-    public function verifySignature(string $payload, string $signature, string $signatureKey): void
+    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
-        if (!hash_equals($signatureKey, $signature)) {
-            throw new SignatureVerificationException('Webhook signature verification failed.');
-        }
+        return hash_equals($signatureKey, $signature);
     }
 
     public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array

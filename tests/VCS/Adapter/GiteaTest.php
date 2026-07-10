@@ -8,7 +8,6 @@ use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\Gitea;
-use Utopia\VCS\Exception\SignatureVerificationException;
 
 class GiteaTest extends Base
 {
@@ -1086,24 +1085,26 @@ class GiteaTest extends Base
         $this->assertTrue($result['external']);
     }
 
-    public function testVerifySignature(): void
+    public function testValidateWebhookEvent(): void
     {
         $payload = 'test payload content';
         $secret = 'my-webhook-secret';
         $validSignature = hash_hmac('sha256', $payload, $secret);
 
-        $this->vcsAdapter->verifySignature($payload, $validSignature, $secret);
-        $this->addToAssertionCount(1);
+        $result = $this->vcsAdapter->validateWebhookEvent($payload, $validSignature, $secret);
+
+        $this->assertTrue($result);
     }
 
-    public function testVerifySignatureInvalid(): void
+    public function testValidateWebhookEventInvalid(): void
     {
         $payload = 'test payload content';
         $secret = 'my-webhook-secret';
         $invalidSignature = 'wrong-signature';
 
-        $this->expectException(SignatureVerificationException::class);
-        $this->vcsAdapter->verifySignature($payload, $invalidSignature, $secret);
+        $result = $this->vcsAdapter->validateWebhookEvent($payload, $invalidSignature, $secret);
+
+        $this->assertFalse($result);
     }
 
     public function testGetEventInvalidPayload(): void
@@ -1644,11 +1645,10 @@ class GiteaTest extends Base
             $signature = $headers[$this->webhookSignatureHeader] ?? '';
 
             $this->assertNotEmpty($signature, 'Missing ' . $this->webhookSignatureHeader . ' header');
-            try {
-                $this->vcsAdapter->verifySignature($payload, $signature, $secret);
-            } catch (SignatureVerificationException $e) {
-                $this->fail('Webhook signature validation failed: ' . $e->getMessage());
-            }
+            $this->assertTrue(
+                $this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret),
+                'Webhook signature validation failed'
+            );
 
             $event = $this->vcsAdapter->getEvent('push', $payload);
             $this->assertIsArray($event);
@@ -1704,11 +1704,10 @@ class GiteaTest extends Base
             $signature = $headers[$this->webhookSignatureHeader] ?? '';
 
             $this->assertNotEmpty($signature, 'Missing ' . $this->webhookSignatureHeader . ' header');
-            try {
-                $this->vcsAdapter->verifySignature($payload, $signature, $secret);
-            } catch (SignatureVerificationException $e) {
-                $this->fail('Webhook signature validation failed: ' . $e->getMessage());
-            }
+            $this->assertTrue(
+                $this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret),
+                'Webhook signature validation failed'
+            );
 
             $event = $this->vcsAdapter->getEvent('pull_request', $payload);
             $this->assertIsArray($event);

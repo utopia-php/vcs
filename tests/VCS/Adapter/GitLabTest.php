@@ -8,7 +8,6 @@ use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitLab;
-use Utopia\VCS\Exception\SignatureVerificationException;
 
 class GitLabTest extends Base
 {
@@ -614,15 +613,18 @@ class GitLabTest extends Base
         }
     }
 
-    public function testVerifySignature(): void
+    public function testValidateWebhookEvent(): void
     {
         $secret = 'my-secret-token';
         $payload = '{"object_kind":"push"}';
 
-        $this->vcsAdapter->verifySignature($payload, $secret, $secret);
+        // Valid token — should return true
+        $result = $this->vcsAdapter->validateWebhookEvent($payload, $secret, $secret);
+        $this->assertTrue($result);
 
-        $this->expectException(SignatureVerificationException::class);
-        $this->vcsAdapter->verifySignature($payload, 'wrong-token', $secret);
+        // Invalid token — should return false
+        $result = $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret);
+        $this->assertFalse($result);
     }
 
     public function testWebhookPushEvent(): void
@@ -1356,21 +1358,22 @@ class GitLabTest extends Base
         $this->assertSame('http://example.com/commit/def456', $result['commitUrl']);
     }
 
-    public function testVerifySignatureUsesPlainToken(): void
+    public function testValidateWebhookEventUsesPlainToken(): void
     {
         $secret = 'my-secret-token';
         $payload = '{"object_kind":"push"}';
 
-        $this->vcsAdapter->verifySignature($payload, $secret, $secret);
+        $this->assertTrue(
+            $this->vcsAdapter->validateWebhookEvent($payload, $secret, $secret)
+        );
 
         $hmacSignature = hash_hmac('sha256', $payload, $secret);
-        try {
-            $this->vcsAdapter->verifySignature($payload, $hmacSignature, $secret);
-            $this->fail('Expected SignatureVerificationException');
-        } catch (SignatureVerificationException) {
-        }
+        $this->assertFalse(
+            $this->vcsAdapter->validateWebhookEvent($payload, $hmacSignature, $secret)
+        );
 
-        $this->expectException(SignatureVerificationException::class);
-        $this->vcsAdapter->verifySignature($payload, 'wrong-token', $secret);
+        $this->assertFalse(
+            $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
+        );
     }
 }

@@ -103,7 +103,7 @@ abstract class Base extends TestCase
 
     public function testRequiresRepositoryWebhook(): void
     {
-        $this->assertIsBool($this->vcsAdapter->requiresRepositoryWebhook());
+        $this->assertIsBool($this->vcsAdapter->hasPerRepositoryWebhooks());
     }
 
     public function testGetPullRequestFromBranch(): void

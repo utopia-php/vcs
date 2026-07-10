@@ -3,7 +3,6 @@
 namespace Utopia\VCS;
 
 use Exception;
-use Utopia\VCS\Exception\SignatureVerificationException;
 
 abstract class Adapter
 {
@@ -195,7 +194,7 @@ abstract class Adapter
     abstract public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string;
 
     /**
-     * Verifies a webhook payload signature.
+     * Validates a webhook payload signature.
      *
      * Default covers unprefixed HMAC-SHA256, the scheme most providers use.
      * Override for providers with a different scheme (a prefixed digest, a
@@ -204,15 +203,13 @@ abstract class Adapter
      * @param  string  $payload Raw body of HTTP request
      * @param  string  $signature Signature provided by Git provider in header
      * @param  string  $signatureKey Webhook secret configured on Git provider
-     * @throws SignatureVerificationException if the signature does not match
+     * @return bool
      */
-    public function verifySignature(string $payload, string $signature, string $signatureKey): void
+    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
         $expected = \hash_hmac('sha256', $payload, $signatureKey);
 
-        if (!\hash_equals($expected, $signature)) {
-            throw new SignatureVerificationException('Webhook signature verification failed.');
-        }
+        return \hash_equals($expected, $signature);
     }
 
     /**
@@ -233,17 +230,19 @@ abstract class Adapter
      * HTTP header name carrying webhook verification data. Usually an HMAC
      * signature of the payload (e.g. 'x-hub-signature-256'), but some
      * providers (e.g. GitLab's 'x-gitlab-token') send a plain shared secret
-     * instead — check verifySignature()'s implementation per adapter before
-     * assuming uniform HMAC comparison.
+     * instead — check validateWebhookEvent()'s implementation per adapter
+     * before assuming uniform HMAC comparison.
      */
     abstract public function getSignatureHeaderName(): string;
 
     /**
-     * Whether this provider needs an explicit webhook created per repository
-     * to receive push/pull_request events. False for providers that deliver
-     * events platform-wide once installed (e.g. a GitHub App).
+     * Whether this provider's webhook delivery is scoped per repository --
+     * true if push/pull_request events only arrive once a webhook is
+     * registered on each individual repository, false if events are
+     * delivered platform-wide once the integration itself is installed
+     * (e.g. a GitHub App).
      */
-    abstract public function requiresRepositoryWebhook(): bool;
+    abstract public function hasPerRepositoryWebhooks(): bool;
 
     /**
      * Browser-facing URL for a repository's home page.

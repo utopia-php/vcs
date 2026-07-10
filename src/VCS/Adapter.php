@@ -23,6 +23,9 @@ abstract class Adapter
     public const TYPE_GIT = 'git';
     public const TYPE_SVN = 'svn';
 
+    public const WEBHOOK_SCOPE_INSTALLATION = 'installation';
+    public const WEBHOOK_SCOPE_REPOSITORY = 'repository';
+
     protected bool $selfSigned = true;
 
     protected string $endpoint;
@@ -236,13 +239,21 @@ abstract class Adapter
     abstract public function getSignatureHeaderName(): string;
 
     /**
-     * Whether this provider supports registering a webhook on an individual
-     * repository (i.e. createWebhook() is implemented and will succeed).
-     * False for providers where webhook delivery is managed at the
-     * integration level instead (e.g. a GitHub App, where createWebhook()
-     * is not applicable).
+     * Webhook scopes this adapter can deliver events through.
+     *
+     * WEBHOOK_SCOPE_INSTALLATION: events arrive platform-wide once the
+     * integration itself is installed (e.g. a GitHub App) -- no per-repository
+     * registration needed.
+     * WEBHOOK_SCOPE_REPOSITORY: createWebhook() must be called on each
+     * individual repository to receive its events.
+     *
+     * An adapter may support more than one scope. Consumers that only need
+     * one webhook per connected repository should prefer
+     * WEBHOOK_SCOPE_INSTALLATION when present.
+     *
+     * @return array<string>
      */
-    abstract public function supportsRepositoryWebhooks(): bool;
+    abstract public function getSupportedWebhookScopes(): array;
 
     /**
      * Browser-facing URL for a repository's home page.

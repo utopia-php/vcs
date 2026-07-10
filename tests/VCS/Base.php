@@ -101,9 +101,11 @@ abstract class Base extends TestCase
         $this->assertNotEmpty($this->vcsAdapter->getSignatureHeaderName());
     }
 
-    public function testRequiresRepositoryWebhook(): void
+    public function testGetSupportedWebhookScopes(): void
     {
-        $this->assertIsBool($this->vcsAdapter->supportsRepositoryWebhooks());
+        $scopes = $this->vcsAdapter->getSupportedWebhookScopes();
+        $this->assertIsArray($scopes);
+        $this->assertNotEmpty($scopes);
     }
 
     public function testGetPullRequestFromBranch(): void

@@ -1205,9 +1205,9 @@ class GitHub extends Git
         return 'x-hub-signature-256';
     }
 
-    public function supportsRepositoryWebhooks(): bool
+    public function getSupportedWebhookScopes(): array
     {
-        return false;
+        return [self::WEBHOOK_SCOPE_INSTALLATION];
     }
 
     public function getRepositoryUrl(string $owner, string $repositoryName): string

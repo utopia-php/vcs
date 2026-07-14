@@ -20,4 +20,14 @@ class Forgejo extends Gitea
     {
         return 'forgejo';
     }
+
+    public function getEventHeaderName(): string
+    {
+        return 'x-forgejo-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-forgejo-signature';
+    }
 }

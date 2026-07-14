@@ -22,6 +22,21 @@ class Gogs extends Gitea
         return 'gogs';
     }
 
+    public function getEventHeaderName(): string
+    {
+        return 'x-gogs-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-gogs-signature';
+    }
+
+    public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/{$branch}";
+    }
+
     /**
      * Create new repository
      *
@@ -167,7 +182,7 @@ class Gogs extends Gitea
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
         if ($repositoryId === null || $repositoryId <= 0) {
-            throw new Exception("repositoryId is required for this adapter");
+            return $this->getAuthenticatedUserLogin();
         }
 
         $repo = $this->findRepositoryById($repositoryId);

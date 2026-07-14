@@ -663,10 +663,66 @@ class Gitea extends Git
         return $response['body'] ?? [];
     }
 
+    protected function getAuthenticatedUserLogin(): string
+    {
+        $response = $this->call(self::METHOD_GET, '/user', ['Authorization' => "token $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get authenticated user: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
+        }
+
+        $login = $response['body']['login'] ?? '';
+        if (empty($login)) {
+            throw new Exception("Authenticated user login missing or empty in response");
+        }
+
+        return $login;
+    }
+
+    public function getEventHeaderName(): string
+    {
+        return 'x-gitea-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-gitea-signature';
+    }
+
+    public function getSupportedWebhookScopes(): array
+    {
+        return [self::WEBHOOK_SCOPE_REPOSITORY];
+    }
+
+    public function getRepositoryUrl(string $owner, string $repositoryName): string
+    {
+        return "{$this->giteaUrl}/{$owner}/{$repositoryName}";
+    }
+
+    public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/branch/{$branch}";
+    }
+
+    public function getCommitUrl(string $owner, string $repositoryName, string $commitHash): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/commit/{$commitHash}";
+    }
+
+    public function getFileUrl(string $owner, string $repositoryName, string $reference): string
+    {
+        // Gitea requires a ref-type qualifier (branch/commit/tag) for a canonical
+        // path, which this method's signature doesn't carry; the untyped /src/{ref}
+        // form redirects to the correct canonical URL for whichever type it resolves to.
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/src/{$reference}";
+    }
+
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
         if ($repositoryId === null || $repositoryId <= 0) {
-            throw new Exception("repositoryId is required for this adapter");
+            return $this->getAuthenticatedUserLogin();
         }
 
         $url = "/repositories/{$repositoryId}";
@@ -1172,19 +1228,6 @@ class Gitea extends Git
         }
 
         return [];
-    }
-
-    /**
-     * Validate webhook event
-     *
-     * @param string $payload Raw body of HTTP request
-     * @param string $signature Signature provided by Gitea in X-Gitea-Signature header
-     * @param string $signatureKey Webhook secret configured on Gitea
-     * @return bool
-     */
-    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
-    {
-        return hash_equals($signature, hash_hmac('sha256', $payload, $signatureKey));
     }
 
     /**

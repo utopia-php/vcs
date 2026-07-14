@@ -121,12 +121,37 @@ class GitHub extends Git
 
     /**
      * Create a webhook on a repository
-     *
-     * Note: Not applicable for GitHub - webhooks are managed via GitHub Apps
      */
     public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): int
     {
-        throw new Exception('Not applicable for GitHub - webhooks are managed via GitHub Apps');
+        $response = $this->call(
+            self::METHOD_POST,
+            "/repos/{$owner}/{$repositoryName}/hooks",
+            ['Authorization' => "Bearer $this->accessToken"],
+            [
+                'name' => 'web',
+                'active' => true,
+                'events' => $events,
+                'config' => [
+                    'url' => $url,
+                    'content_type' => 'json',
+                    'secret' => $secret,
+                ],
+            ]
+        );
+
+        $responseHeaders = $response['headers'] ?? [];
+        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to create webhook: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
+        }
+
+        $id = $response['body']['id'] ?? null;
+        if ($id === null) {
+            throw new Exception('Webhook created but response did not include an id');
+        }
+
+        return (int) $id;
     }
 
     /**
@@ -1195,6 +1220,41 @@ class GitHub extends Git
         return $fullCommand;
     }
 
+    public function getEventHeaderName(): string
+    {
+        return 'x-github-event';
+    }
+
+    public function getSignatureHeaderName(): string
+    {
+        return 'x-hub-signature-256';
+    }
+
+    public function getSupportedWebhookScopes(): array
+    {
+        return [self::WEBHOOK_SCOPE_INSTALLATION, self::WEBHOOK_SCOPE_REPOSITORY];
+    }
+
+    public function getRepositoryUrl(string $owner, string $repositoryName): string
+    {
+        return "https://github.com/{$owner}/{$repositoryName}";
+    }
+
+    public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/tree/{$branch}";
+    }
+
+    public function getCommitUrl(string $owner, string $repositoryName, string $commitHash): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/commit/{$commitHash}";
+    }
+
+    public function getFileUrl(string $owner, string $repositoryName, string $reference): string
+    {
+        return $this->getRepositoryUrl($owner, $repositoryName) . "/blob/{$reference}";
+    }
+
     /**
      * Parses webhook event payload
      *
@@ -1347,7 +1407,9 @@ class GitHub extends Git
      */
     public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
-        return $signature === ('sha256=' . hash_hmac('sha256', $payload, $signatureKey));
+        $expected = 'sha256=' . hash_hmac('sha256', $payload, $signatureKey);
+
+        return hash_equals($expected, $signature);
     }
 
     public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array

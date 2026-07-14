@@ -89,6 +89,25 @@ abstract class Base extends TestCase
         );
     }
 
+    public function testGetEventHeaderName(): void
+    {
+        $this->assertIsString($this->vcsAdapter->getEventHeaderName());
+        $this->assertNotEmpty($this->vcsAdapter->getEventHeaderName());
+    }
+
+    public function testGetSignatureHeaderName(): void
+    {
+        $this->assertIsString($this->vcsAdapter->getSignatureHeaderName());
+        $this->assertNotEmpty($this->vcsAdapter->getSignatureHeaderName());
+    }
+
+    public function testGetSupportedWebhookScopes(): void
+    {
+        $scopes = $this->vcsAdapter->getSupportedWebhookScopes();
+        $this->assertIsArray($scopes);
+        $this->assertNotEmpty($scopes);
+    }
+
     public function testGetPullRequestFromBranch(): void
     {
         $result = $this->vcsAdapter->getPullRequestFromBranch('vermakhushboo', 'basic-js-crud', 'test');

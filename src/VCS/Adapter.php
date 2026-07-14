@@ -23,6 +23,9 @@ abstract class Adapter
     public const TYPE_GIT = 'git';
     public const TYPE_SVN = 'svn';
 
+    public const WEBHOOK_SCOPE_INSTALLATION = 'installation';
+    public const WEBHOOK_SCOPE_REPOSITORY = 'repository';
+
     protected bool $selfSigned = true;
 
     protected string $endpoint;
@@ -194,14 +197,23 @@ abstract class Adapter
     abstract public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string;
 
     /**
-     * Parses webhook event payload
+     * Validates a webhook payload signature.
+     *
+     * Default covers unprefixed HMAC-SHA256, the scheme most providers use.
+     * Override for providers with a different scheme (a prefixed digest, a
+     * plain secret-token compare, etc).
      *
      * @param  string  $payload Raw body of HTTP request
      * @param  string  $signature Signature provided by Git provider in header
      * @param  string  $signatureKey Webhook secret configured on Git provider
      * @return bool
      */
-    abstract public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool;
+    public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
+    {
+        $expected = \hash_hmac('sha256', $payload, $signatureKey);
+
+        return \hash_equals($expected, $signature);
+    }
 
     /**
      * Parses webhook event payload
@@ -211,6 +223,57 @@ abstract class Adapter
      * @return array<mixed> Parsed payload as a json object
      */
     abstract public function getEvent(string $event, string $payload): array;
+
+    /**
+     * HTTP header name carrying the webhook event type (e.g. 'x-github-event').
+     */
+    abstract public function getEventHeaderName(): string;
+
+    /**
+     * HTTP header name carrying webhook verification data. Usually an HMAC
+     * signature of the payload (e.g. 'x-hub-signature-256'), but some
+     * providers (e.g. GitLab's 'x-gitlab-token') send a plain shared secret
+     * instead — check validateWebhookEvent()'s implementation per adapter
+     * before assuming uniform HMAC comparison.
+     */
+    abstract public function getSignatureHeaderName(): string;
+
+    /**
+     * Webhook scopes this adapter can deliver events through.
+     *
+     * WEBHOOK_SCOPE_INSTALLATION: events arrive platform-wide once the
+     * integration itself is installed (e.g. a GitHub App) -- no per-repository
+     * registration needed.
+     * WEBHOOK_SCOPE_REPOSITORY: createWebhook() must be called on each
+     * individual repository to receive its events.
+     *
+     * An adapter may support more than one scope. Consumers that only need
+     * one webhook per connected repository should prefer
+     * WEBHOOK_SCOPE_INSTALLATION when present.
+     *
+     * @return array<string>
+     */
+    abstract public function getSupportedWebhookScopes(): array;
+
+    /**
+     * Browser-facing URL for a repository's home page.
+     */
+    abstract public function getRepositoryUrl(string $owner, string $repositoryName): string;
+
+    /**
+     * Browser-facing URL for a branch within a repository.
+     */
+    abstract public function getBranchUrl(string $owner, string $repositoryName, string $branch): string;
+
+    /**
+     * Browser-facing URL for a commit within a repository.
+     */
+    abstract public function getCommitUrl(string $owner, string $repositoryName, string $commitHash): string;
+
+    /**
+     * Browser-facing URL for a file at a given ref within a repository.
+     */
+    abstract public function getFileUrl(string $owner, string $repositoryName, string $reference): string;
 
     /**
      * Fetches repository name using repository id

@@ -1066,6 +1066,8 @@ class GitLab extends Git
 
                 // Cross-project MRs (source/target in different projects) are
                 // GitLab's equivalent of a fork-based external contribution.
+                // Defaults to false (not external) if either ID is missing --
+                // an intentional safe default, not an oversight.
                 $external = isset($mr['source_project_id'], $mr['target_project_id'])
                     && $mr['source_project_id'] !== $mr['target_project_id'];
 

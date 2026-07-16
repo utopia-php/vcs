@@ -764,6 +764,50 @@ class GitLabTest extends Base
         $this->assertSame(['file1.txt'], $result['affectedFiles']);
     }
 
+    public function testGetEventPushDetectsBranchCreated(): void
+    {
+        $allZeroSha = str_repeat('0', 40);
+        $payload = json_encode([
+            'object_kind' => 'push',
+            'ref' => 'refs/heads/main',
+            'before' => $allZeroSha,
+            'after' => 'abc123',
+            'checkout_sha' => 'abc123',
+            'project' => ['id' => 123, 'name' => 'test-repo', 'namespace' => 'test-org', 'web_url' => 'http://example.com/test-org/test-repo'],
+            'commits' => [],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
+        $this->assertTrue($result['branchCreated']);
+        $this->assertFalse($result['branchDeleted']);
+    }
+
+    public function testGetEventPushDetectsBranchDeleted(): void
+    {
+        $allZeroSha = str_repeat('0', 40);
+        $payload = json_encode([
+            'object_kind' => 'push',
+            'ref' => 'refs/heads/main',
+            'before' => 'abc123',
+            'after' => $allZeroSha,
+            'checkout_sha' => '',
+            'project' => ['id' => 123, 'name' => 'test-repo', 'namespace' => 'test-org', 'web_url' => 'http://example.com/test-org/test-repo'],
+            'commits' => [],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
+        $this->assertFalse($result['branchCreated']);
+        $this->assertTrue($result['branchDeleted']);
+    }
+
     public function testGetEventPullRequest(): void
     {
         $payload = json_encode([

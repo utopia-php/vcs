@@ -974,12 +974,7 @@ class GitLab extends Git
         return implode(' && ', $commands);
     }
 
-    /**
-     * Maps GitLab's native merge_request action to the GitHub/Gitea-style
-     * verbs the rest of the library (and its consumers) already key off of.
-     * GitLab also has a distinct 'merge' action for a completed MR, which
-     * consumers should treat the same as 'closed' (the MR is done either way).
-     */
+    // Maps GitLab's native action to the GitHub/Gitea verbs consumers key off of; 'merge' counts as 'closed' too.
     private const MERGE_REQUEST_ACTION_MAP = [
         'open' => 'opened',
         'reopen' => 'reopened',
@@ -1064,10 +1059,7 @@ class GitLab extends Git
                 $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/-/tree/' . $branch : '';
                 $action = self::MERGE_REQUEST_ACTION_MAP[$mr['action'] ?? ''] ?? '';
 
-                // Cross-project MRs (source/target in different projects) are
-                // GitLab's equivalent of a fork-based external contribution.
-                // Defaults to false (not external) if either ID is missing --
-                // an intentional safe default, not an oversight.
+                // Cross-project MR = fork-based external contribution; defaults to false (intentional) if IDs are missing.
                 $external = isset($mr['source_project_id'], $mr['target_project_id'])
                     && $mr['source_project_id'] !== $mr['target_project_id'];
 

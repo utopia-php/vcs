@@ -255,9 +255,18 @@ class GitLab extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
 
-        // Fall back to user namespace if group not found
+        // Fall back to the user's personal namespace if there's no group by
+        // that name. GET /users/:id/projects only ever returns *public*
+        // projects, even for the authenticated user's own account -- there's
+        // no GitLab endpoint that lists a specific personal namespace's
+        // private projects directly. GET /projects?membership=true does
+        // return every project (public and private) the token's user is a
+        // member of, but across all namespaces, so it's filtered below to
+        // just the requested owner.
+        $filterByNamespace = false;
         if ($statusCode === 404) {
-            $url = "/users/{$ownerPath}/projects?page={$page}&per_page={$per_page}";
+            $filterByNamespace = true;
+            $url = "/projects?membership=true&page={$page}&per_page={$per_page}";
             if (!empty($search)) {
                 $url .= "&search=" . urlencode($search);
             }
@@ -277,6 +286,10 @@ class GitLab extends Git
 
         $repositories = [];
         foreach ($responseBody as $repo) {
+            if ($filterByNamespace && ($repo['namespace']['path'] ?? '') !== $ownerPath) {
+                continue;
+            }
+
             $repositories[] = [
                 'id' => $repo['id'] ?? 0,
                 'name' => $repo['name'] ?? '',

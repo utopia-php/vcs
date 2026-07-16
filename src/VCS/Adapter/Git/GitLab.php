@@ -974,6 +974,20 @@ class GitLab extends Git
         return implode(' && ', $commands);
     }
 
+    /**
+     * Maps GitLab's native merge_request action to the GitHub/Gitea-style
+     * verbs the rest of the library (and its consumers) already key off of.
+     * GitLab also has a distinct 'merge' action for a completed MR, which
+     * consumers should treat the same as 'closed' (the MR is done either way).
+     */
+    private const MERGE_REQUEST_ACTION_MAP = [
+        'open' => 'opened',
+        'reopen' => 'reopened',
+        'update' => 'synchronize',
+        'close' => 'closed',
+        'merge' => 'closed',
+    ];
+
     public function getEvent(string $event, string $payload): array
     {
         $payloadArray = json_decode($payload, true);
@@ -983,6 +997,7 @@ class GitLab extends Git
 
         switch ($event) {
             case 'Push Hook':
+                $project = $payloadArray['project'] ?? [];
                 $commits = $payloadArray['commits'] ?? [];
                 $checkoutSha = $payloadArray['checkout_sha'] ?? '';
                 $latestCommit = [];
@@ -993,46 +1008,82 @@ class GitLab extends Git
                     }
                 }
                 if (empty($latestCommit) && !empty($commits)) {
-                    $latestCommit = $commits[0];
+                    $latestCommit = $commits[array_key_last($commits)];
                 }
-                $ref = $payloadArray['ref'] ?? '';
-                // ref format: refs/heads/main
-                $branch = str_replace('refs/heads/', '', $ref);
+
+                $repositoryId = strval($project['id'] ?? '');
+                $repositoryName = $project['name'] ?? '';
+                $repositoryUrl = $project['web_url'] ?? '';
+                $owner = $project['namespace'] ?? '';
+                $branch = str_replace('refs/heads/', '', $payloadArray['ref'] ?? '');
+                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/-/tree/' . $branch : '';
+
+                $affectedFiles = [];
+                foreach ($commits as $commit) {
+                    foreach (['added', 'modified', 'removed'] as $changeType) {
+                        foreach (($commit[$changeType] ?? []) as $file) {
+                            $affectedFiles[$file] = true;
+                        }
+                    }
+                }
+
+                $allZeroSha = str_repeat('0', 40);
 
                 return [
-                    'type' => 'push',
-                    'name' => $payloadArray['project']['name'] ?? '',
-                    'owner' => $payloadArray['project']['namespace'] ?? '',
+                    'branchCreated' => ($payloadArray['before'] ?? '') === $allZeroSha,
+                    'branchDeleted' => ($payloadArray['after'] ?? '') === $allZeroSha,
                     'branch' => $branch,
-                    'commitHash' => $payloadArray['checkout_sha'] ?? '',
-                    'commitAuthor' => $latestCommit['author']['name'] ?? '',
-                    'commitMessage' => $latestCommit['message'] ?? '',
-                    'commitUrl' => $latestCommit['url'] ?? '',
-                    'commitAuthorUrl' => '',
-                    'commitAuthorAvatar' => '',
+                    'branchUrl' => $branchUrl,
+                    'repositoryId' => $repositoryId,
+                    'repositoryName' => $repositoryName,
+                    'repositoryUrl' => $repositoryUrl,
+                    'installationId' => '', // GitLab personal installs have none
+                    'commitHash' => $checkoutSha,
+                    'owner' => $owner,
+                    'authorUrl' => '',
+                    'authorAvatarUrl' => $payloadArray['user_avatar'] ?? '',
+                    'headCommitAuthorName' => $latestCommit['author']['name'] ?? '',
+                    'headCommitAuthorEmail' => $latestCommit['author']['email'] ?? '',
+                    'headCommitMessage' => $latestCommit['message'] ?? '',
+                    'headCommitUrl' => $latestCommit['url'] ?? '',
+                    'external' => false,
+                    'pullRequestNumber' => '',
+                    'action' => '',
+                    'affectedFiles' => \array_keys($affectedFiles),
                 ];
 
             case 'Merge Request Hook':
+                $project = $payloadArray['project'] ?? [];
                 $mr = $payloadArray['object_attributes'] ?? [];
-                $action = $mr['action'] ?? '';
+
+                $repositoryId = strval($project['id'] ?? '');
+                $repositoryName = $project['name'] ?? '';
+                $repositoryUrl = $project['web_url'] ?? '';
+                $owner = $project['namespace'] ?? '';
+                $branch = $mr['source_branch'] ?? '';
+                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/-/tree/' . $branch : '';
+                $action = self::MERGE_REQUEST_ACTION_MAP[$mr['action'] ?? ''] ?? '';
+
+                // Cross-project MRs (source/target in different projects) are
+                // GitLab's equivalent of a fork-based external contribution.
+                $external = isset($mr['source_project_id'], $mr['target_project_id'])
+                    && $mr['source_project_id'] !== $mr['target_project_id'];
 
                 return [
-                    'type' => 'pull_request',
-                    'name' => $payloadArray['project']['name'] ?? '',
-                    'owner' => $payloadArray['project']['namespace'] ?? '',
-                    'branch' => $mr['source_branch'] ?? '',
-                    'action' => $action,
-                    'pullRequestNumber' => $mr['iid'] ?? 0,
-                    'pullRequestTitle' => $mr['title'] ?? '',
-                    'pullRequestUrl' => $mr['url'] ?? '',
-                    'headBranch' => $mr['source_branch'] ?? '',
-                    'baseBranch' => $mr['target_branch'] ?? '',
+                    'branch' => $branch,
+                    'branchUrl' => $branchUrl,
+                    'repositoryId' => $repositoryId,
+                    'repositoryName' => $repositoryName,
+                    'repositoryUrl' => $repositoryUrl,
+                    'installationId' => '',
                     'commitHash' => $mr['last_commit']['id'] ?? '',
-                    'commitUrl' => $mr['last_commit']['url'] ?? '',
-                    'commitMessage' => $mr['last_commit']['message'] ?? '',
-                    'commitAuthor' => $mr['last_commit']['author']['name'] ?? '',
-                    'commitAuthorUrl' => '',
-                    'commitAuthorAvatar' => '',
+                    'owner' => $owner,
+                    'authorUrl' => '',
+                    'authorAvatarUrl' => $payloadArray['user']['avatar_url'] ?? '',
+                    'headCommitUrl' => $mr['last_commit']['url'] ?? '',
+                    'external' => $external,
+                    'pullRequestNumber' => $mr['iid'] ?? '',
+                    'action' => $action,
                 ];
 
             default:

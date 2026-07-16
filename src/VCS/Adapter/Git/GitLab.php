@@ -95,7 +95,7 @@ class GitLab extends Git
     {
         $url = "/groups";
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], [
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
             'name' => $orgName,
             'path' => $orgName,
             'visibility' => 'public',
@@ -140,7 +140,7 @@ class GitLab extends Git
 
         $url = "/projects";
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], [
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
             'name' => $repositoryName,
             'path' => $repositoryName,
             'namespace_id' => $namespaceId,
@@ -164,7 +164,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}";
 
-        $response = $this->call(self::METHOD_DELETE, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -181,7 +181,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -223,7 +223,7 @@ class GitLab extends Git
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
 
-        $url = "{$this->endpoint}/projects/{$projectPath}/repository/archive.{$extension}?private_token=" . urlencode($this->accessToken);
+        $url = "{$this->endpoint}/projects/{$projectPath}/repository/archive.{$extension}?access_token=" . urlencode($this->accessToken);
         if (!empty($ref)) {
             $url .= "&sha=" . urlencode($ref);
         }
@@ -251,7 +251,7 @@ class GitLab extends Git
             $url .= "&search=" . urlencode($search);
         }
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
 
@@ -270,7 +270,7 @@ class GitLab extends Git
             if (!empty($search)) {
                 $url .= "&search=" . urlencode($search);
             }
-            $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
         }
@@ -306,7 +306,7 @@ class GitLab extends Git
     {
         $url = "/projects/{$repositoryId}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -329,7 +329,7 @@ class GitLab extends Git
             $allItems = [];
             do {
                 $pagedUrl = $url . "&recursive=true&per_page=100&page={$page}";
-                $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
+                $response = $this->call(self::METHOD_GET, $pagedUrl, ['Authorization' => 'Bearer ' . $this->accessToken]);
                 $responseHeaders = $response['headers'] ?? [];
                 $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
                 if ($responseHeadersStatusCode >= 400) {
@@ -345,7 +345,7 @@ class GitLab extends Git
             return array_column($allItems, 'path');
         }
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -368,7 +368,7 @@ class GitLab extends Git
         $encodedPath = urlencode($path);
         $url = "/projects/{$projectPath}/repository/files/{$encodedPath}?ref=" . urlencode(empty($ref) ? 'HEAD' : $ref);
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -406,7 +406,7 @@ class GitLab extends Git
             $url .= (empty($ref) ? '?' : '&') . 'path=' . urlencode($path);
         }
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -438,7 +438,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/languages";
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -470,7 +470,7 @@ class GitLab extends Git
             'author_email' => 'utopia@example.com',
         ];
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -487,7 +487,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/repository/branches";
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], [
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
             'branch' => $newBranchName,
             'ref' => $oldBranchName,
         ]);
@@ -514,7 +514,7 @@ class GitLab extends Git
             'description'   => $body,
         ];
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -539,7 +539,7 @@ class GitLab extends Git
             'merge_requests_events' => in_array('pull_request', $events),
         ];
 
-        $response = $this->call(self::METHOD_POST, $apiUrl, ['PRIVATE-TOKEN' => $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $apiUrl, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -558,7 +558,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}/notes";
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], ['body' => $comment]);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], ['body' => $comment]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -586,7 +586,7 @@ class GitLab extends Git
 
         [$mrIid, $noteId] = $parts;
         $url = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$noteId}";
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         return $response['body']['body'] ?? '';
     }
@@ -603,7 +603,7 @@ class GitLab extends Git
 
         [$mrIid, $noteId] = $parts;
         $url = "/projects/{$projectPath}/merge_requests/{$mrIid}/notes/{$noteId}";
-        $response = $this->call(self::METHOD_PUT, $url, ['PRIVATE-TOKEN' => $this->accessToken], ['body' => $comment]);
+        $response = $this->call(self::METHOD_PUT, $url, ['Authorization' => 'Bearer ' . $this->accessToken], ['body' => $comment]);
 
         $responseHeaders = $response['headers'] ?? [];
         if (($responseHeaders['status-code'] ?? 0) !== 200) {
@@ -617,7 +617,7 @@ class GitLab extends Git
     {
         $url = "/users?username=" . rawurlencode($username);
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -639,7 +639,7 @@ class GitLab extends Git
     {
         if ($repositoryId !== null) {
             $url = "/projects/{$repositoryId}";
-            $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
             if ($statusCode >= 400) {
@@ -651,7 +651,7 @@ class GitLab extends Git
         }
 
         $url = "/user";
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
@@ -667,7 +667,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -703,7 +703,7 @@ class GitLab extends Git
             $mrResponse = $this->call(
                 self::METHOD_GET,
                 "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}",
-                ['PRIVATE-TOKEN' => $this->accessToken]
+                ['Authorization' => 'Bearer ' . $this->accessToken]
             );
             $mrBody = $mrResponse['body'] ?? [];
             if (($mrBody['patch_id_sha'] ?? null) !== null) {
@@ -719,7 +719,7 @@ class GitLab extends Git
 
         while (true) {
             $url = "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}/diffs?page={$page}&per_page={$perPage}";
-            $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -753,7 +753,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/merge_requests?state=opened&source_branch=" . urlencode($branch);
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -791,7 +791,7 @@ class GitLab extends Git
         $page = 1;
         do {
             $pagedUrl = "/projects/{$projectPath}/repository/branches?per_page=100&page={$page}";
-            $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $pagedUrl, ['Authorization' => 'Bearer ' . $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
             if ($responseHeadersStatusCode >= 400) {
@@ -819,7 +819,7 @@ class GitLab extends Git
         $page = 1;
         do {
             $pagedUrl = "/projects/{$projectPath}/repository/tags?per_page=100&page={$page}";
-            $response = $this->call(self::METHOD_GET, $pagedUrl, ['PRIVATE-TOKEN' => $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $pagedUrl, ['Authorization' => 'Bearer ' . $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
             $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
             if ($responseHeadersStatusCode >= 400) {
@@ -844,7 +844,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/repository/commits/" . urlencode($commitHash);
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -870,7 +870,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/repository/commits?ref_name=" . urlencode($branch) . "&per_page=1";
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -928,7 +928,7 @@ class GitLab extends Git
             $payload['name'] = $context;
         }
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -1122,7 +1122,7 @@ class GitLab extends Git
             $payload['message'] = $message;
         }
 
-        $response = $this->call(self::METHOD_POST, $url, ['PRIVATE-TOKEN' => $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
@@ -1139,7 +1139,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/repository/commits/" . urlencode($commitHash) . "/statuses";
 
-        $response = $this->call(self::METHOD_GET, $url, ['PRIVATE-TOKEN' => $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;

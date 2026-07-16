@@ -217,12 +217,14 @@ class GitLabTest extends Base
             $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10);
 
             $this->assertIsArray($result);
-            $this->assertNotEmpty($result);
+            $this->assertArrayHasKey('items', $result);
+            $this->assertArrayHasKey('total', $result);
+            $this->assertNotEmpty($result['items']);
 
-            $names = array_column($result, 'name');
+            $names = array_column($result['items'], 'name');
             $this->assertContains($repositoryName, $names);
 
-            foreach ($result as $repo) {
+            foreach ($result['items'] as $repo) {
                 $this->assertArrayHasKey('id', $repo);
                 $this->assertArrayHasKey('name', $repo);
                 $this->assertArrayHasKey('private', $repo);
@@ -242,9 +244,10 @@ class GitLabTest extends Base
             $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10, $uniqueId);
 
             $this->assertIsArray($result);
-            $this->assertNotEmpty($result);
+            $this->assertArrayHasKey('items', $result);
+            $this->assertNotEmpty($result['items']);
 
-            $names = array_column($result, 'name');
+            $names = array_column($result['items'], 'name');
             $this->assertContains($repositoryName, $names);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);

@@ -276,12 +276,12 @@ class GitLab extends Git
         }
 
         if ($statusCode >= 400) {
-            return [];
+            return ['items' => [], 'total' => 0];
         }
 
         $responseBody = $response['body'] ?? [];
         if (!is_array($responseBody)) {
-            return [];
+            return ['items' => [], 'total' => 0];
         }
 
         $repositories = [];
@@ -299,7 +299,18 @@ class GitLab extends Git
             ];
         }
 
-        return $repositories;
+        // GitLab returns the total count via the X-Total header, not the
+        // body. When filtering client-side (personal-namespace fallback),
+        // that header reflects every namespace the token can see, not just
+        // the requested owner, so the filtered count is used instead.
+        $total = $filterByNamespace
+            ? \count($repositories)
+            : (int) ($responseHeaders['x-total'] ?? \count($repositories));
+
+        return [
+            'items' => $repositories,
+            'total' => $total,
+        ];
     }
 
     public function getRepositoryName(string $repositoryId): string

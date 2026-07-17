@@ -255,14 +255,9 @@ class GitLab extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
 
-        // Fall back to the user's personal namespace if there's no group by
-        // that name. GET /users/:id/projects only ever returns *public*
-        // projects, even for the authenticated user's own account -- there's
-        // no GitLab endpoint that lists a specific personal namespace's
-        // private projects directly. GET /projects?membership=true does
-        // return every project (public and private) the token's user is a
-        // member of, but across all namespaces, so it's filtered below to
-        // just the requested owner.
+        // No group by that name -- fall back to /projects?membership=true
+        // (GitLab has no endpoint listing a personal namespace's private
+        // projects directly) and filter to the requested owner below.
         $filterByNamespace = false;
         if ($statusCode === 404) {
             $filterByNamespace = true;

@@ -294,10 +294,8 @@ class GitLab extends Git
             ];
         }
 
-        // GitLab returns the total count via the X-Total header, not the
-        // body. When filtering client-side (personal-namespace fallback),
-        // that header reflects every namespace the token can see, not just
-        // the requested owner, so the filtered count is used instead.
+        // Total comes from the X-Total header, except when filtering
+        // client-side, where the header covers every namespace, not just this owner.
         $total = $filterByNamespace
             ? \count($repositories)
             : (int) ($responseHeaders['x-total'] ?? \count($repositories));

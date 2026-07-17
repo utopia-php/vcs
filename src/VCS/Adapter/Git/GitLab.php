@@ -1039,10 +1039,9 @@ class GitLab extends Git
 
                 $affectedFiles = [];
                 foreach ($commits as $commit) {
-                    foreach (['added', 'modified', 'removed'] as $changeType) {
-                        foreach (($commit[$changeType] ?? []) as $file) {
-                            $affectedFiles[$file] = true;
-                        }
+                    $changedFiles = \array_merge($commit['added'] ?? [], $commit['modified'] ?? [], $commit['removed'] ?? []);
+                    foreach ($changedFiles as $file) {
+                        $affectedFiles[$file] = true;
                     }
                 }
 

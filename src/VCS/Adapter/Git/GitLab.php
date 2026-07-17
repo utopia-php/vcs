@@ -255,12 +255,8 @@ class GitLab extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
 
-        // No group by that name -- fall back to /projects?membership=true
-        // (GitLab has no endpoint listing a personal namespace's private
-        // projects directly). That endpoint can't be filtered to one
-        // namespace server-side, so the requested owner's matches could
-        // land on any membership page -- collect all owner-matching
-        // projects first, then paginate the filtered set ourselves.
+        // No group by that name -- fall back to scanning membership
+        // projects, since GitLab can't filter that list by namespace.
         if ($statusCode === 404) {
             $ownerRepositories = $this->searchMembershipProjectsByNamespace($ownerPath, $search);
             $total = \count($ownerRepositories);

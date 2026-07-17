@@ -257,17 +257,19 @@ class GitLab extends Git
 
         // No group by that name -- fall back to /projects?membership=true
         // (GitLab has no endpoint listing a personal namespace's private
-        // projects directly) and filter to the requested owner below.
-        $filterByNamespace = false;
+        // projects directly). That endpoint can't be filtered to one
+        // namespace server-side, so the requested owner's matches could
+        // land on any membership page -- collect all owner-matching
+        // projects first, then paginate the filtered set ourselves.
         if ($statusCode === 404) {
-            $filterByNamespace = true;
-            $url = "/projects?membership=true&page={$page}&per_page={$per_page}";
-            if (!empty($search)) {
-                $url .= "&search=" . urlencode($search);
-            }
-            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
-            $responseHeaders = $response['headers'] ?? [];
-            $statusCode = $responseHeaders['status-code'] ?? 0;
+            $ownerRepositories = $this->searchMembershipProjectsByNamespace($ownerPath, $search);
+            $total = \count($ownerRepositories);
+            $slice = \array_slice($ownerRepositories, ($page - 1) * $per_page, $per_page);
+
+            return [
+                'items' => \array_map(fn ($repo) => $this->mapSearchedRepository($repo), $slice),
+                'total' => $total,
+            ];
         }
 
         if ($statusCode >= 400) {
@@ -279,32 +281,65 @@ class GitLab extends Git
             return ['items' => [], 'total' => 0];
         }
 
-        $repositories = [];
-        foreach ($responseBody as $repo) {
-            if ($filterByNamespace && ($repo['namespace']['path'] ?? '') !== $ownerPath) {
-                continue;
-            }
+        $repositories = \array_map(fn ($repo) => $this->mapSearchedRepository($repo), $responseBody);
 
-            $repositories[] = [
-                'id' => $repo['id'] ?? 0,
-                'name' => $repo['name'] ?? '',
-                'description' => $repo['description'] ?? '',
-                'private' => ($repo['visibility'] ?? '') === 'private',
-                'pushed_at' => $repo['last_activity_at'] ?? '',
-            ];
-        }
-
-        // GitLab returns the total count via the X-Total header, not the
-        // body. When filtering client-side (personal-namespace fallback),
-        // that header reflects every namespace the token can see, not just
-        // the requested owner, so the filtered count is used instead.
-        $total = $filterByNamespace
-            ? \count($repositories)
-            : (int) ($responseHeaders['x-total'] ?? \count($repositories));
+        // GitLab returns the total count via the X-Total header, not the body.
+        $total = (int) ($responseHeaders['x-total'] ?? \count($repositories));
 
         return [
             'items' => $repositories,
             'total' => $total,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function searchMembershipProjectsByNamespace(string $ownerPath, string $search): array
+    {
+        $matches = [];
+        $maxPages = 20; // safety cap: 20 * 100 = 2000 membership projects scanned
+
+        for ($page = 1; $page <= $maxPages; $page++) {
+            $url = "/projects?membership=true&page={$page}&per_page=100";
+            if (!empty($search)) {
+                $url .= "&search=" . urlencode($search);
+            }
+
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+            $statusCode = $response['headers']['status-code'] ?? 0;
+            $responseBody = $response['body'] ?? [];
+
+            if ($statusCode >= 400 || !is_array($responseBody) || empty($responseBody)) {
+                break;
+            }
+
+            foreach ($responseBody as $repo) {
+                if (($repo['namespace']['path'] ?? '') === $ownerPath) {
+                    $matches[] = $repo;
+                }
+            }
+
+            if (\count($responseBody) < 100) {
+                break;
+            }
+        }
+
+        return $matches;
+    }
+
+    /**
+     * @param array<string, mixed> $repo
+     * @return array<string, mixed>
+     */
+    protected function mapSearchedRepository(array $repo): array
+    {
+        return [
+            'id' => $repo['id'] ?? 0,
+            'name' => $repo['name'] ?? '',
+            'description' => $repo['description'] ?? '',
+            'private' => ($repo['visibility'] ?? '') === 'private',
+            'pushed_at' => $repo['last_activity_at'] ?? '',
         ];
     }
 

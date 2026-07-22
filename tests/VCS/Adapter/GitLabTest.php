@@ -1347,6 +1347,26 @@ class GitLabTest extends Base
         }
     }
 
+    public function testListRepositoryContentsMalformedNestedPath(): void
+    {
+        $repositoryName = 'test-list-repository-contents-malformed-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/main.php', '<?php');
+
+            $clean = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src');
+            $embeddedDot = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src/.');
+            $doubleSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src//');
+
+            $this->assertNotEmpty($clean);
+            $this->assertEquals(array_column($clean, 'name'), array_column($embeddedDot, 'name'));
+            $this->assertEquals(array_column($clean, 'name'), array_column($doubleSlash, 'name'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGetUser(): void
     {
         $result = $this->vcsAdapter->getUser('root');

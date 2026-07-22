@@ -128,11 +128,12 @@ class GitLab extends Git
      */
     private function normalizeRepositoryPath(string $path): string
     {
-        while (str_starts_with($path, './')) {
-            $path = substr($path, 2);
-        }
+        $segments = array_filter(
+            explode('/', $path),
+            fn (string $segment): bool => $segment !== '' && $segment !== '.'
+        );
 
-        return $path === '.' ? '' : $path;
+        return implode('/', $segments);
     }
 
     /**

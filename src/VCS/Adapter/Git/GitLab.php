@@ -123,6 +123,20 @@ class GitLab extends Git
     }
 
     /**
+     * GitLab passes path as a literal query/URL value, so unlike GitHub it
+     * never resolves './' or '.' to the repository root on its own.
+     */
+    private function normalizeRepositoryPath(string $path): string
+    {
+        $segments = array_filter(
+            explode('/', $path),
+            fn (string $segment): bool => $segment !== '' && $segment !== '.'
+        );
+
+        return implode('/', $segments);
+    }
+
+    /**
      * Extract namespace ID from "id:path" format
      */
     private function getNamespaceId(string $owner): string
@@ -369,7 +383,7 @@ class GitLab extends Git
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
-        $encodedPath = urlencode($path);
+        $encodedPath = urlencode($this->normalizeRepositoryPath($path));
         $url = "/projects/{$projectPath}/repository/files/{$encodedPath}?ref=" . urlencode(empty($ref) ? 'HEAD' : $ref);
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
@@ -402,11 +416,13 @@ class GitLab extends Git
 
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
+        $path = $this->normalizeRepositoryPath($path);
+
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/repository/tree" . (empty($ref) ? '' : '?ref=' . urlencode($ref));
 
-        if (!empty($path)) {
+        if ($path !== '') {
             $url .= (empty($ref) ? '?' : '&') . 'path=' . urlencode($path);
         }
 

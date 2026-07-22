@@ -1305,6 +1305,68 @@ class GitLabTest extends Base
         }
     }
 
+    public function testListRepositoryContentsRootSentinels(): void
+    {
+        $repositoryName = 'test-list-repository-contents-root-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $empty = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, '');
+            $dot = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, '.');
+            $dotSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, './');
+
+            $repeatedDotSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, './././');
+
+            $this->assertNotEmpty($empty);
+            $this->assertEquals(array_column($empty, 'name'), array_column($dot, 'name'));
+            $this->assertEquals(array_column($empty, 'name'), array_column($dotSlash, 'name'));
+            $this->assertEquals(array_column($empty, 'name'), array_column($repeatedDotSlash, 'name'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetRepositoryContentRootSentinelPrefix(): void
+    {
+        $repositoryName = 'test-get-repository-content-root-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $direct = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'README.md');
+            $prefixed = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, './README.md');
+            $repeatedPrefix = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, './././README.md');
+
+            $this->assertEquals($direct['content'], $prefixed['content']);
+            $this->assertEquals($direct['content'], $repeatedPrefix['content']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListRepositoryContentsMalformedNestedPath(): void
+    {
+        $repositoryName = 'test-list-repository-contents-malformed-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/main.php', '<?php');
+
+            $clean = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src');
+            $embeddedDot = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src/.');
+            $doubleSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src//');
+
+            $this->assertNotEmpty($clean);
+            $this->assertEquals(array_column($clean, 'name'), array_column($embeddedDot, 'name'));
+            $this->assertEquals(array_column($clean, 'name'), array_column($doubleSlash, 'name'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGetUser(): void
     {
         $result = $this->vcsAdapter->getUser('root');

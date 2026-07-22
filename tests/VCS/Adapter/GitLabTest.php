@@ -1317,9 +1317,12 @@ class GitLabTest extends Base
             $dot = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, '.');
             $dotSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, './');
 
+            $repeatedDotSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, './././');
+
             $this->assertNotEmpty($empty);
             $this->assertEquals(array_column($empty, 'name'), array_column($dot, 'name'));
             $this->assertEquals(array_column($empty, 'name'), array_column($dotSlash, 'name'));
+            $this->assertEquals(array_column($empty, 'name'), array_column($repeatedDotSlash, 'name'));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -1335,8 +1338,10 @@ class GitLabTest extends Base
 
             $direct = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'README.md');
             $prefixed = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, './README.md');
+            $repeatedPrefix = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, './././README.md');
 
             $this->assertEquals($direct['content'], $prefixed['content']);
+            $this->assertEquals($direct['content'], $repeatedPrefix['content']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

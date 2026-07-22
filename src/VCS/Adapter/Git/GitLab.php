@@ -123,15 +123,8 @@ class GitLab extends Git
     }
 
     /**
-     * Normalize a repository-relative path.
-     *
-     * GitLab's file/tree endpoints receive the path as a literal query
-     * parameter or URL segment value, not a URI path segment, so it is
-     * never subject to dot-segment normalization (unlike e.g. GitHub's
-     * contents API). Callers commonly pass './' or '.' to mean "repository
-     * root" (as `.` conventionally does on POSIX shells and in git itself),
-     * so normalize those to an empty root path and strip a leading './'
-     * from nested paths before they reach the GitLab API.
+     * GitLab passes path as a literal query/URL value, so unlike GitHub it
+     * never resolves './' or '.' to the repository root on its own.
      */
     private function normalizeRepositoryPath(string $path): string
     {

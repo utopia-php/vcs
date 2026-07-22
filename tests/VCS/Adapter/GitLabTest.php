@@ -1305,6 +1305,43 @@ class GitLabTest extends Base
         }
     }
 
+    public function testListRepositoryContentsRootSentinels(): void
+    {
+        $repositoryName = 'test-list-repository-contents-root-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $empty = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, '');
+            $dot = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, '.');
+            $dotSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, './');
+
+            $this->assertNotEmpty($empty);
+            $this->assertEquals(array_column($empty, 'name'), array_column($dot, 'name'));
+            $this->assertEquals(array_column($empty, 'name'), array_column($dotSlash, 'name'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetRepositoryContentRootSentinelPrefix(): void
+    {
+        $repositoryName = 'test-get-repository-content-root-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $direct = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'README.md');
+            $prefixed = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, './README.md');
+
+            $this->assertEquals($direct['content'], $prefixed['content']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGetUser(): void
     {
         $result = $this->vcsAdapter->getUser('root');

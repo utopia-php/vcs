@@ -123,6 +123,30 @@ class GitLab extends Git
     }
 
     /**
+     * Normalize a repository-relative path.
+     *
+     * GitLab's file/tree endpoints receive the path as a literal query
+     * parameter or URL segment value, not a URI path segment, so it is
+     * never subject to dot-segment normalization (unlike e.g. GitHub's
+     * contents API). Callers commonly pass './' or '.' to mean "repository
+     * root" (as `.` conventionally does on POSIX shells and in git itself),
+     * so normalize those to an empty root path and strip a leading './'
+     * from nested paths before they reach the GitLab API.
+     */
+    private function normalizeRepositoryPath(string $path): string
+    {
+        if ($path === '.' || $path === './') {
+            return '';
+        }
+
+        if (str_starts_with($path, './')) {
+            return substr($path, 2);
+        }
+
+        return $path;
+    }
+
+    /**
      * Extract namespace ID from "id:path" format
      */
     private function getNamespaceId(string $owner): string
@@ -369,7 +393,7 @@ class GitLab extends Git
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
-        $encodedPath = urlencode($path);
+        $encodedPath = urlencode($this->normalizeRepositoryPath($path));
         $url = "/projects/{$projectPath}/repository/files/{$encodedPath}?ref=" . urlencode(empty($ref) ? 'HEAD' : $ref);
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
@@ -402,11 +426,13 @@ class GitLab extends Git
 
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
+        $path = $this->normalizeRepositoryPath($path);
+
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}/repository/tree" . (empty($ref) ? '' : '?ref=' . urlencode($ref));
 
-        if (!empty($path)) {
+        if ($path !== '') {
             $url .= (empty($ref) ? '?' : '&') . 'path=' . urlencode($path);
         }
 

@@ -258,18 +258,14 @@ class GitLab extends Git
     /**
      * List namespaces the current user can browse: their personal namespace
      * plus every group they belong to. GitLab's OAuth grant covers all of
-     * them in a single authorization -- unlike GitHub's per-installation org
-     * picker, there is no step in the OAuth flow itself where the user
-     * chooses one, so callers need this to build their own picker.
+     * them in one authorization, unlike GitHub's per-installation org picker.
      *
      * @return array{items: array<array{id: string, name: string, path: string, kind: string, avatarUrl: string}>, total: int}
      */
     public function listNamespaces(int $page, int $per_page, string $search = ''): array
     {
-        // /user is only needed to build page 1's item, or -- on any page --
-        // to resolve whether the personal namespace matches a search term.
-        // With no search it always counts, so skip the call entirely for
-        // page > 1 rather than paying for it on every paginated request.
+        // /user is skippable past page 1 when there's no search, since the
+        // personal namespace always counts in that case.
         $matchesSearch = true;
         $namespaces = [];
 
@@ -299,12 +295,8 @@ class GitLab extends Git
             }
         }
 
-        // Page 1 reserves one slot for the personal namespace (if it's
-        // included), so it only asks GitLab for per_page-1 groups; every
-        // other page asks for a full per_page. Without this, a full page of
-        // groups plus the personal namespace would overflow page 1 to
-        // per_page+1 items, and the combined total would advertise a final
-        // page whose group request returns nothing.
+        // Page 1 reserves a slot for the personal namespace, so it fetches
+        // one fewer group -- otherwise page 1 overflows to per_page+1 items.
         $includesPersonal = $page === 1 && $matchesSearch;
         $groupsNeeded = $per_page - ($includesPersonal ? 1 : 0);
         $groupOffset = \max(($page - 1) * $per_page - ($matchesSearch ? 1 : 0), 0);
@@ -321,8 +313,6 @@ class GitLab extends Git
             ];
         }
 
-        // The personal namespace isn't part of GitLab's group pagination,
-        // so it's added in separately once here.
         $total = $groupTotal + ($matchesSearch ? 1 : 0);
 
         return [
@@ -332,11 +322,9 @@ class GitLab extends Git
     }
 
     /**
-     * Fetch exactly $limit groups starting at 0-based $offset into the full
-     * (search-filtered) groups list, by walking GitLab's own page/per_page
-     * pagination. $offset rarely lands on a GitLab page boundary (it's
-     * shifted by one whenever the personal namespace occupies a slot), so
-     * this may span more than one GitLab request.
+     * Fetch $limit groups starting at 0-based $offset, walking GitLab's own
+     * page/per_page pagination since $offset is shifted by one (and won't
+     * align with a GitLab page) whenever the personal namespace takes a slot.
      *
      * @return array{items: array<array<string, mixed>>, total: int}
      */
@@ -353,8 +341,6 @@ class GitLab extends Git
         $result = $this->fetchGroupsPage($gitlabPage, $per_page, $search);
         $collected = array_slice($result['items'], $skip);
 
-        // Keep pulling subsequent GitLab pages until either enough items
-        // are collected or GitLab returns a short page (its real end).
         while (count($collected) < $limit && count($result['items']) === $per_page) {
             $gitlabPage++;
             $result = $this->fetchGroupsPage($gitlabPage, $per_page, $search);

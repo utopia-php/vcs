@@ -255,6 +255,45 @@ class GitLab extends Git
         throw new Exception("getInstallationRepository is not applicable for this adapter");
     }
 
+    /**
+     * List namespaces the current user can browse: their personal namespace
+     * plus every group they belong to. GitLab's own /namespaces endpoint
+     * already combines both with correct pagination, so this is a thin
+     * passthrough rather than a hand-rolled merge of /user + /groups.
+     *
+     * @return array{items: array<array{id: string, name: string, path: string, kind: string, avatarUrl: string}>, total: int}
+     */
+    public function listNamespaces(int $page, int $per_page, string $search = ''): array
+    {
+        $url = "/namespaces?page={$page}&per_page={$per_page}";
+        if (!empty($search)) {
+            $url .= '&search=' . urlencode($search);
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to list namespaces: HTTP {$statusCode}", $statusCode);
+        }
+
+        $items = $response['body'] ?? [];
+        $items = is_array($items) ? $items : [];
+
+        $namespaces = array_map(fn (array $namespace) => [
+            'id' => (string) ($namespace['id'] ?? ''),
+            'name' => $namespace['name'] ?? ($namespace['path'] ?? ''),
+            'path' => $namespace['full_path'] ?? ($namespace['path'] ?? ''),
+            'kind' => $namespace['kind'] ?? 'group',
+            'avatarUrl' => $namespace['avatar_url'] ?? '',
+        ], $items);
+
+        return [
+            'items' => $namespaces,
+            'total' => (int) ($responseHeaders['x-total'] ?? \count($namespaces)),
+        ];
+    }
+
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $ownerPath = $this->getOwnerPath($owner);

@@ -4,6 +4,7 @@ namespace Utopia\Tests\Adapter;
 
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
+use Utopia\Fetch\Client;
 use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
@@ -1546,5 +1547,115 @@ class GitLabTest extends Base
         $this->assertFalse(
             $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
         );
+    }
+
+    public function testDiscoverDcrEndpoint(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+
+        $endpoint = $adapter->discoverDcrEndpoint();
+
+        if ($endpoint === null) {
+            $this->markTestSkipped('This GitLab instance does not expose Dynamic Client Registration discovery (older than 18.6, or disabled).');
+        }
+
+        $this->assertIsString($endpoint);
+        $this->assertStringContainsString('/oauth/register', $endpoint);
+    }
+
+    public function testDiscoverDcrEndpointUnknownHost(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+        $adapter->setEndpoint('http://gitlab-host-that-does-not-exist:80');
+
+        $endpoint = $adapter->discoverDcrEndpoint();
+
+        $this->assertNull($endpoint);
+    }
+
+    public function testRegisterDynamicClient(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+
+        if ($adapter->discoverDcrEndpoint() === null) {
+            $this->markTestSkipped('Dynamic Client Registration is not available on this GitLab instance.');
+        }
+
+        $redirectUri = 'http://localhost/v1/vcs/gitlab/callback';
+        $result = $adapter->registerDynamicClient($redirectUri);
+
+        $this->assertArrayHasKey('client_id', $result);
+        $this->assertIsString($result['client_id']);
+        $this->assertNotEmpty($result['client_id']);
+        $this->assertArrayHasKey('client_secret', $result);
+        $this->assertIsString($result['client_secret']);
+        $this->assertNotEmpty($result['client_secret']);
+        $this->assertContains($redirectUri, $result['redirect_uris']);
+    }
+
+    public function testRegisterDynamicClientOnUnreachableHost(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+        $adapter->setEndpoint('http://gitlab-host-that-does-not-exist:80');
+
+        $this->expectException(\Exception::class);
+        $adapter->registerDynamicClient('http://localhost/callback');
+    }
+
+    /**
+     * E2E: confirms a dynamically registered client_id is a real, usable GitLab
+     * OAuth application -- not just a well-formed response. Completing the full
+     * authorization_code+PKCE exchange (to then call a repository-listing
+     * endpoint with the resulting user token) would need a browser-less login
+     * session against GitLab's sign-in form; no such harness exists in this
+     * suite, so this checks the strongest thing reachable without one: that
+     * GitLab persisted the application server-side, under the admin-only
+     * /applications endpoint, with the exact name/redirect/confidentiality we
+     * requested.
+     */
+    public function testRegisterDynamicClientPersistsAsGitLabApplication(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+        $gitlabUrl = System::getEnv('TESTS_GITLAB_URL', 'http://gitlab:80');
+
+        if ($adapter->discoverDcrEndpoint() === null) {
+            $this->markTestSkipped('Dynamic Client Registration is not available on this GitLab instance.');
+        }
+
+        $redirectUri = 'http://localhost/v1/vcs/gitlab/callback';
+        $result = $adapter->registerDynamicClient($redirectUri);
+
+        $client = new Client();
+        $client->addHeader('PRIVATE-TOKEN', static::$accessToken);
+        $response = $client->fetch(
+            url: "{$gitlabUrl}/api/v4/applications",
+            method: 'GET'
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+
+        $applications = json_decode($response->text(), true);
+        $this->assertIsArray($applications);
+
+        $registeredApplication = null;
+        foreach ($applications as $application) {
+            if (($application['application_id'] ?? null) === $result['client_id']) {
+                $registeredApplication = $application;
+                break;
+            }
+        }
+
+        $this->assertNotNull(
+            $registeredApplication,
+            'Dynamically registered client_id was not found in GitLab\'s /api/v4/applications list.'
+        );
+        $this->assertSame($redirectUri, $registeredApplication['callback_url']);
+        $this->assertTrue($registeredApplication['confidential']);
+        $this->assertStringContainsString('Appwrite VCS Integration', $registeredApplication['application_name']);
     }
 }

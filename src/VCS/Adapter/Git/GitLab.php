@@ -257,108 +257,15 @@ class GitLab extends Git
 
     /**
      * List namespaces the current user can browse: their personal namespace
-     * plus every group they belong to. GitLab's OAuth grant covers all of
-     * them in one authorization, unlike GitHub's per-installation org picker.
+     * plus every group they belong to. GitLab's own /namespaces endpoint
+     * already combines both with correct pagination, so this is a thin
+     * passthrough rather than a hand-rolled merge of /user + /groups.
      *
      * @return array{items: array<array{id: string, name: string, path: string, kind: string, avatarUrl: string}>, total: int}
      */
     public function listNamespaces(int $page, int $per_page, string $search = ''): array
     {
-        // /user is skippable past page 1 when there's no search, since the
-        // personal namespace always counts in that case.
-        $matchesSearch = true;
-        $namespaces = [];
-
-        if ($page === 1 || !empty($search)) {
-            $userResponse = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
-            $userHeaders = $userResponse['headers'] ?? [];
-            $userStatusCode = $userHeaders['status-code'] ?? 0;
-            if ($userStatusCode >= 400) {
-                throw new Exception("Failed to get current user: HTTP {$userStatusCode}", $userStatusCode);
-            }
-            $user = $userResponse['body'] ?? [];
-            $username = $user['username'] ?? '';
-            $name = $user['name'] ?? '';
-
-            $matchesSearch = empty($search)
-                || stripos($username, $search) !== false
-                || stripos($name, $search) !== false;
-
-            if ($page === 1 && $matchesSearch) {
-                $namespaces[] = [
-                    'id' => (string) ($user['id'] ?? ''),
-                    'name' => $name ?: $username,
-                    'path' => $username,
-                    'kind' => 'user',
-                    'avatarUrl' => $user['avatar_url'] ?? '',
-                ];
-            }
-        }
-
-        // Page 1 reserves a slot for the personal namespace, so it fetches
-        // one fewer group -- otherwise page 1 overflows to per_page+1 items.
-        $includesPersonal = $page === 1 && $matchesSearch;
-        $groupsNeeded = $per_page - ($includesPersonal ? 1 : 0);
-        $groupOffset = \max(($page - 1) * $per_page - ($matchesSearch ? 1 : 0), 0);
-
-        ['items' => $groups, 'total' => $groupTotal] = $this->fetchGroupsSlice($groupOffset, $groupsNeeded, $per_page, $search);
-
-        foreach ($groups as $group) {
-            $namespaces[] = [
-                'id' => (string) ($group['id'] ?? ''),
-                'name' => $group['name'] ?? ($group['path'] ?? ''),
-                'path' => $group['full_path'] ?? ($group['path'] ?? ''),
-                'kind' => 'group',
-                'avatarUrl' => $group['avatar_url'] ?? '',
-            ];
-        }
-
-        $total = $groupTotal + ($matchesSearch ? 1 : 0);
-
-        return [
-            'items' => $namespaces,
-            'total' => $total,
-        ];
-    }
-
-    /**
-     * Fetch $limit groups starting at 0-based $offset, walking GitLab's own
-     * page/per_page pagination since $offset is shifted by one (and won't
-     * align with a GitLab page) whenever the personal namespace takes a slot.
-     *
-     * @return array{items: array<array<string, mixed>>, total: int}
-     */
-    private function fetchGroupsSlice(int $offset, int $limit, int $per_page, string $search): array
-    {
-        if ($limit <= 0) {
-            $probe = $this->fetchGroupsPage(1, max($per_page, 1), $search);
-            return ['items' => [], 'total' => $probe['total']];
-        }
-
-        $gitlabPage = intdiv($offset, $per_page) + 1;
-        $skip = $offset % $per_page;
-
-        $result = $this->fetchGroupsPage($gitlabPage, $per_page, $search);
-        $collected = array_slice($result['items'], $skip);
-
-        while (count($collected) < $limit && count($result['items']) === $per_page) {
-            $gitlabPage++;
-            $result = $this->fetchGroupsPage($gitlabPage, $per_page, $search);
-            $collected = array_merge($collected, $result['items']);
-        }
-
-        return [
-            'items' => array_slice($collected, 0, $limit),
-            'total' => $result['total'],
-        ];
-    }
-
-    /**
-     * @return array{items: array<array<string, mixed>>, total: int}
-     */
-    private function fetchGroupsPage(int $page, int $per_page, string $search): array
-    {
-        $url = "/groups?page={$page}&per_page={$per_page}";
+        $url = "/namespaces?page={$page}&per_page={$per_page}";
         if (!empty($search)) {
             $url .= '&search=' . urlencode($search);
         }
@@ -367,15 +274,23 @@ class GitLab extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to list groups: HTTP {$statusCode}", $statusCode);
+            throw new Exception("Failed to list namespaces: HTTP {$statusCode}", $statusCode);
         }
 
         $items = $response['body'] ?? [];
         $items = is_array($items) ? $items : [];
 
+        $namespaces = array_map(fn (array $namespace) => [
+            'id' => (string) ($namespace['id'] ?? ''),
+            'name' => $namespace['name'] ?? ($namespace['path'] ?? ''),
+            'path' => $namespace['full_path'] ?? ($namespace['path'] ?? ''),
+            'kind' => $namespace['kind'] ?? 'group',
+            'avatarUrl' => $namespace['avatar_url'] ?? '',
+        ], $items);
+
         return [
-            'items' => $items,
-            'total' => (int) ($responseHeaders['x-total'] ?? \count($items)),
+            'items' => $namespaces,
+            'total' => (int) ($responseHeaders['x-total'] ?? \count($namespaces)),
         ];
     }
 

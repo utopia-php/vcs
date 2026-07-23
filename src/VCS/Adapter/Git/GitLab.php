@@ -255,6 +255,79 @@ class GitLab extends Git
         throw new Exception("getInstallationRepository is not applicable for this adapter");
     }
 
+    /**
+     * List namespaces the current user can browse: their personal namespace
+     * plus every group they belong to. GitLab's OAuth grant covers all of
+     * them in a single authorization -- unlike GitHub's per-installation org
+     * picker, there is no step in the OAuth flow itself where the user
+     * chooses one, so callers need this to build their own picker.
+     *
+     * @return array{items: array<array{id: string, name: string, path: string, kind: string, avatarUrl: string}>, total: int}
+     */
+    public function listNamespaces(int $page = 1, int $per_page = 20, string $search = ''): array
+    {
+        $namespaces = [];
+        $includedPersonalNamespace = false;
+
+        if ($page === 1) {
+            $userResponse = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
+            $userHeaders = $userResponse['headers'] ?? [];
+            $userStatusCode = $userHeaders['status-code'] ?? 0;
+            if ($userStatusCode >= 400) {
+                throw new Exception("Failed to get current user: HTTP {$userStatusCode}", $userStatusCode);
+            }
+            $user = $userResponse['body'] ?? [];
+            $username = $user['username'] ?? '';
+
+            if (empty($search) || stripos($username, $search) !== false) {
+                $namespaces[] = [
+                    'id' => (string) ($user['id'] ?? ''),
+                    'name' => $user['name'] ?? $username,
+                    'path' => $username,
+                    'kind' => 'user',
+                    'avatarUrl' => $user['avatar_url'] ?? '',
+                ];
+                $includedPersonalNamespace = true;
+            }
+        }
+
+        $url = "/groups?page={$page}&per_page={$per_page}&min_access_level=10";
+        if (!empty($search)) {
+            $url .= '&search=' . urlencode($search);
+        }
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to list groups: HTTP {$statusCode}", $statusCode);
+        }
+
+        $groups = $response['body'] ?? [];
+        $groups = is_array($groups) ? $groups : [];
+        foreach ($groups as $group) {
+            $namespaces[] = [
+                'id' => (string) ($group['id'] ?? ''),
+                'name' => $group['name'] ?? ($group['path'] ?? ''),
+                'path' => $group['full_path'] ?? ($group['path'] ?? ''),
+                'kind' => 'group',
+                'avatarUrl' => $group['avatar_url'] ?? '',
+            ];
+        }
+
+        // GitLab reports the group total via X-Total; the personal
+        // namespace isn't part of that pagination, so add it in separately.
+        $total = (int) ($responseHeaders['x-total'] ?? \count($groups));
+        if ($includedPersonalNamespace) {
+            $total += 1;
+        }
+
+        return [
+            'items' => $namespaces,
+            'total' => $total,
+        ];
+    }
+
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $ownerPath = $this->getOwnerPath($owner);

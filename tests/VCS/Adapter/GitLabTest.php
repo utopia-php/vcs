@@ -1547,4 +1547,59 @@ class GitLabTest extends Base
             $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
         );
     }
+
+    public function testDiscoverDcrEndpoint(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+        $gitlabUrl = System::getEnv('TESTS_GITLAB_URL', 'http://gitlab:80');
+
+        $endpoint = $adapter->discoverDcrEndpoint($gitlabUrl);
+
+        if ($endpoint === null) {
+            $this->markTestSkipped('This GitLab instance does not expose Dynamic Client Registration discovery (older than 18.6, or disabled).');
+        }
+
+        $this->assertIsString($endpoint);
+        $this->assertStringContainsString('/oauth/register', $endpoint);
+    }
+
+    public function testDiscoverDcrEndpointUnknownHost(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+
+        $endpoint = $adapter->discoverDcrEndpoint('http://gitlab-host-that-does-not-exist:80');
+
+        $this->assertNull($endpoint);
+    }
+
+    public function testRegisterDynamicClient(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+        $gitlabUrl = System::getEnv('TESTS_GITLAB_URL', 'http://gitlab:80');
+
+        if ($adapter->discoverDcrEndpoint($gitlabUrl) === null) {
+            $this->markTestSkipped('Dynamic Client Registration is not available on this GitLab instance.');
+        }
+
+        $redirectUri = 'http://localhost/v1/vcs/gitlab/callback';
+        $result = $adapter->registerDynamicClient($gitlabUrl, $redirectUri);
+
+        $this->assertArrayHasKey('client_id', $result);
+        $this->assertIsString($result['client_id']);
+        $this->assertNotEmpty($result['client_id']);
+        $this->assertArrayNotHasKey('client_secret', $result);
+        $this->assertContains($redirectUri, $result['redirect_uris']);
+    }
+
+    public function testRegisterDynamicClientOnUnreachableHost(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+
+        $this->expectException(\Exception::class);
+        $adapter->registerDynamicClient('http://gitlab-host-that-does-not-exist:80', 'http://localhost/callback');
+    }
 }

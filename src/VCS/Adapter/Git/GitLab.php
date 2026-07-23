@@ -1152,6 +1152,212 @@ class GitLab extends Git
         return $response['body'] ?? [];
     }
 
+    /**
+     * Discover whether a GitLab instance supports Dynamic Client Registration.
+     * Checks the MCP-scoped authorization server metadata document.
+     *
+     * Discovery failure is never fatal -- callers use this to decide whether to
+     * offer DCR or fall back to manual OAuth app credential entry.
+     *
+     * @param  string  $endpoint The self-hosted GitLab base URL
+     * @return string|null The registration_endpoint URL if DCR is supported, null otherwise
+     */
+    public function discoverDcrEndpoint(string $endpoint): ?string
+    {
+        try {
+            $this->assertHttpUrl($endpoint, 'endpoint');
+            $wellKnownUrl = rtrim($endpoint, '/') . '/.well-known/oauth-authorization-server/api/v4/mcp';
+
+            $response = $this->callDcr(self::METHOD_GET, $wellKnownUrl);
+
+            if ($response['statusCode'] !== 200 || !$response['isJson']) {
+                return null;
+            }
+
+            $body = $response['body'];
+            if (!is_array($body) || empty($body['registration_endpoint']) || !is_string($body['registration_endpoint'])) {
+                return null;
+            }
+
+            return $body['registration_endpoint'];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Register Appwrite as an OAuth2 client via Dynamic Client Registration (RFC 7591).
+     * Used for self-hosted GitLab instances where no pre-existing OAuth app exists.
+     *
+     * GitLab supports DCR since 18.6 via POST /oauth/register.
+     * Returns a public (PKCE) client -- no client_secret is issued. If GitLab
+     * returns one anyway, registration is treated as a confidential-client
+     * mismatch and rejected outright rather than silently dropping the secret.
+     * The returned client_id must be stored per-installation by the caller; this
+     * method has no side effects of its own.
+     *
+     * @param  string  $endpoint The self-hosted GitLab base URL (e.g. https://gitlab.mycompany.com)
+     * @param  string  $redirectUri The Appwrite callback URL for this installation
+     * @return array{client_id: string, client_name: string, redirect_uris: array<string>}
+     *
+     * @throws Exception If registration fails or the response is malformed
+     */
+    public function registerDynamicClient(string $endpoint, string $redirectUri): array
+    {
+        $this->assertHttpUrl($endpoint, 'endpoint');
+        $this->assertHttpUrl($redirectUri, 'redirectUri');
+
+        $registrationUrl = rtrim($endpoint, '/') . '/oauth/register';
+
+        $payload = [
+            'client_name' => 'Appwrite VCS Integration',
+            'redirect_uris' => [$redirectUri],
+            'grant_types' => ['authorization_code'],
+            'response_types' => ['code'],
+            'token_endpoint_auth_method' => 'none',
+            'scope' => 'api read_user',
+        ];
+
+        $response = $this->callDcr(self::METHOD_POST, $registrationUrl, $payload);
+        $statusCode = $response['statusCode'];
+
+        if ($statusCode === 429) {
+            throw new Exception("GitLab DCR failed: HTTP 429 -- rate limited on {$registrationUrl}. Do not retry automatically; wait before trying again.", 429);
+        }
+
+        if ($statusCode === 404) {
+            throw new Exception("GitLab DCR failed: HTTP 404 -- registration endpoint not found at {$registrationUrl}. This GitLab instance may be older than 18.6, which is required for Dynamic Client Registration support.", 404);
+        }
+
+        if ($statusCode === 403) {
+            throw new Exception("GitLab DCR failed: HTTP 403 -- Dynamic Client Registration is disabled on this instance. Ask your GitLab admin to enable it.", 403);
+        }
+
+        if (!$response['isJson']) {
+            throw new Exception("GitLab DCR failed: HTTP {$statusCode} -- expected a JSON response but received a non-JSON body: " . substr($response['raw'], 0, 500), $statusCode);
+        }
+
+        $body = $response['body'];
+
+        if ($statusCode !== 201) {
+            throw new Exception("GitLab DCR failed: HTTP {$statusCode} -- " . json_encode($body), $statusCode);
+        }
+
+        if (!is_array($body) || empty($body['client_id']) || !is_string($body['client_id'])) {
+            throw new Exception("GitLab DCR failed: response is missing a client_id. Response: " . json_encode($body), $statusCode);
+        }
+
+        $responseRedirectUris = $body['redirect_uris'] ?? [];
+        if (!is_array($responseRedirectUris) || !in_array($redirectUri, $responseRedirectUris, true)) {
+            throw new Exception("GitLab DCR failed: registered redirect_uris in the response do not match the requested redirectUri.", $statusCode);
+        }
+
+        if (!empty($body['client_secret'])) {
+            throw new Exception(
+                'GitLab DCR returned an unexpected client_secret. ' .
+                'This suggests the instance registered a confidential client ' .
+                'rather than a public (PKCE) one. Use manual credential setup ' .
+                'instead of DCR for this instance.',
+                $statusCode
+            );
+        }
+
+        return [
+            'client_id' => $body['client_id'],
+            'client_name' => is_string($body['client_name'] ?? null) ? $body['client_name'] : $payload['client_name'],
+            'redirect_uris' => $responseRedirectUris,
+        ];
+    }
+
+    /**
+     * Validate that a string is a well-formed http(s) URL.
+     *
+     * @throws Exception If the URL is missing a scheme/host or uses an unsupported scheme
+     */
+    private function assertHttpUrl(string $url, string $paramName): void
+    {
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            throw new Exception("Invalid {$paramName}: '{$url}' is not a valid URL.");
+        }
+
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            throw new Exception("Invalid {$paramName}: '{$url}' must use the http or https scheme.");
+        }
+    }
+
+    /**
+     * Make an HTTP call to an absolute URL, bypassing the /api/v4 base endpoint.
+     * OAuth/DCR endpoints (/oauth/register, /.well-known/...) live outside the
+     * REST API namespace that the inherited call() method targets.
+     *
+     * Isolated in its own protected method (rather than inline curl calls) so
+     * unit tests can stub GitLab responses by overriding it in a subclass,
+     * without a real GitLab instance or an HTTP mocking library.
+     *
+     * @param  array<string, mixed>  $params
+     * @return array{statusCode: int, body: mixed, raw: string, isJson: bool}
+     */
+    protected function callDcr(string $method, string $url, array $params = []): array
+    {
+        $ch = curl_init($url);
+        if (!$ch) {
+            throw new Exception('Curl failed to initialize');
+        }
+
+        $responseHeaders = [];
+
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['content-type: application/json']);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $header) use (&$responseHeaders) {
+            $len = strlen($header);
+            $parts = explode(':', $header, 2);
+            if (count($parts) === 2) {
+                $responseHeaders[strtolower(trim($parts[0]))] = trim($parts[1]);
+            }
+            return $len;
+        });
+
+        if ($method !== self::METHOD_GET) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+        }
+
+        if ($this->selfSigned) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        }
+
+        $responseBody = curl_exec($ch);
+        $responseBody = is_string($responseBody) ? $responseBody : '';
+
+        $statusCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrno = curl_errno($ch);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErrno) {
+            throw new Exception("GitLab DCR request failed: {$curlError}", $statusCode);
+        }
+
+        $decodedBody = null;
+        $isJson = false;
+        if ($responseBody !== '') {
+            $decodedBody = json_decode($responseBody, true);
+            $isJson = json_last_error() === JSON_ERROR_NONE;
+        }
+
+        return [
+            'statusCode' => $statusCode,
+            'body' => $isJson ? $decodedBody : null,
+            'raw' => $responseBody,
+            'isJson' => $isJson,
+        ];
+    }
+
     public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array
     {
         $ownerPath = $this->getOwnerPath($owner);

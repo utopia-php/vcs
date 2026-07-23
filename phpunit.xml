@@ -20,6 +20,7 @@
         </testsuite>
         <testsuite name="gitlab">
             <file>./tests/VCS/Adapter/GitLabTest.php</file>
+            <file>./tests/VCS/Adapter/GitLabDcrTest.php</file>
         </testsuite>
         <testsuite name="gogs">
             <file>./tests/VCS/Adapter/GogsTest.php</file>

@@ -266,32 +266,35 @@ class GitLab extends Git
      */
     public function listNamespaces(int $page = 1, int $per_page = 20, string $search = ''): array
     {
+        // Fetched on every page (not just page 1): the personal namespace
+        // always contributes to the total, so pagination stays consistent
+        // across pages even though it's only ever placed in page 1's items.
+        $userResponse = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $userHeaders = $userResponse['headers'] ?? [];
+        $userStatusCode = $userHeaders['status-code'] ?? 0;
+        if ($userStatusCode >= 400) {
+            throw new Exception("Failed to get current user: HTTP {$userStatusCode}", $userStatusCode);
+        }
+        $user = $userResponse['body'] ?? [];
+        $username = $user['username'] ?? '';
+        $name = $user['name'] ?? '';
+
+        $matchesSearch = empty($search)
+            || stripos($username, $search) !== false
+            || stripos($name, $search) !== false;
+
         $namespaces = [];
-        $includedPersonalNamespace = false;
-
-        if ($page === 1) {
-            $userResponse = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
-            $userHeaders = $userResponse['headers'] ?? [];
-            $userStatusCode = $userHeaders['status-code'] ?? 0;
-            if ($userStatusCode >= 400) {
-                throw new Exception("Failed to get current user: HTTP {$userStatusCode}", $userStatusCode);
-            }
-            $user = $userResponse['body'] ?? [];
-            $username = $user['username'] ?? '';
-
-            if (empty($search) || stripos($username, $search) !== false) {
-                $namespaces[] = [
-                    'id' => (string) ($user['id'] ?? ''),
-                    'name' => $user['name'] ?? $username,
-                    'path' => $username,
-                    'kind' => 'user',
-                    'avatarUrl' => $user['avatar_url'] ?? '',
-                ];
-                $includedPersonalNamespace = true;
-            }
+        if ($page === 1 && $matchesSearch) {
+            $namespaces[] = [
+                'id' => (string) ($user['id'] ?? ''),
+                'name' => $name ?: $username,
+                'path' => $username,
+                'kind' => 'user',
+                'avatarUrl' => $user['avatar_url'] ?? '',
+            ];
         }
 
-        $url = "/groups?page={$page}&per_page={$per_page}&min_access_level=10";
+        $url = "/groups?page={$page}&per_page={$per_page}";
         if (!empty($search)) {
             $url .= '&search=' . urlencode($search);
         }
@@ -318,7 +321,7 @@ class GitLab extends Git
         // GitLab reports the group total via X-Total; the personal
         // namespace isn't part of that pagination, so add it in separately.
         $total = (int) ($responseHeaders['x-total'] ?? \count($groups));
-        if ($includedPersonalNamespace) {
+        if ($matchesSearch) {
             $total += 1;
         }
 

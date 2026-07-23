@@ -266,32 +266,37 @@ class GitLab extends Git
      */
     public function listNamespaces(int $page = 1, int $per_page = 20, string $search = ''): array
     {
-        // Fetched on every page (not just page 1): the personal namespace
-        // always contributes to the total, so pagination stays consistent
-        // across pages even though it's only ever placed in page 1's items.
-        $userResponse = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
-        $userHeaders = $userResponse['headers'] ?? [];
-        $userStatusCode = $userHeaders['status-code'] ?? 0;
-        if ($userStatusCode >= 400) {
-            throw new Exception("Failed to get current user: HTTP {$userStatusCode}", $userStatusCode);
-        }
-        $user = $userResponse['body'] ?? [];
-        $username = $user['username'] ?? '';
-        $name = $user['name'] ?? '';
-
-        $matchesSearch = empty($search)
-            || stripos($username, $search) !== false
-            || stripos($name, $search) !== false;
-
+        // /user is only needed to build page 1's item, or -- on any page --
+        // to resolve whether the personal namespace matches a search term.
+        // With no search it always counts, so skip the call entirely for
+        // page > 1 rather than paying for it on every paginated request.
+        $matchesSearch = true;
         $namespaces = [];
-        if ($page === 1 && $matchesSearch) {
-            $namespaces[] = [
-                'id' => (string) ($user['id'] ?? ''),
-                'name' => $name ?: $username,
-                'path' => $username,
-                'kind' => 'user',
-                'avatarUrl' => $user['avatar_url'] ?? '',
-            ];
+
+        if ($page === 1 || !empty($search)) {
+            $userResponse = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
+            $userHeaders = $userResponse['headers'] ?? [];
+            $userStatusCode = $userHeaders['status-code'] ?? 0;
+            if ($userStatusCode >= 400) {
+                throw new Exception("Failed to get current user: HTTP {$userStatusCode}", $userStatusCode);
+            }
+            $user = $userResponse['body'] ?? [];
+            $username = $user['username'] ?? '';
+            $name = $user['name'] ?? '';
+
+            $matchesSearch = empty($search)
+                || stripos($username, $search) !== false
+                || stripos($name, $search) !== false;
+
+            if ($page === 1 && $matchesSearch) {
+                $namespaces[] = [
+                    'id' => (string) ($user['id'] ?? ''),
+                    'name' => $name ?: $username,
+                    'path' => $username,
+                    'kind' => 'user',
+                    'avatarUrl' => $user['avatar_url'] ?? '',
+                ];
+            }
         }
 
         $url = "/groups?page={$page}&per_page={$per_page}";

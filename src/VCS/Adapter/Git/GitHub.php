@@ -1070,6 +1070,33 @@ class GitHub extends Git
         return $response['body'] ?? [];
     }
 
+    public function getCheckRunByName(string $owner, string $repositoryName, string $ref, string $checkName): int
+    {
+        $url = "/repos/$owner/$repositoryName/commits/$ref/check-runs";
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"], [
+            'check_name' => $checkName,
+            'filter'     => 'all',
+            'per_page'   => 100,
+        ]);
+
+        $responseHeadersStatusCode = $response['headers']['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
+            return 0;
+        }
+        if ($responseHeadersStatusCode >= 400) {
+            throw new Exception("Failed to get check run by name: HTTP $responseHeadersStatusCode");
+        }
+
+        $runs = $response['body']['check_runs'] ?? [];
+        if (empty($runs)) {
+            return 0;
+        }
+
+        // GitHub IDs are monotonically increasing; the highest ID is the most recently created run.
+        return (int) max(array_column($runs, 'id'));
+    }
+
     /**
      * Gets a check run by ID.
      *

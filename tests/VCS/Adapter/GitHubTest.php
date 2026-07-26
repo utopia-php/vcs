@@ -1003,6 +1003,171 @@ class GitHubTest extends Base
         }
     }
 
+    public function testGetCheckRunByName(): void
+    {
+        $repositoryName = 'test-get-check-run-by-name-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            $checkRun = $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'in_progress',
+            );
+
+            $foundId = $this->vcsAdapter->getCheckRunByName(
+                static::$owner,
+                $repositoryName,
+                $commitHash,
+                'ci/build'
+            );
+
+            $this->assertEquals($checkRun['id'], $foundId);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetCheckRunByNameNoMatchReturnsZero(): void
+    {
+        // Verifies the check_name filter is actually applied:
+        // a run with a different name must not be returned.
+        $repositoryName = 'test-get-check-run-by-name-nomatch-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'in_progress',
+            );
+
+            $foundId = $this->vcsAdapter->getCheckRunByName(
+                static::$owner,
+                $repositoryName,
+                $commitHash,
+                'ci/lint'  // different name
+            );
+
+            $this->assertEquals(0, $foundId);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetCheckRunByNameNotFoundRepositoryReturnsZero(): void
+    {
+        $foundId = $this->vcsAdapter->getCheckRunByName(
+            static::$owner,
+            'non-existing-repository-' . \uniqid(),
+            str_repeat('a', 40),
+            'ci/build'
+        );
+
+        $this->assertEquals(0, $foundId);
+    }
+
+    public function testGetCheckRunByNameReturnsMostRecent(): void
+    {
+        // When a commit has multiple runs with the same name (e.g. retries),
+        // the most recently created one must be returned.
+        $repositoryName = 'test-get-check-run-by-name-recent-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            $first = $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'in_progress',
+            );
+
+            $second = $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'in_progress',
+            );
+
+            $this->assertGreaterThan($first['id'], $second['id']);
+
+            $foundId = $this->vcsAdapter->getCheckRunByName(
+                static::$owner,
+                $repositoryName,
+                $commitHash,
+                'ci/build'
+            );
+
+            $this->assertEquals($second['id'], $foundId);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetCheckRunByNameThenUpdate(): void
+    {
+        // End-to-end: create as in_progress, look up by name, update to completed.
+        // This is the exact workflow the method was designed for — no stored ID needed.
+        $repositoryName = 'test-get-check-run-by-name-update-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            $this->vcsAdapter->createCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                headSha: $commitHash,
+                name: 'ci/build',
+                status: 'in_progress',
+            );
+
+            $checkRunId = $this->vcsAdapter->getCheckRunByName(
+                static::$owner,
+                $repositoryName,
+                $commitHash,
+                'ci/build'
+            );
+
+            $this->assertGreaterThan(0, $checkRunId);
+
+            $updated = $this->vcsAdapter->updateCheckRun(
+                owner: static::$owner,
+                repositoryName: $repositoryName,
+                checkRunId: $checkRunId,
+                conclusion: 'success',
+                title: 'Build succeeded.',
+                summary: 'All steps passed.',
+            );
+
+            $this->assertEquals($checkRunId, $updated['id']);
+            $this->assertEquals('completed', $updated['status']);
+            $this->assertEquals('success', $updated['conclusion']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGenerateCloneCommand(): void
     {
         $repositoryName = 'test-clone-command-' . \uniqid();
@@ -1183,4 +1348,5 @@ class GitHubTest extends Base
     {
         $this->markTestSkipped('Requires existing PR — createPullRequest not implemented in GitHub adapter');
     }
+
 }

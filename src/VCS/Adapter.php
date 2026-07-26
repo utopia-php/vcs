@@ -340,6 +340,14 @@ abstract class Adapter
     }
 
     /**
+     * Returns the ID of the most recently created check run with the given name on a commit ref, or 0 if none found.
+     */
+    public function getCheckRunByName(string $owner, string $repositoryName, string $ref, string $checkName): int
+    {
+        throw new \Exception('getCheckRunByName() is not implemented for ' . $this->getName());
+    }
+
+    /**
      * Gets a check run by ID.
      *
      * @return array<mixed>

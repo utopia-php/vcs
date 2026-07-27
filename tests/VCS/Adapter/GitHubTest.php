@@ -15,7 +15,7 @@ class GitHubTest extends Base
     protected static string $installationId = '';
     protected static string $defaultBranch = 'main';
 
-    public function setupAdapter(): void
+    protected function setupAdapter(): void
     {
         $privateKey = str_replace('\\n', "\n", System::getEnv('TESTS_GITHUB_PRIVATE_KEY') ?? '');
         $appId = System::getEnv('TESTS_GITHUB_APP_IDENTIFIER') ?? '';
@@ -187,7 +187,6 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $this->getLatestCommitEventually($repositoryName);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-a', static::$defaultBranch);
             $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'branch-b', static::$defaultBranch);
 
@@ -202,32 +201,15 @@ class GitHubTest extends Base
 
             $all = $adapter->listBranches(static::$owner, $repositoryName, 100, 1);
             $this->assertEqualsCanonicalizing([static::$defaultBranch, 'branch-a', 'branch-b'], $all);
+
+            $searchResults = $adapter->listBranches(static::$owner, $repositoryName, 100, 1, 'branch');
+            $this->assertEqualsCanonicalizing(['branch-a', 'branch-b'], $searchResults);
+
+            $noMatch = $adapter->listBranches(static::$owner, $repositoryName, 100, 1, 'xyz');
+            $this->assertEmpty($noMatch);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
-    }
-
-    public function testListBranchesEmptyRepository(): void
-    {
-        $repositoryName = 'test-list-branches-empty-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
-
-            $this->assertIsArray($branches);
-            $this->assertEmpty($branches);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testListBranchesNonExistingRepository(): void
-    {
-        $branches = $this->vcsAdapter->listBranches(static::$owner, 'non-existing-repo-' . \uniqid());
-
-        $this->assertIsArray($branches);
-        $this->assertEmpty($branches);
     }
 
     public function testGetLatestCommit(): void
@@ -283,7 +265,29 @@ class GitHubTest extends Base
 
     public function testUpdateCommitStatus(): void
     {
-        $this->markTestSkipped('GitHub getCommitStatuses is not implemented');
+        $repositoryName = 'test-update-commit-status-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
+            $commitHash = $commit['commitHash'];
+
+            // Should not throw
+            $this->vcsAdapter->updateCommitStatus(
+                $repositoryName,
+                $commitHash,
+                static::$owner,
+                'success',
+                'Build passed',
+                'https://example.com',
+                'ci/build'
+            );
+
+            $this->assertTrue(true);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
     }
 
     public function testCreateCheckRun(): void
@@ -674,30 +678,6 @@ class GitHubTest extends Base
         $this->assertSame(static::$owner, $result);
     }
 
-    public function testSearchRepositories(): void
-    {
-        $repo1Name = 'test-search-repo1-' . \uniqid();
-        $repo2Name = 'test-search-repo2-' . \uniqid();
-
-        $this->vcsAdapter->createRepository(static::$owner, $repo1Name, false);
-        $this->vcsAdapter->createRepository(static::$owner, $repo2Name, false);
-
-        try {
-            $result = [];
-            $this->assertEventually(function () use (&$result) {
-                $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10);
-                $this->assertGreaterThanOrEqual(2, $result['total']);
-            }, 30000, 2000);
-
-            $this->assertIsArray($result);
-            $this->assertArrayHasKey('items', $result);
-            $this->assertArrayHasKey('total', $result);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repo1Name);
-            $this->vcsAdapter->deleteRepository(static::$owner, $repo2Name);
-        }
-    }
-
     public function testHasAccessToAllRepositories(): void
     {
         $result = $this->vcsAdapter->hasAccessToAllRepositories();
@@ -720,46 +700,88 @@ class GitHubTest extends Base
 
     public function testGetPullRequest(): void
     {
-        $this->markTestSkipped('createBranch and createPullRequest not implemented in GitHub adapter');
+        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
     }
 
     public function testGetPullRequestFiles(): void
     {
-        $this->markTestSkipped('createBranch and createPullRequest not implemented in GitHub adapter');
+        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
     }
 
     public function testGetPullRequestWithInvalidNumber(): void
     {
-        $this->markTestSkipped('createBranch and createPullRequest not implemented in GitHub adapter');
+        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
     }
 
     public function testGetPullRequestFromBranch(): void
     {
-        $this->markTestSkipped('createBranch and createPullRequest not implemented in GitHub adapter');
+        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
     }
 
     public function testGetComment(): void
     {
-        $this->markTestSkipped('Requires existing PR — createPullRequest not implemented in GitHub adapter');
+        $this->markTestSkipped('Needs a pull request, and createPullRequest() is not implemented for GitHub');
     }
 
     public function testCreateComment(): void
     {
-        $this->markTestSkipped('Requires existing PR — createPullRequest not implemented in GitHub adapter');
+        $this->markTestSkipped('Needs a pull request, and createPullRequest() is not implemented for GitHub');
     }
 
     public function testUpdateComment(): void
     {
-        $this->markTestSkipped('Requires existing PR — createPullRequest not implemented in GitHub adapter');
+        $this->markTestSkipped('Needs a pull request, and createPullRequest() is not implemented for GitHub');
     }
 
     public function testGetUser(): void
     {
-        $this->markTestSkipped('GitHub adapter does not support getUser by username');
+        $this->markTestSkipped('GitHub::getUser() returns the raw response envelope instead of the shared user shape');
     }
 
     public function testGetUserWithInvalidUsername(): void
     {
-        $this->markTestSkipped('GitHub adapter does not support getUser by username');
+        $this->markTestSkipped('GitHub::getUser() returns the raw response envelope instead of throwing');
     }
+
+    public function testListTags(): void
+    {
+        $this->markTestSkipped('createTag() is not implemented for GitHub');
+    }
+
+    public function testGetRepositoryPresignedUrl(): void
+    {
+        $repositoryName = 'test-presigned-url-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            /** @var GitHub $adapter */
+            $adapter = $this->vcsAdapter;
+
+            $tarballUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName, static::$defaultBranch);
+            $this->assertNotEmpty($tarballUrl);
+            $this->assertStringStartsWith('https://', $tarballUrl);
+
+            $zipballUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName, static::$defaultBranch, 'zipball');
+            $this->assertNotEmpty($zipballUrl);
+            $this->assertStringStartsWith('https://', $zipballUrl);
+
+            // Defaults to the default branch when no ref is given
+            $defaultUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName);
+            $this->assertNotEmpty($defaultUrl);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetRepositoryPresignedUrlWithInvalidFormat(): void
+    {
+        /** @var GitHub $adapter */
+        $adapter = $this->vcsAdapter;
+
+        $this->expectException(\Exception::class);
+        $adapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch, 'invalid');
+    }
+
 }

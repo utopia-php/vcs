@@ -15,9 +15,26 @@ abstract class Base extends TestCase
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
 
+    /**
+     * Username of an account that exists on the instance under test.
+     */
+    protected static string $existingUser = 'root';
+
+    /**
+     * Build the adapter under test and assign it to $this->vcsAdapter.
+     */
     abstract protected function setupAdapter(): void;
 
-    public function setUp(): void
+    /**
+     * Webhook payloads and signature schemes are provider specific.
+     */
+    abstract public function testGetEventPush(): void;
+
+    abstract public function testGetEventPullRequest(): void;
+
+    abstract public function testValidateWebhookEvent(): void;
+
+    protected function setUp(): void
     {
         $this->setupAdapter();
     }
@@ -44,6 +61,22 @@ abstract class Base extends TestCase
         }
 
         return json_decode($body, true) ?? [];
+    }
+
+    /**
+     * Webhook headers keep the casing the provider sent them with, so look them up case-insensitively.
+     *
+     * @param array<string, mixed> $headers
+     */
+    protected function findHeader(array $headers, string $name): string
+    {
+        foreach ($headers as $header => $value) {
+            if (\strcasecmp($header, $name) === 0) {
+                return \is_string($value) ? $value : '';
+            }
+        }
+
+        return '';
     }
 
     protected function assertEventually(callable $probe, int $timeoutMs = 15000, int $waitMs = 500): void
@@ -86,6 +119,25 @@ abstract class Base extends TestCase
         );
     }
 
+    public function testGetEventHeaderName(): void
+    {
+        $this->assertIsString($this->vcsAdapter->getEventHeaderName());
+        $this->assertNotEmpty($this->vcsAdapter->getEventHeaderName());
+    }
+
+    public function testGetSignatureHeaderName(): void
+    {
+        $this->assertIsString($this->vcsAdapter->getSignatureHeaderName());
+        $this->assertNotEmpty($this->vcsAdapter->getSignatureHeaderName());
+    }
+
+    public function testGetSupportedWebhookScopes(): void
+    {
+        $scopes = $this->vcsAdapter->getSupportedWebhookScopes();
+        $this->assertIsArray($scopes);
+        $this->assertNotEmpty($scopes);
+    }
+
     public function testCreateRepository(): void
     {
         $repositoryName = 'test-create-repository-' . \uniqid();
@@ -98,10 +150,10 @@ abstract class Base extends TestCase
             $this->assertSame($repositoryName, $result['name']);
             $this->assertArrayHasKey('pushed_at', $result);
 
+            // GitHub and Gitea report a 'private' flag, GitLab a 'visibility' string
             $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
-            $isPublic = ($fetched['private'] ?? null) === false
-                || ($fetched['visibility'] ?? null) !== 'private';
-            $this->assertTrue($isPublic);
+            $this->assertNotSame(true, $fetched['private'] ?? false);
+            $this->assertNotSame('private', $fetched['visibility'] ?? '');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -121,7 +173,7 @@ abstract class Base extends TestCase
             $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
             $isPrivate = ($fetched['private'] ?? null) === true
                 || ($fetched['visibility'] ?? null) === 'private';
-            $this->assertTrue($isPrivate);
+            $this->assertTrue($isPrivate, 'Repository should have been created private');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -413,9 +465,71 @@ abstract class Base extends TestCase
         }
     }
 
-    public function testListBranchesEmptyRepo(): void
+    public function testListBranchesEmptyRepository(): void
     {
-        $this->markTestSkipped('Each adapter handles empty repos differently - override in adapter-specific test');
+        $repositoryName = 'test-list-branches-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
+
+            $this->assertIsArray($branches);
+            $this->assertEmpty($branches);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListTags(): void
+    {
+        $repositoryName = 'test-list-tags-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
+
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.0.0', $commitHash);
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.1.0', $commitHash);
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v2.0.0', $commitHash);
+
+            $tags = [];
+            $this->assertEventually(function () use (&$tags, $repositoryName) {
+                $tags = $this->vcsAdapter->listTags(static::$owner, $repositoryName);
+                $this->assertCount(3, $tags);
+            }, 15000, 500);
+
+            $this->assertEqualsCanonicalizing(['v1.0.0', 'v1.1.0', 'v2.0.0'], $tags);
+
+            // Glob filtering
+            $this->assertEqualsCanonicalizing(['v1.0.0', 'v1.1.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v1.*'));
+            $this->assertSame(['v2.0.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v2.0.0'));
+            $this->assertEmpty($this->vcsAdapter->listTags(static::$owner, $repositoryName, 'nope-*'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListTagsEmptyRepository(): void
+    {
+        $repositoryName = 'test-list-tags-empty-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName));
+
+            // Glob against a repository with no tags stays empty
+            $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v*'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListTagsNonExistingRepository(): void
+    {
+        $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, 'non-existing-repo-' . \uniqid()));
     }
 
     public function testGetCommit(): void
@@ -427,10 +541,7 @@ abstract class Base extends TestCase
             $customMessage = 'Test commit message';
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test', $customMessage);
 
-            $latestCommit = $this->getLatestCommitEventually($repositoryName);
-            $commitHash = $latestCommit['commitHash'];
-
-            $commitHash = $latestCommit['commitHash'];
+            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
 
             $result = $this->vcsAdapter->getCommit(static::$owner, $repositoryName, $commitHash);
 
@@ -641,8 +752,7 @@ abstract class Base extends TestCase
 
             $result = $this->vcsAdapter->getOwnerName('', $repositoryId);
 
-            $this->assertIsString($result);
-            $this->assertNotEmpty($result);
+            $this->assertSame(static::$owner, $result);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -934,31 +1044,19 @@ abstract class Base extends TestCase
 
     public function testGetUser(): void
     {
-        $result = $this->vcsAdapter->getUser('root');
+        $result = $this->vcsAdapter->getUser(static::$existingUser);
+
         $this->assertIsArray($result);
         $this->assertArrayHasKey('id', $result);
-        $this->assertArrayHasKey('username', $result);
+        $this->assertNotEmpty($result['id']);
+        // GitLab reports the handle as 'username', Gitea and its forks as 'login'
+        $this->assertSame(static::$existingUser, $result['username'] ?? $result['login'] ?? '');
     }
 
     public function testGetUserWithInvalidUsername(): void
     {
         $this->expectException(Exception::class);
         $this->vcsAdapter->getUser('non-existent-user-' . \uniqid());
-    }
-
-    public function testGetEventPush(): void
-    {
-        $this->markTestSkipped('Override in adapter-specific test');
-    }
-
-    public function testGetEventPullRequest(): void
-    {
-        $this->markTestSkipped('Override in adapter-specific test');
-    }
-
-    public function testValidateWebhookEvent(): void
-    {
-        $this->markTestSkipped('Override in adapter-specific test');
     }
 
     public function testGetCommitWithInvalidHash(): void

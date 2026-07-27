@@ -12,12 +12,9 @@ class GogsTest extends GiteaTest
     protected static string $accessToken = '';
     protected static string $owner = '';
 
-    protected string $webhookEventHeader = 'X-Gogs-Event';
-    protected string $webhookSignatureHeader = 'X-Gogs-Signature';
-    protected string $avatarDomain = 'gravatar.com';
     protected static string $defaultBranch = 'master';
 
-    public function setupAdapter(): void
+    protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupGogs();
@@ -124,7 +121,7 @@ class GogsTest extends GiteaTest
     {
         $this->markTestSkipped('Gogs does not support pull request files API');
     }
-    public function testListBranchesEmptyRepo(): void
+    public function testListBranchesEmptyRepository(): void
     {
         // The Gogs adapter creates repositories with `auto_init: true` (plus a
         // default README), so a default branch always exists on creation —

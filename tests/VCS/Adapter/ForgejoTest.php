@@ -13,11 +13,8 @@ class ForgejoTest extends GiteaTest
 
     protected static string $owner = '';
 
-    protected string $webhookEventHeader = 'X-Forgejo-Event';
-    protected string $webhookSignatureHeader = 'X-Forgejo-Signature';
-    protected string $avatarDomain = 'http://localhost:3000/avatars/';
 
-    public function setupAdapter(): void
+    protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupForgejo();

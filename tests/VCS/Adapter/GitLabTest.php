@@ -14,7 +14,7 @@ class GitLabTest extends Base
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
 
-    public function setupAdapter(): void
+    protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupGitLab();
@@ -56,8 +56,7 @@ class GitLabTest extends Base
         }
     }
 
-
-    public function testSearchRepositories(): void
+    public function testSearchRepositoriesIncludesCreatedRepository(): void
     {
         $repositoryName = 'test-search-repositories-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
@@ -294,16 +293,25 @@ class GitLabTest extends Base
         $payload = json_encode([
             'object_kind' => 'push',
             'ref' => 'refs/heads/main',
+            'before' => 'before123',
+            'after' => 'abc123',
             'checkout_sha' => 'abc123',
+            'user_avatar' => 'http://example.com/avatar.png',
             'project' => [
+                'id' => 123,
                 'name' => 'test-repo',
                 'namespace' => 'test-org',
+                'web_url' => 'http://example.com/test-org/test-repo',
             ],
             'commits' => [
                 [
+                    'id' => 'abc123',
                     'message' => 'Test commit',
                     'url' => 'http://example.com/commit/abc123',
-                    'author' => ['name' => 'Test User'],
+                    'author' => ['name' => 'Test User', 'email' => 'test@example.com'],
+                    'added' => ['file1.txt'],
+                    'modified' => [],
+                    'removed' => [],
                 ],
             ],
         ]);
@@ -315,12 +323,19 @@ class GitLabTest extends Base
         $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
 
         $this->assertIsArray($result);
-        $this->assertSame('push', $result['type']);
+        $this->assertFalse($result['branchDeleted']);
         $this->assertSame('main', $result['branch']);
+        $this->assertSame('http://example.com/test-org/test-repo/-/tree/main', $result['branchUrl']);
+        $this->assertSame('123', $result['repositoryId']);
+        $this->assertSame('test-repo', $result['repositoryName']);
+        $this->assertSame('http://example.com/test-org/test-repo', $result['repositoryUrl']);
+        $this->assertSame('test-org', $result['owner']);
         $this->assertSame('abc123', $result['commitHash']);
-        $this->assertSame('Test commit', $result['commitMessage']);
-        $this->assertSame('Test User', $result['commitAuthor']);
-        $this->assertSame('test-repo', $result['name']);
+        $this->assertSame('Test User', $result['headCommitAuthorName']);
+        $this->assertSame('test@example.com', $result['headCommitAuthorEmail']);
+        $this->assertSame('Test commit', $result['headCommitMessage']);
+        $this->assertSame('http://example.com/commit/abc123', $result['headCommitUrl']);
+        $this->assertSame(['file1.txt'], $result['affectedFiles']);
     }
 
     public function testGetEventPullRequest(): void
@@ -328,8 +343,10 @@ class GitLabTest extends Base
         $payload = json_encode([
             'object_kind' => 'merge_request',
             'project' => [
+                'id' => 123,
                 'name' => 'test-repo',
                 'namespace' => 'test-org',
+                'web_url' => 'http://example.com/test-org/test-repo',
             ],
             'object_attributes' => [
                 'iid' => 1,
@@ -337,6 +354,8 @@ class GitLabTest extends Base
                 'action' => 'open',
                 'source_branch' => 'feature',
                 'target_branch' => 'main',
+                'source_project_id' => 123,
+                'target_project_id' => 123,
                 'url' => 'http://example.com/mr/1',
                 'last_commit' => [
                     'id' => 'abc123',
@@ -354,11 +373,12 @@ class GitLabTest extends Base
         $result = $this->vcsAdapter->getEvent('Merge Request Hook', $payload);
 
         $this->assertIsArray($result);
-        $this->assertSame('pull_request', $result['type']);
         $this->assertSame('feature', $result['branch']);
-        $this->assertSame('open', $result['action']);
+        $this->assertSame('opened', $result['action']);
+        $this->assertFalse($result['external']);
         $this->assertSame(1, $result['pullRequestNumber']);
-        $this->assertSame('Test MR', $result['pullRequestTitle']);
+        $this->assertSame('123', $result['repositoryId']);
+        $this->assertSame('test-repo', $result['repositoryName']);
         $this->assertSame('abc123', $result['commitHash']);
     }
 
@@ -385,22 +405,6 @@ class GitLabTest extends Base
 
             $this->assertIsInt($webhookId);
             $this->assertGreaterThan(0, $webhookId);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testListBranchesEmptyRepo(): void
-    {
-        $repositoryName = 'test-list-branches-empty-' . \uniqid();
-
-        try {
-            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-            $branches = $this->vcsAdapter->listBranches(static::$owner, $repositoryName);
-
-            $this->assertIsArray($branches);
-            $this->assertEmpty($branches);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -440,9 +444,9 @@ class GitLabTest extends Base
 
         $this->assertIsArray($result);
         $this->assertSame('def456', $result['commitHash']);
-        $this->assertSame('Head Author', $result['commitAuthor']);
-        $this->assertSame('Head commit', $result['commitMessage']);
-        $this->assertSame('http://example.com/commit/def456', $result['commitUrl']);
+        $this->assertSame('Head Author', $result['headCommitAuthorName']);
+        $this->assertSame('Head commit', $result['headCommitMessage']);
+        $this->assertSame('http://example.com/commit/def456', $result['headCommitUrl']);
     }
 
     public function testValidateWebhookEventUsesPlainToken(): void
@@ -470,11 +474,182 @@ class GitLabTest extends Base
         $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
     }
 
-    public function testGetOwnerName(): void
+    public function testGetOwnerNameWithoutRepositoryId(): void
     {
-        // Test with no repositoryId — should fall back to /user
-        $result = $this->vcsAdapter->getOwnerName('');
-        $this->assertIsString($result);
-        $this->assertNotEmpty($result);
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName(''));
     }
+
+    public function testGetOwnerNameWithZeroRepositoryId(): void
+    {
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', 0));
+    }
+
+    public function testGetEventPushDetectsBranchCreated(): void
+    {
+        $allZeroSha = str_repeat('0', 40);
+        $payload = json_encode([
+            'object_kind' => 'push',
+            'ref' => 'refs/heads/main',
+            'before' => $allZeroSha,
+            'after' => 'abc123',
+            'checkout_sha' => 'abc123',
+            'project' => ['id' => 123, 'name' => 'test-repo', 'namespace' => 'test-org', 'web_url' => 'http://example.com/test-org/test-repo'],
+            'commits' => [],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
+        $this->assertTrue($result['branchCreated']);
+        $this->assertFalse($result['branchDeleted']);
+    }
+
+    public function testGetEventPushDetectsBranchDeleted(): void
+    {
+        $allZeroSha = str_repeat('0', 40);
+        $payload = json_encode([
+            'object_kind' => 'push',
+            'ref' => 'refs/heads/main',
+            'before' => 'abc123',
+            'after' => $allZeroSha,
+            'checkout_sha' => '',
+            'project' => ['id' => 123, 'name' => 'test-repo', 'namespace' => 'test-org', 'web_url' => 'http://example.com/test-org/test-repo'],
+            'commits' => [],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
+        $this->assertFalse($result['branchCreated']);
+        $this->assertTrue($result['branchDeleted']);
+    }
+
+    public function testGetEventPullRequestActionMapping(): void
+    {
+        foreach (['open' => 'opened', 'reopen' => 'reopened', 'update' => 'synchronize', 'close' => 'closed', 'merge' => 'closed'] as $native => $mapped) {
+            $payload = json_encode([
+                'object_kind' => 'merge_request',
+                'project' => ['id' => 1, 'name' => 'r', 'namespace' => 'o', 'web_url' => 'http://example.com/o/r'],
+                'object_attributes' => ['iid' => 1, 'action' => $native, 'source_branch' => 'f', 'target_branch' => 'main'],
+            ]);
+
+            if ($payload === false) {
+                $this->fail('Failed to encode JSON payload');
+            }
+
+            $result = $this->vcsAdapter->getEvent('Merge Request Hook', $payload);
+            $this->assertSame($mapped, $result['action'], "native action '{$native}' should map to '{$mapped}'");
+        }
+    }
+
+    public function testGetEventPullRequestDetectsExternal(): void
+    {
+        $payload = json_encode([
+            'object_kind' => 'merge_request',
+            'project' => ['id' => 1, 'name' => 'r', 'namespace' => 'o', 'web_url' => 'http://example.com/o/r'],
+            'object_attributes' => [
+                'iid' => 1,
+                'action' => 'open',
+                'source_branch' => 'f',
+                'target_branch' => 'main',
+                'source_project_id' => 456,
+                'target_project_id' => 123,
+            ],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $result = $this->vcsAdapter->getEvent('Merge Request Hook', $payload);
+        $this->assertTrue($result['external']);
+    }
+
+    public function testGetRepositoryPresignedUrl(): void
+    {
+        /** @var GitLab $adapter */
+        $adapter = $this->vcsAdapter;
+        $owner = static::$owner;
+
+        $url = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch);
+        $this->assertStringContainsString('/repository/archive.tar.gz?access_token=', $url);
+        $this->assertStringContainsString('&sha=' . static::$defaultBranch, $url);
+
+        $zip = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'zipball');
+        $this->assertStringContainsString('/repository/archive.zip?access_token=', $zip);
+
+        // Without a ref the sha param is omitted so the server uses the default branch
+        $noRef = $adapter->getRepositoryPresignedUrl($owner, 'some-repo');
+        $this->assertStringNotContainsString('sha=', $noRef);
+
+        $this->expectException(\Exception::class);
+        $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
+    }
+
+    public function testListRepositoryContentsRootSentinels(): void
+    {
+        $repositoryName = 'test-list-repository-contents-root-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $empty = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, '');
+            $dot = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, '.');
+            $dotSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, './');
+
+            $repeatedDotSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, './././');
+
+            $this->assertNotEmpty($empty);
+            $this->assertEquals(array_column($empty, 'name'), array_column($dot, 'name'));
+            $this->assertEquals(array_column($empty, 'name'), array_column($dotSlash, 'name'));
+            $this->assertEquals(array_column($empty, 'name'), array_column($repeatedDotSlash, 'name'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetRepositoryContentRootSentinelPrefix(): void
+    {
+        $repositoryName = 'test-get-repository-content-root-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $direct = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'README.md');
+            $prefixed = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, './README.md');
+            $repeatedPrefix = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, './././README.md');
+
+            $this->assertEquals($direct['content'], $prefixed['content']);
+            $this->assertEquals($direct['content'], $repeatedPrefix['content']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testListRepositoryContentsMalformedNestedPath(): void
+    {
+        $repositoryName = 'test-list-repository-contents-malformed-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/main.php', '<?php');
+
+            $clean = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src');
+            $embeddedDot = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src/.');
+            $doubleSlash = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src//');
+
+            $this->assertNotEmpty($clean);
+            $this->assertEquals(array_column($clean, 'name'), array_column($embeddedDot, 'name'));
+            $this->assertEquals(array_column($clean, 'name'), array_column($doubleSlash, 'name'));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
 }

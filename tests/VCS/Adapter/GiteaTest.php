@@ -8,18 +8,16 @@ use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\Gitea;
+use Utopia\VCS\Exception\RepositoryNotFound;
 
 class GiteaTest extends Base
 {
     protected static string $accessToken = '';
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
+    protected static string $existingUser = 'utopia';
 
-    protected string $webhookEventHeader = 'X-Gitea-Event';
-    protected string $webhookSignatureHeader = 'X-Gitea-Signature';
-    protected string $avatarDomain = 'gravatar.com';
-
-    public function setupAdapter(): void
+    protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupGitea();
@@ -56,22 +54,30 @@ class GiteaTest extends Base
         }
     }
 
-    public function testListBranchesEmptyRepo(): void
+    public function testGetRepositoryPresignedUrl(): void
     {
-        // Base::testListBranchesEmptyRepo hardcodes owner 'test-kh' (a GitHub username).
-        // In Gitea we use a generated test org, so override to use static::$owner.
+        /** @var Gitea $adapter */
+        $adapter = $this->vcsAdapter;
         $owner = static::$owner;
-        $repositoryName = 'test-list-branches-empty-' . \uniqid();
-        $this->vcsAdapter->createRepository($owner, $repositoryName, false);
 
+        $url = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch);
+        $this->assertStringContainsString("/repos/{$owner}/some-repo/archive/" . static::$defaultBranch . '.tar.gz?token=', $url);
+
+        $zip = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'zipball');
+        $this->assertStringContainsString('.zip?token=', $zip);
+
+        // No ref: the default branch is resolved from the repository
+        $repositoryName = 'test-presigned-url-' . \uniqid();
+        $adapter->createRepository($owner, $repositoryName, false);
         try {
-            $branches = $this->vcsAdapter->listBranches($owner, $repositoryName);
-
-            $this->assertIsArray($branches);
-            $this->assertEmpty($branches);
+            $noRef = $adapter->getRepositoryPresignedUrl($owner, $repositoryName);
+            $this->assertStringContainsString('/archive/' . static::$defaultBranch . '.tar.gz?token=', $noRef);
         } finally {
-            $this->vcsAdapter->deleteRepository($owner, $repositoryName);
+            $adapter->deleteRepository($owner, $repositoryName);
         }
+
+        $this->expectException(\Exception::class);
+        $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
     }
 
     public function testCommentWorkflow(): void
@@ -172,7 +178,7 @@ class GiteaTest extends Base
                 static::$owner,
                 $repositoryName,
                 'v1.0.0',
-                \Utopia\VCS\Adapter\Git::CLONE_TYPE_TAG,
+                Git::CLONE_TYPE_TAG,
                 '/tmp/test-clone-tag-' . \uniqid(),
                 '/'
             );
@@ -447,33 +453,24 @@ class GiteaTest extends Base
 
     public function testGetOwnerNameWithZeroRepositoryId(): void
     {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('repositoryId is required for this adapter');
-
-        $this->vcsAdapter->getOwnerName('', 0);
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', 0));
     }
 
     public function testGetOwnerNameWithoutRepositoryId(): void
     {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('repositoryId is required for this adapter');
-
-        $this->vcsAdapter->getOwnerName('');
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName(''));
     }
 
     public function testGetOwnerNameWithInvalidRepositoryId(): void
     {
-        $this->expectException(\Utopia\VCS\Exception\RepositoryNotFound::class);
+        $this->expectException(RepositoryNotFound::class);
 
         $this->vcsAdapter->getOwnerName('', 999999999);
     }
 
     public function testGetOwnerNameWithNullRepositoryId(): void
     {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('repositoryId is required for this adapter');
-
-        $this->vcsAdapter->getOwnerName('', null);
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', null));
     }
 
     public function testGetInstallationRepository(): void
@@ -538,19 +535,20 @@ class GiteaTest extends Base
             );
 
             // Wait for push webhook to arrive automatically
+            $eventHeader = $this->vcsAdapter->getEventHeaderName();
             $webhookData = [];
-            $this->assertEventually(function () use (&$webhookData) {
+            $this->assertEventually(function () use (&$webhookData, $eventHeader) {
                 $webhookData = $this->getLastWebhookRequest();
                 $this->assertNotEmpty($webhookData, 'No webhook received');
                 $this->assertNotEmpty($webhookData['data'] ?? '', 'Webhook payload is empty');
-                $this->assertSame('push', $webhookData['headers'][$this->webhookEventHeader] ?? '', 'Expected push event');
+                $this->assertSame('push', $this->findHeader($webhookData['headers'] ?? [], $eventHeader), 'Expected push event');
             }, 15000, 500);
 
             $payload = $webhookData['data'];
-            $headers = $webhookData['headers'] ?? [];
-            $signature = $headers[$this->webhookSignatureHeader] ?? '';
+            $signatureHeader = $this->vcsAdapter->getSignatureHeaderName();
+            $signature = $this->findHeader($webhookData['headers'] ?? [], $signatureHeader);
 
-            $this->assertNotEmpty($signature, 'Missing ' . $this->webhookSignatureHeader . ' header');
+            $this->assertNotEmpty($signature, 'Missing ' . $signatureHeader . ' header');
             $this->assertTrue(
                 $this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret),
                 'Webhook signature validation failed'
@@ -597,19 +595,20 @@ class GiteaTest extends Base
             );
 
             // Wait for pull_request webhook to arrive automatically
+            $eventHeader = $this->vcsAdapter->getEventHeaderName();
             $webhookData = [];
-            $this->assertEventually(function () use (&$webhookData) {
+            $this->assertEventually(function () use (&$webhookData, $eventHeader) {
                 $webhookData = $this->getLastWebhookRequest();
                 $this->assertNotEmpty($webhookData, 'No webhook received');
                 $this->assertNotEmpty($webhookData['data'] ?? '', 'Webhook payload is empty');
-                $this->assertSame('pull_request', $webhookData['headers'][$this->webhookEventHeader] ?? '', 'Expected pull_request event');
+                $this->assertSame('pull_request', $this->findHeader($webhookData['headers'] ?? [], $eventHeader), 'Expected pull_request event');
             }, 15000, 500);
 
             $payload = $webhookData['data'];
-            $headers = $webhookData['headers'] ?? [];
-            $signature = $headers[$this->webhookSignatureHeader] ?? '';
+            $signatureHeader = $this->vcsAdapter->getSignatureHeaderName();
+            $signature = $this->findHeader($webhookData['headers'] ?? [], $signatureHeader);
 
-            $this->assertNotEmpty($signature, 'Missing ' . $this->webhookSignatureHeader . ' header');
+            $this->assertNotEmpty($signature, 'Missing ' . $signatureHeader . ' header');
             $this->assertTrue(
                 $this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret),
                 'Webhook signature validation failed'

@@ -37,8 +37,11 @@ class GitLabTest extends Base
         $adapter->setEndpoint($gitlabUrl);
 
         if (empty(static::$owner)) {
-            $orgName = 'test-org-' . \uniqid();
-            static::$owner = $adapter->createOrganization($orgName);
+            // GitLab answers its health probe well before the API serves traffic, so
+            // give the first call room to get past 502s rather than failing every test.
+            $this->assertEventually(function () use ($adapter) {
+                static::$owner = $adapter->createOrganization('test-org-' . \uniqid());
+            }, 60000, 2000);
         }
 
         $this->vcsAdapter = $adapter;

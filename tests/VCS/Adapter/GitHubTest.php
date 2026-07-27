@@ -748,6 +748,29 @@ class GitHubTest extends Base
         $this->markTestSkipped('createTag() is not implemented for GitHub');
     }
 
+    public function testListRepositoryLanguages(): void
+    {
+        $repositoryName = 'test-list-repository-languages-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'main.php', '<?php echo "test";');
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'script.js', 'console.log("test");');
+
+            // Unlike the self-hosted providers, GitHub computes language stats out of
+            // band and reports none at all until that finishes, so wait much longer.
+            $languages = [];
+            $this->assertEventually(function () use (&$languages, $repositoryName) {
+                $languages = $this->vcsAdapter->listRepositoryLanguages(static::$owner, $repositoryName);
+                $this->assertNotEmpty($languages);
+            }, 120000, 5000);
+
+            $this->assertContains('PHP', $languages);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGetRepositoryPresignedUrl(): void
     {
         $repositoryName = 'test-presigned-url-' . \uniqid();

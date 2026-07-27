@@ -235,14 +235,14 @@ class GitLabTest extends Base
                 'Initial commit'
             );
 
-            // Wait for webhook delivery using assertEventually
+            // GitLab queues hook deliveries, so allow well over the default wait
             $payload = [];
             $this->assertEventually(function () use (&$payload) {
                 $data = $this->getLastWebhookRequest();
                 $this->assertNotEmpty($data);
                 $payload = \json_decode($data['data'] ?? '{}', true);
                 $this->assertNotEmpty($payload);
-            }, 15000, 1000);
+            }, 30000, 1000);
 
             $this->assertSame('push', $payload['object_kind'] ?? '');
             $this->assertNotEmpty($payload['checkout_sha'] ?? '');
@@ -284,7 +284,7 @@ class GitLabTest extends Base
                 $this->assertNotEmpty($data);
                 $payload = \json_decode($data['data'] ?? '{}', true);
                 $this->assertNotEmpty($payload);
-            }, 15000, 1000);
+            }, 30000, 1000);
 
             $this->assertSame('merge_request', $payload['object_kind'] ?? '');
             $this->assertContains($payload['object_attributes']['action'] ?? '', ['open', 'update']);

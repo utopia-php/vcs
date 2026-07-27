@@ -254,11 +254,13 @@ class GitHub extends Git
                 'per_page' => $per_page,
                 'sort' => 'updated'
             ]);
-            $responseBody = $response['body'] ?? [];
-
-            if (!array_key_exists('items', $responseBody)) {
-                return ['items' => [], 'total' => 0];
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to search repositories: HTTP {$statusCode}", $statusCode);
             }
+
+            $responseBody = $response['body'] ?? [];
 
             return [
                 'items' => $responseBody['items'] ?? [],
@@ -277,11 +279,13 @@ class GitHub extends Git
                 'per_page' => $per_page,
             ]);
 
-            $responseBody = $response['body'] ?? [];
-
-            if (!array_key_exists('repositories', $responseBody)) {
-                return ['items' => [], 'total' => 0];
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to list installation repositories: HTTP {$statusCode}", $statusCode);
             }
+
+            $responseBody = $response['body'] ?? [];
 
             return [
                 'items' => $responseBody['repositories'] ?? [],
@@ -297,11 +301,13 @@ class GitHub extends Git
                 'per_page' => 100, // Maximum allowed by GitHub API
             ]);
 
-            $responseBody = $response['body'] ?? [];
-
-            if (!array_key_exists('repositories', $responseBody)) {
-                throw new Exception("Repositories list missing in the response.");
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to list installation repositories: HTTP {$statusCode}", $statusCode);
             }
+
+            $responseBody = $response['body'] ?? [];
 
             // Filter repositories to only include those that match the search query.
             $filteredRepositories = array_filter($responseBody['repositories'] ?? [], fn ($repo) => stripos($repo['name'] ?? '', $search) !== false);
@@ -985,9 +991,10 @@ class GitHub extends Git
         ];
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
-        $statusCode = $response['headers']['status-code'] ?? 0;
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to update commit status: HTTP {$statusCode}");
+            throw new Exception("Failed to update commit status: HTTP {$statusCode}", $statusCode);
         }
     }
 

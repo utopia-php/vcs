@@ -99,6 +99,9 @@ abstract class Git extends Adapter
     /**
      * Get commit statuses
      *
+     * Every adapter reports each status as
+     * ['state' => string, 'description' => string, 'target_url' => string, 'context' => string].
+     *
      * @param string $owner Owner of the repository
      * @param string $repositoryName Name of the repository
      * @param string $commitHash SHA of the commit

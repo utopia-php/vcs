@@ -696,7 +696,8 @@ class GitLab extends Git
 
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
-        if ($repositoryId !== null) {
+        // A missing or non-positive id means "no repository", same as on Gitea
+        if ($repositoryId !== null && $repositoryId > 0) {
             $url = "/projects/{$repositoryId}";
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];

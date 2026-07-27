@@ -256,6 +256,13 @@ class GitHub extends Git
             ]);
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
+
+            // The search API rejects a query naming an owner that does not exist,
+            // which is a missing owner rather than a failure worth reporting.
+            if ($statusCode === 422) {
+                return ['items' => [], 'total' => 0];
+            }
+
             if ($statusCode >= 400) {
                 throw new Exception("Failed to search repositories: HTTP {$statusCode}", $statusCode);
             }

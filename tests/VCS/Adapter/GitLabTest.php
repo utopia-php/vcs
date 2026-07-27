@@ -192,13 +192,19 @@ class GitLabTest extends Base
         $secret = 'my-secret-token';
         $payload = '{"object_kind":"push"}';
 
-        // Valid token — should return true
-        $result = $this->vcsAdapter->validateWebhookEvent($payload, $secret, $secret);
-        $this->assertTrue($result);
+        // GitLab sends the secret verbatim rather than an HMAC of the payload
+        $this->assertTrue(
+            $this->vcsAdapter->validateWebhookEvent($payload, $secret, $secret)
+        );
 
-        // Invalid token — should return false
-        $result = $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret);
-        $this->assertFalse($result);
+        $hmacSignature = hash_hmac('sha256', $payload, $secret);
+        $this->assertFalse(
+            $this->vcsAdapter->validateWebhookEvent($payload, $hmacSignature, $secret)
+        );
+
+        $this->assertFalse(
+            $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
+        );
     }
 
     public function testWebhookPushEvent(): void
@@ -447,25 +453,6 @@ class GitLabTest extends Base
         $this->assertSame('Head Author', $result['headCommitAuthorName']);
         $this->assertSame('Head commit', $result['headCommitMessage']);
         $this->assertSame('http://example.com/commit/def456', $result['headCommitUrl']);
-    }
-
-    public function testValidateWebhookEventUsesPlainToken(): void
-    {
-        $secret = 'my-secret-token';
-        $payload = '{"object_kind":"push"}';
-
-        $this->assertTrue(
-            $this->vcsAdapter->validateWebhookEvent($payload, $secret, $secret)
-        );
-
-        $hmacSignature = hash_hmac('sha256', $payload, $secret);
-        $this->assertFalse(
-            $this->vcsAdapter->validateWebhookEvent($payload, $hmacSignature, $secret)
-        );
-
-        $this->assertFalse(
-            $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
-        );
     }
 
     public function testCreateRepositoryWithInvalidName(): void

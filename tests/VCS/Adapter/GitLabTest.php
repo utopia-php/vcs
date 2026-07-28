@@ -241,14 +241,16 @@ class GitLabTest extends Base
                 'Initial commit'
             );
 
-            // GitLab queues hook deliveries, so allow well over the default wait
+            // GitLab queues hook deliveries through Sidekiq, which can still be
+            // warming up right after the instance becomes reachable, so allow more
+            // than the default wait
             $payload = [];
             $this->assertEventually(function () use (&$payload) {
                 $data = $this->getLastWebhookRequest();
                 $this->assertNotEmpty($data);
                 $payload = \json_decode($data['data'] ?? '{}', true);
                 $this->assertNotEmpty($payload);
-            }, 30000, 1000);
+            }, 60000, 2000);
 
             $this->assertSame('push', $payload['object_kind'] ?? '');
             $this->assertNotEmpty($payload['checkout_sha'] ?? '');
@@ -283,14 +285,14 @@ class GitLabTest extends Base
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'feature.txt', 'feature', 'Add feature', 'feature');
             $this->vcsAdapter->createPullRequest(static::$owner, $repositoryName, 'Test MR', 'feature', static::$defaultBranch);
 
-            // Wait for webhook delivery
+            // Wait for webhook delivery; same Sidekiq warm-up allowance as the push test
             $payload = [];
             $this->assertEventually(function () use (&$payload) {
                 $data = $this->getLastWebhookRequest();
                 $this->assertNotEmpty($data);
                 $payload = \json_decode($data['data'] ?? '{}', true);
                 $this->assertNotEmpty($payload);
-            }, 30000, 1000);
+            }, 60000, 2000);
 
             $this->assertSame('merge_request', $payload['object_kind'] ?? '');
             $this->assertContains($payload['object_attributes']['action'] ?? '', ['open', 'update']);

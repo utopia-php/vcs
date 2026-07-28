@@ -49,3 +49,15 @@ jobs:
       if: always() && matrix.adapter == 'gitlab'
       run: |
         docker compose exec -T gitlab gitlab-ctl status || true
+
+    - name: GitLab webhook delivery diagnostics
+      # Only on an actual failure: shows whether GitLab attempted the
+      # delivery at all (sidekiq's own log) and whether it ever reached the
+      # catcher, so a webhook timeout has an actual cause next time instead
+      # of another guess.
+      if: failure() && matrix.adapter == 'gitlab'
+      run: |
+        echo "--- WebHookWorker jobs (sidekiq log) ---"
+        docker compose exec -T gitlab grep -h 'WebHookWorker' /var/log/gitlab/sidekiq/current || echo "no WebHookWorker entries found"
+        echo "--- request-catcher log ---"
+        docker compose logs --tail 100 request-catcher || true

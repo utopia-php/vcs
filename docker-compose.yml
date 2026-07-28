@@ -218,10 +218,12 @@ services:
     ports:
       - "3003:80"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/-/health"]
+      # GitLab reports healthy on the first successful check, but its API can
+      # still return 502s for a while after that, so require 3 in a row
+      test: ["CMD-SHELL", "for i in 1 2 3; do curl -f http://localhost/-/health || exit 1; sleep 5; done"]
       interval: 30s
-      timeout: 10s
-      retries: 20
+      timeout: 30s
+      retries: 5
       start_period: 300s
     profiles:
       - gitlab

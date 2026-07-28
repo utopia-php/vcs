@@ -55,6 +55,12 @@ class Gogs extends Gitea
             'readme' => 'Default',
         ]);
 
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", $statusCode);
+        }
+
         $result = $response['body'] ?? [];
         if (is_array($result)) {
             // Gogs' API does not expose `pushed_at`; surface `updated_at` under that key
@@ -487,6 +493,16 @@ class Gogs extends Gitea
      * @return array<mixed>
      */
     public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array
+    {
+        throw new Exception("Pull request API is not supported by Gogs");
+    }
+
+    /**
+     * Get the files of a pull request
+     *
+     * @return array<mixed>
+     */
+    public function getPullRequestFiles(string $owner, string $repositoryName, int $pullRequestNumber): array
     {
         throw new Exception("Pull request API is not supported by Gogs");
     }

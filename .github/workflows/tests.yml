@@ -27,8 +27,7 @@ jobs:
           TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
           TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
       run: |
-        docker compose --profile ${{ matrix.adapter }} up -d
-        sleep 15
+        docker compose --profile ${{ matrix.adapter }} up -d --wait --wait-timeout 900
 
     - name: Doctor
       run: |

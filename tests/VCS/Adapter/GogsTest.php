@@ -5,7 +5,6 @@ namespace Utopia\Tests\Adapter;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
-use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\Gogs;
 
 class GogsTest extends GiteaTest
@@ -13,17 +12,11 @@ class GogsTest extends GiteaTest
     protected static string $accessToken = '';
     protected static string $owner = '';
 
-    protected string $webhookEventHeader = 'X-Gogs-Event';
-    protected string $webhookSignatureHeader = 'X-Gogs-Signature';
-    protected string $avatarDomain = 'gravatar.com';
     protected static string $defaultBranch = 'master';
+    protected static string $eventHeader = 'x-gogs-event';
+    protected static string $signatureHeader = 'x-gogs-signature';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new Gogs(new Cache(new None()));
-    }
-
-    public function setUp(): void
+    protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupGogs();
@@ -65,10 +58,6 @@ class GogsTest extends GiteaTest
     // --- Skip tests for unsupported Gogs features ---
 
     // Pull request API
-    public function testCommentWorkflow(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
     public function testGetComment(): void
     {
         $this->markTestSkipped('Gogs does not support pull request API');
@@ -128,9 +117,9 @@ class GogsTest extends GiteaTest
 
     public function testGetPullRequestFiles(): void
     {
-        $this->markTestSkipped('Gogs does not support pull request files API');
+        $this->markTestSkipped('Gogs does not support pull request API');
     }
-    public function testListBranchesEmptyRepo(): void
+    public function testListBranchesEmptyRepository(): void
     {
         // The Gogs adapter creates repositories with `auto_init: true` (plus a
         // default README), so a default branch always exists on creation —

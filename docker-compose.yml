@@ -218,10 +218,13 @@ services:
     ports:
       - "3003:80"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/-/health"]
+      # A single successful check only means nginx answered, not that the API
+      # underneath it can serve requests, so require 3 in a row before
+      # depends_on: condition: service_healthy (gitlab-bootstrap below) proceeds.
+      test: ["CMD-SHELL", "for i in 1 2 3; do curl -f http://localhost/-/health || exit 1; sleep 10; done"]
       interval: 30s
-      timeout: 10s
-      retries: 20
+      timeout: 45s
+      retries: 5
       start_period: 300s
     profiles:
       - gitlab

@@ -101,6 +101,12 @@ class GitHub extends Git
             'private' => $private,
         ]);
 
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", $statusCode);
+        }
+
         return $response['body'] ?? [];
     }
     /**
@@ -254,11 +260,20 @@ class GitHub extends Git
                 'per_page' => $per_page,
                 'sort' => 'updated'
             ]);
-            $responseBody = $response['body'] ?? [];
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
 
-            if (!array_key_exists('items', $responseBody)) {
-                throw new Exception("Repositories list missing in the response.");
+            // The search API rejects a query naming an owner that does not exist,
+            // which is a missing owner rather than a failure worth reporting.
+            if ($statusCode === 422) {
+                return ['items' => [], 'total' => 0];
             }
+
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to search repositories: HTTP {$statusCode}", $statusCode);
+            }
+
+            $responseBody = $response['body'] ?? [];
 
             return [
                 'items' => $responseBody['items'] ?? [],
@@ -277,11 +292,13 @@ class GitHub extends Git
                 'per_page' => $per_page,
             ]);
 
-            $responseBody = $response['body'] ?? [];
-
-            if (!array_key_exists('repositories', $responseBody)) {
-                throw new Exception("Repositories list missing in the response.");
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to list installation repositories: HTTP {$statusCode}", $statusCode);
             }
+
+            $responseBody = $response['body'] ?? [];
 
             return [
                 'items' => $responseBody['repositories'] ?? [],
@@ -297,11 +314,13 @@ class GitHub extends Git
                 'per_page' => 100, // Maximum allowed by GitHub API
             ]);
 
-            $responseBody = $response['body'] ?? [];
-
-            if (!array_key_exists('repositories', $responseBody)) {
-                throw new Exception("Repositories list missing in the response.");
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to list installation repositories: HTTP {$statusCode}", $statusCode);
             }
+
+            $responseBody = $response['body'] ?? [];
 
             // Filter repositories to only include those that match the search query.
             $filteredRepositories = array_filter($responseBody['repositories'] ?? [], fn ($repo) => stripos($repo['name'] ?? '', $search) !== false);
@@ -984,7 +1003,12 @@ class GitHub extends Git
             'context' => $context,
         ];
 
-        $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "Bearer $this->accessToken"], $body);
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to update commit status: HTTP {$statusCode}", $statusCode);
+        }
     }
 
     /**

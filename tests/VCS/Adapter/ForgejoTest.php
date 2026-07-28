@@ -5,7 +5,6 @@ namespace Utopia\Tests\Adapter;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
-use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\Forgejo;
 
 class ForgejoTest extends GiteaTest
@@ -13,17 +12,12 @@ class ForgejoTest extends GiteaTest
     protected static string $accessToken = '';
 
     protected static string $owner = '';
+    protected static string $avatarDomain = '/avatars/';
+    protected static string $eventHeader = 'x-forgejo-event';
+    protected static string $signatureHeader = 'x-forgejo-signature';
 
-    protected string $webhookEventHeader = 'X-Forgejo-Event';
-    protected string $webhookSignatureHeader = 'X-Forgejo-Signature';
-    protected string $avatarDomain = 'http://localhost:3000/avatars/';
 
-    protected function createVCSAdapter(): Git
-    {
-        return new Forgejo(new Cache(new None()));
-    }
-
-    public function setUp(): void
+    protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {
             $this->setupForgejo();

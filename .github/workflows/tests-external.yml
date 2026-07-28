@@ -40,24 +40,23 @@ jobs:
         docker network ls
 
     - name: Run Tests
+      id: run_tests
       run: |
         docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml --testsuite ${{ matrix.adapter }}
 
-    - name: GitLab internal status
-      # Runs whether or not the tests passed, so a GitLab connection failure
-      # mid-run leaves a record of which internal process was down at that point.
+    - name: GitLab diagnostics
+      # Always shows internal service status, so a connection failure mid-run
+      # leaves a record of what was down at that point. On an actual test
+      # failure it also dumps webhook delivery activity, so a timeout has an
+      # actual cause next time instead of another guess.
       if: always() && matrix.adapter == 'gitlab'
       run: |
+        echo "--- gitlab-ctl status ---"
         docker compose exec -T gitlab gitlab-ctl status || true
 
-    - name: GitLab webhook delivery diagnostics
-      # Only on an actual failure: shows whether GitLab attempted the
-      # delivery at all (sidekiq's own log) and whether it ever reached the
-      # catcher, so a webhook timeout has an actual cause next time instead
-      # of another guess.
-      if: failure() && matrix.adapter == 'gitlab'
-      run: |
-        echo "--- WebHookWorker jobs (sidekiq log) ---"
-        docker compose exec -T gitlab grep -h 'WebHookWorker' /var/log/gitlab/sidekiq/current || echo "no WebHookWorker entries found"
-        echo "--- request-catcher log ---"
-        docker compose logs --tail 100 request-catcher || true
+        if [ "${{ steps.run_tests.outcome }}" = "failure" ]; then
+          echo "--- WebHookWorker jobs (sidekiq log) ---"
+          docker compose exec -T gitlab grep -h 'WebHookWorker' /var/log/gitlab/sidekiq/current || echo "no WebHookWorker entries found"
+          echo "--- request-catcher log ---"
+          docker compose logs --tail 100 request-catcher || true
+        fi

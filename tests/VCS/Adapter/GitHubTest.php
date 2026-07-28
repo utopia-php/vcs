@@ -41,6 +41,12 @@ class GitHubTest extends Base
         $this->vcsAdapter = $adapter;
     }
 
+    public function testWebhookHeaderNames(): void
+    {
+        $this->assertSame('x-github-event', $this->vcsAdapter->getEventHeaderName());
+        $this->assertSame('x-hub-signature-256', $this->vcsAdapter->getSignatureHeaderName());
+    }
+
     public function testGetEventPush(): void
     {
         $payload = json_encode([

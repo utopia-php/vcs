@@ -47,6 +47,33 @@ class GitLabTest extends Base
         $this->vcsAdapter = $adapter;
     }
 
+    /**
+     * GitLab owners are carried as "id:path", but it reports the path alone.
+     */
+    protected function ownerPath(): string
+    {
+        return \explode(':', static::$owner)[1] ?? static::$owner;
+    }
+
+    public function testWebhookHeaderNames(): void
+    {
+        $this->assertSame('x-gitlab-event', $this->vcsAdapter->getEventHeaderName());
+        $this->assertSame('x-gitlab-token', $this->vcsAdapter->getSignatureHeaderName());
+    }
+
+    public function testListTagsCommitlessRepository(): void
+    {
+        $repositoryName = 'test-list-tags-commitless-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            // No commits at all, which GitLab answers differently from an empty tag list
+            $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     protected function setupGitLab(): void
     {
         $tokenFile = '/gitlab-data/token.txt';
@@ -59,30 +86,6 @@ class GitLabTest extends Base
         }
     }
 
-    public function testSearchRepositoriesIncludesCreatedRepository(): void
-    {
-        $repositoryName = 'test-search-repositories-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10);
-
-            $this->assertIsArray($result);
-            $this->assertArrayHasKey('items', $result);
-            $this->assertNotEmpty($result['items']);
-
-            $names = array_column($result['items'], 'name');
-            $this->assertContains($repositoryName, $names);
-
-            foreach ($result['items'] as $repo) {
-                $this->assertArrayHasKey('id', $repo);
-                $this->assertArrayHasKey('name', $repo);
-                $this->assertArrayHasKey('private', $repo);
-            }
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testSearchRepositoriesWithSearch(): void
     {

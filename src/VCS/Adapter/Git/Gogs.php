@@ -492,6 +492,16 @@ class Gogs extends Gitea
     }
 
     /**
+     * Get the files of a pull request
+     *
+     * @return array<mixed>
+     */
+    public function getPullRequestFiles(string $owner, string $repositoryName, int $pullRequestNumber): array
+    {
+        throw new Exception("Pull request API is not supported by Gogs");
+    }
+
+    /**
      * Update commit status
      *
      * Gogs does not support commit statuses API.

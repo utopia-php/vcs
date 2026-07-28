@@ -12,6 +12,9 @@ class ForgejoTest extends GiteaTest
     protected static string $accessToken = '';
 
     protected static string $owner = '';
+    protected static string $avatarDomain = '/avatars/';
+    protected static string $eventHeader = 'x-forgejo-event';
+    protected static string $signatureHeader = 'x-forgejo-signature';
 
 
     protected function setupAdapter(): void

@@ -13,6 +13,8 @@ class GogsTest extends GiteaTest
     protected static string $owner = '';
 
     protected static string $defaultBranch = 'master';
+    protected static string $eventHeader = 'x-gogs-event';
+    protected static string $signatureHeader = 'x-gogs-signature';
 
     protected function setupAdapter(): void
     {
@@ -56,10 +58,6 @@ class GogsTest extends GiteaTest
     // --- Skip tests for unsupported Gogs features ---
 
     // Pull request API
-    public function testCommentWorkflow(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
     public function testGetComment(): void
     {
         $this->markTestSkipped('Gogs does not support pull request API');
@@ -119,7 +117,7 @@ class GogsTest extends GiteaTest
 
     public function testGetPullRequestFiles(): void
     {
-        $this->markTestSkipped('Gogs does not support pull request files API');
+        $this->markTestSkipped('Gogs does not support pull request API');
     }
     public function testListBranchesEmptyRepository(): void
     {

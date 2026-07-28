@@ -81,6 +81,34 @@ abstract class Base extends TestCase
     }
 
     /**
+     * Path of the owner under test, as the provider reports it.
+     */
+    protected function ownerPath(): string
+    {
+        return static::$owner;
+    }
+
+    /**
+     * Owner of a repository: 'owner.login' on GitHub and Gitea, 'namespace.path' on GitLab.
+     *
+     * @param array<string, mixed> $repository
+     */
+    protected function ownerOf(array $repository): string
+    {
+        $owner = $repository['owner'] ?? [];
+        if (\is_array($owner) && !empty($owner['login'])) {
+            return (string) $owner['login'];
+        }
+
+        $namespace = $repository['namespace'] ?? [];
+        if (\is_array($namespace) && !empty($namespace['path'])) {
+            return (string) $namespace['path'];
+        }
+
+        $this->fail('Repository reports no owner');
+    }
+
+    /**
      * GitHub and Gitea report visibility as a 'private' flag, GitLab as a 'visibility' string.
      *
      * @param array<string, mixed> $repository
@@ -176,9 +204,11 @@ abstract class Base extends TestCase
 
             // GitHub and Gitea report a 'private' flag, GitLab a 'visibility' string
             $this->assertFalse($this->isPrivate($result), 'createRepository() reported the new repository as private');
+            $this->assertSame($this->ownerPath(), $this->ownerOf($result));
 
             $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
             $this->assertFalse($this->isPrivate($fetched), 'getRepository() reported the new repository as private');
+            $this->assertSame($this->ownerPath(), $this->ownerOf($fetched));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -313,6 +343,7 @@ abstract class Base extends TestCase
             $this->assertContains('README.md', $treeRecursive);
             $this->assertContains('src/main.php', $treeRecursive);
             $this->assertContains('src/lib.php', $treeRecursive);
+            $this->assertGreaterThanOrEqual(3, \count($treeRecursive));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -706,6 +737,9 @@ abstract class Base extends TestCase
             );
 
             $this->assertIsString($command);
+            $this->assertStringContainsString('git init', $command);
+            $this->assertStringContainsString('git remote add origin', $command);
+            $this->assertStringContainsString('git config core.sparseCheckout true', $command);
             $this->assertStringContainsString('sparse-checkout', $command);
             $this->assertStringContainsString($repositoryName, $command);
 
@@ -745,6 +779,7 @@ abstract class Base extends TestCase
             $this->assertIsString($command);
             $this->assertStringContainsString('sparse-checkout', $command);
             $this->assertStringContainsString($commitHash, $command);
+            $this->assertStringContainsString('--depth=1', $command);
 
             $output = [];
             \exec($command . ' 2>&1', $output, $exitCode);
@@ -794,11 +829,7 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('id', $created);
             $repositoryId = (int) ($created['id'] ?? 0);
 
-            $result = $this->vcsAdapter->getOwnerName('', $repositoryId);
-
-            // GitLab identifies an owner as "id:path", so compare against the owner under test loosely
-            $this->assertNotEmpty($result);
-            $this->assertStringContainsString($result, static::$owner);
+            $this->assertSame($this->ownerPath(), $this->vcsAdapter->getOwnerName('', $repositoryId));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -824,10 +855,17 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('total', $result);
 
             $this->assertNotEmpty($result['items']);
-            $this->assertArrayHasKey('pushed_at', $result['items'][0]);
-            $this->assertTrue(
-                $result['items'][0]['pushed_at'] === null || \strtotime($result['items'][0]['pushed_at']) !== false
-            );
+
+            foreach ($result['items'] as $repository) {
+                $this->assertArrayHasKey('id', $repository);
+                $this->assertArrayHasKey('name', $repository);
+                $this->assertArrayHasKey('private', $repository);
+                $this->assertArrayHasKey('pushed_at', $repository);
+                $this->assertTrue(
+                    $repository['pushed_at'] === null || \strtotime((string) $repository['pushed_at']) !== false,
+                    'pushed_at is neither null nor a parseable timestamp'
+                );
+            }
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repo1Name);
             $this->vcsAdapter->deleteRepository(static::$owner, $repo2Name);
@@ -866,7 +904,7 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('base', $result);
             $this->assertSame($prNumber, $result['number']);
             $this->assertSame('Test PR', $result['title']);
-            $this->assertNotEmpty($result['state']);
+            $this->assertContains($result['state'], ['open', 'opened']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }

@@ -16,6 +16,9 @@ class GiteaTest extends Base
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
     protected static string $existingUser = 'utopia';
+    protected static string $avatarDomain = 'gravatar.com';
+    protected static string $eventHeader = 'x-gitea-event';
+    protected static string $signatureHeader = 'x-gitea-signature';
 
     protected function setupAdapter(): void
     {
@@ -90,43 +93,26 @@ class GiteaTest extends Base
         $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
     }
 
-    public function testCommentWorkflow(): void
+
+    public function testWebhookHeaderNames(): void
     {
-        $repositoryName = 'test-comment-workflow-' . \uniqid();
+        $this->assertSame(static::$eventHeader, $this->vcsAdapter->getEventHeaderName());
+        $this->assertSame(static::$signatureHeader, $this->vcsAdapter->getSignatureHeaderName());
+    }
+
+    public function testGetCommitAuthorAvatar(): void
+    {
+        $repositoryName = 'test-get-commit-avatar-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'comment-test', static::$defaultBranch);
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'test.txt', 'test', 'Add test file', 'comment-test');
+            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
 
-            $pr = $this->vcsAdapter->createPullRequest(
-                static::$owner,
-                $repositoryName,
-                'Comment Test PR',
-                'comment-test',
-                static::$defaultBranch
-            );
+            $commit = $this->vcsAdapter->getCommit(static::$owner, $repositoryName, $commitHash);
 
-            $prNumber = $pr['number'] ?? 0;
-            $this->assertGreaterThan(0, $prNumber);
-
-            $originalComment = 'This is a test comment';
-            $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, $originalComment);
-
-            $this->assertNotEmpty($commentId);
-            $this->assertIsString($commentId);
-
-            $retrievedComment = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
-            $this->assertSame($originalComment, $retrievedComment);
-
-            $updatedCommentText = 'This comment has been updated';
-            $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, $commentId, $updatedCommentText);
-
-            $this->assertSame($commentId, $updatedCommentId);
-
-            $finalComment = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
-            $this->assertSame($updatedCommentText, $finalComment);
+            $this->assertNotEmpty($commit['commitAuthorAvatar']);
+            $this->assertStringContainsString(static::$avatarDomain, $commit['commitAuthorAvatar']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -462,24 +448,6 @@ class GiteaTest extends Base
         }
     }
 
-    public function testGetOwnerName(): void
-    {
-        $repositoryName = 'test-get-owner-name-' . \uniqid();
-        $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->assertIsArray($created);
-            $this->assertArrayHasKey('id', $created);
-            $this->assertIsScalar($created['id']);
-            $repositoryId = (int) $created['id'];
-
-            $ownerName = $this->vcsAdapter->getOwnerName('', $repositoryId);
-
-            $this->assertSame(static::$owner, $ownerName);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testGetOwnerNameWithZeroRepositoryId(): void
     {
@@ -658,7 +626,7 @@ class GiteaTest extends Base
 
     public function testCreateRepositoryWithInvalidName(): void
     {
-        $this->markTestSkipped('Gitea accepts repository names with spaces');
+        $this->markTestSkipped('Gitea and its forks accept repository names with spaces');
     }
 
 }

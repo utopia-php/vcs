@@ -77,3 +77,10 @@ jobs:
     - name: Run Tests
       run: |
         docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml --testsuite ${{ matrix.adapter }}
+
+    - name: GitLab internal status
+      # Runs whether or not the tests passed, so a GitLab connection failure
+      # mid-run leaves a record of which internal process was down at that point.
+      if: always() && matrix.adapter == 'gitlab'
+      run: |
+        docker compose exec -T gitlab gitlab-ctl status || true

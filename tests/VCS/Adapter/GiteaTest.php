@@ -2,6 +2,7 @@
 
 namespace Utopia\Tests\Adapter;
 
+use Exception;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
@@ -626,7 +627,8 @@ class GiteaTest extends Base
 
     public function testCreateRepositoryWithInvalidName(): void
     {
-        $this->markTestSkipped('Gitea and its forks accept repository names with spaces');
+        $this->expectException(Exception::class);
+        $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
     }
 
 }

@@ -101,6 +101,12 @@ class GitHub extends Git
             'private' => $private,
         ]);
 
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", $statusCode);
+        }
+
         return $response['body'] ?? [];
     }
     /**

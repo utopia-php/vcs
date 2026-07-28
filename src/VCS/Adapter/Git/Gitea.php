@@ -100,6 +100,12 @@ class Gitea extends Git
             'private' => $private,
         ]);
 
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", $statusCode);
+        }
+
         $result = $response['body'] ?? [];
         if (is_array($result)) {
             // Gitea's API does not expose `pushed_at`; surface `updated_at` under that key

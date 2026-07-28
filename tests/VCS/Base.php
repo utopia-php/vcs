@@ -332,17 +332,25 @@ abstract class Base extends TestCase
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/main.php', '<?php echo "hello";');
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/lib.php', '<?php // lib');
 
-            $tree = $this->vcsAdapter->getRepositoryTree(static::$owner, $repositoryName, static::$defaultBranch, false);
+            $tree = [];
+            $this->assertEventually(function () use (&$tree, $repositoryName) {
+                $tree = $this->vcsAdapter->getRepositoryTree(static::$owner, $repositoryName, static::$defaultBranch, false);
+                $this->assertContains('src', $tree);
+            });
+
             $this->assertIsArray($tree);
             $this->assertContains('README.md', $tree);
-            $this->assertContains('src', $tree);
             $this->assertCount(2, $tree);
 
-            $treeRecursive = $this->vcsAdapter->getRepositoryTree(static::$owner, $repositoryName, static::$defaultBranch, true);
+            $treeRecursive = [];
+            $this->assertEventually(function () use (&$treeRecursive, $repositoryName) {
+                $treeRecursive = $this->vcsAdapter->getRepositoryTree(static::$owner, $repositoryName, static::$defaultBranch, true);
+                $this->assertContains('src/lib.php', $treeRecursive);
+            });
+
             $this->assertIsArray($treeRecursive);
             $this->assertContains('README.md', $treeRecursive);
             $this->assertContains('src/main.php', $treeRecursive);
-            $this->assertContains('src/lib.php', $treeRecursive);
             $this->assertGreaterThanOrEqual(3, \count($treeRecursive));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -430,10 +438,13 @@ abstract class Base extends TestCase
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'file1.txt', 'content1');
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/main.php', '<?php');
 
-            $contents = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName);
+            $contents = [];
+            $this->assertEventually(function () use (&$contents, $repositoryName) {
+                $contents = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName);
+                $this->assertCount(3, $contents);
+            });
 
             $this->assertIsArray($contents);
-            $this->assertCount(3, $contents);
 
             $names = array_column($contents, 'name');
             $this->assertContains('README.md', $names);
@@ -1234,10 +1245,13 @@ abstract class Base extends TestCase
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/file1.php', '<?php');
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'src/file2.php', '<?php');
 
-            $contents = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src');
+            $contents = [];
+            $this->assertEventually(function () use (&$contents, $repositoryName) {
+                $contents = $this->vcsAdapter->listRepositoryContents(static::$owner, $repositoryName, 'src');
+                $this->assertCount(2, $contents);
+            });
 
             $this->assertIsArray($contents);
-            $this->assertCount(2, $contents);
 
             $names = array_column($contents, 'name');
             $this->assertContains('file1.php', $names);

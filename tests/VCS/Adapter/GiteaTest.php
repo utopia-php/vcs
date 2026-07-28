@@ -80,6 +80,16 @@ class GiteaTest extends Base
         $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
     }
 
+    public function testGetRepositoryAfterDeleteFails(): void
+    {
+        $repositoryName = 'test-get-deleted-repository-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+        $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+
+        $this->expectException(RepositoryNotFound::class);
+        $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
+    }
+
     public function testCommentWorkflow(): void
     {
         $repositoryName = 'test-comment-workflow-' . \uniqid();
@@ -429,6 +439,26 @@ class GiteaTest extends Base
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repo1);
             $this->vcsAdapter->deleteRepository(static::$owner, $repo2);
+        }
+    }
+
+    public function testSearchRepositoriesMatchesName(): void
+    {
+        $match = 'test-search-match-' . \uniqid();
+        $other = 'test-search-other-' . \uniqid();
+
+        $this->vcsAdapter->createRepository(static::$owner, $match, false);
+        $this->vcsAdapter->createRepository(static::$owner, $other, false);
+
+        try {
+            $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10, $match);
+
+            $names = array_column($result['items'], 'name');
+            $this->assertContains($match, $names);
+            $this->assertNotContains($other, $names);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $match);
+            $this->vcsAdapter->deleteRepository(static::$owner, $other);
         }
     }
 

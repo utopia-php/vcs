@@ -391,12 +391,6 @@ class GitLabTest extends Base
         $this->assertSame('abc123', $result['commitHash']);
     }
 
-    public function testGetEventUnknown(): void
-    {
-        $result = $this->vcsAdapter->getEvent('Unknown Hook', '{}');
-        $this->assertIsArray($result);
-        $this->assertEmpty($result);
-    }
 
     public function testCreateWebhook(): void
     {

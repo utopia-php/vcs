@@ -8,6 +8,7 @@ use Utopia\Fetch\Client;
 use Utopia\System\System;
 use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Exception\FileNotFound;
+use Utopia\VCS\Exception\RepositoryNotFound;
 
 abstract class Base extends TestCase
 {
@@ -77,6 +78,24 @@ abstract class Base extends TestCase
         }
 
         return '';
+    }
+
+    /**
+     * GitHub and Gitea report visibility as a 'private' flag, GitLab as a 'visibility' string.
+     *
+     * @param array<string, mixed> $repository
+     */
+    protected function isPrivate(array $repository): bool
+    {
+        if (\array_key_exists('private', $repository)) {
+            return $repository['private'] === true;
+        }
+
+        if (\array_key_exists('visibility', $repository)) {
+            return $repository['visibility'] === 'private';
+        }
+
+        $this->fail('Repository reports neither a private flag nor a visibility');
     }
 
     protected function assertEventually(callable $probe, int $timeoutMs = 15000, int $waitMs = 500): void
@@ -149,11 +168,17 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('name', $result);
             $this->assertSame($repositoryName, $result['name']);
             $this->assertArrayHasKey('pushed_at', $result);
+            // GitHub reports null until the first push; anything else must be a real timestamp
+            $this->assertTrue(
+                $result['pushed_at'] === null || \strtotime((string) $result['pushed_at']) !== false,
+                'pushed_at is neither null nor a parseable timestamp'
+            );
 
             // GitHub and Gitea report a 'private' flag, GitLab a 'visibility' string
+            $this->assertFalse($this->isPrivate($result), 'createRepository() reported the new repository as private');
+
             $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
-            $this->assertNotSame(true, $fetched['private'] ?? false);
-            $this->assertNotSame('private', $fetched['visibility'] ?? '');
+            $this->assertFalse($this->isPrivate($fetched), 'getRepository() reported the new repository as private');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -169,11 +194,10 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertArrayHasKey('name', $result);
             $this->assertSame($repositoryName, $result['name']);
+            $this->assertTrue($this->isPrivate($result), 'createRepository() did not report the new repository as private');
 
             $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
-            $isPrivate = ($fetched['private'] ?? null) === true
-                || ($fetched['visibility'] ?? null) === 'private';
-            $this->assertTrue($isPrivate, 'Repository should have been created private');
+            $this->assertTrue($this->isPrivate($fetched), 'getRepository() did not report the new repository as private');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -200,7 +224,7 @@ abstract class Base extends TestCase
 
     public function testGetDeletedRepositoryFails(): void
     {
-        $this->expectException(Exception::class);
+        $this->expectException(RepositoryNotFound::class);
         $this->vcsAdapter->getRepository(static::$owner, 'non-existing-repository-' . \uniqid());
     }
 
@@ -225,14 +249,22 @@ abstract class Base extends TestCase
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
         $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
 
-        $this->expectException(Exception::class);
-        $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        try {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->fail('Deleting the same repository twice should have thrown');
+        } catch (Exception $e) {
+            $this->assertGreaterThanOrEqual(400, $e->getCode(), 'Exception should carry the HTTP status code');
+        }
     }
 
     public function testDeleteNonExistingRepositoryFails(): void
     {
-        $this->expectException(Exception::class);
-        $this->vcsAdapter->deleteRepository(static::$owner, 'non-existing-repo-' . \uniqid());
+        try {
+            $this->vcsAdapter->deleteRepository(static::$owner, 'non-existing-repo-' . \uniqid());
+            $this->fail('Deleting a non existing repository should have thrown');
+        } catch (Exception $e) {
+            $this->assertGreaterThanOrEqual(400, $e->getCode(), 'Exception should carry the HTTP status code');
+        }
     }
 
     public function testGetRepositoryName(): void
@@ -555,6 +587,7 @@ abstract class Base extends TestCase
             $this->assertSame($commitHash, $result['commitHash']);
             $this->assertStringStartsWith($customMessage, $result['commitMessage']);
             $this->assertNotEmpty($result['commitUrl']);
+            $this->assertNotEmpty($result['commitAuthor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -578,6 +611,7 @@ abstract class Base extends TestCase
             $this->assertNotEmpty($commit1['commitHash']);
             $this->assertStringStartsWith($firstMessage, $commit1['commitMessage']);
             $this->assertNotEmpty($commit1['commitUrl']);
+            $this->assertNotEmpty($commit1['commitAuthor']);
 
             $commit1Hash = $commit1['commitHash'];
 
@@ -637,8 +671,17 @@ abstract class Base extends TestCase
             $this->assertIsArray($statuses);
             $this->assertNotEmpty($statuses);
 
-            $states = array_column($statuses, 'state');
-            $this->assertContains('success', $states);
+            $written = null;
+            foreach ($statuses as $status) {
+                if (($status['context'] ?? '') === 'ci/build') {
+                    $written = $status;
+                    break;
+                }
+            }
+
+            $this->assertNotNull($written, 'No status reported under the context it was written with');
+            $this->assertSame('success', $written['state']);
+            $this->assertSame('Build passed', $written['description']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -701,6 +744,7 @@ abstract class Base extends TestCase
 
             $this->assertIsString($command);
             $this->assertStringContainsString('sparse-checkout', $command);
+            $this->assertStringContainsString($commitHash, $command);
 
             $output = [];
             \exec($command . ' 2>&1', $output, $exitCode);

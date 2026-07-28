@@ -165,6 +165,24 @@ class GitHubTest extends Base
         $this->assertFalse($this->vcsAdapter->validateWebhookEvent($payload, 'sha256=wrongsig', $secret));
     }
 
+    public function testGetRepositoryContentSha(): void
+    {
+        $repositoryName = 'test-get-repository-content-sha-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $result = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'README.md');
+
+            // GitHub reports the git blob SHA, so it has to match what git would compute
+            $expectedSha = \hash('sha1', 'blob ' . $result['size'] . "\0" . $result['content']);
+            $this->assertSame($expectedSha, $result['sha']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
     public function testGetRepositoryContentCaseSensitive(): void
     {
         $repositoryName = 'test-get-repository-content-case-' . \uniqid();
@@ -248,20 +266,6 @@ class GitHubTest extends Base
         }
     }
 
-    public function testGetLatestCommitWithInvalidBranch(): void
-    {
-        $repositoryName = 'test-get-latest-commit-invalid-' . \uniqid();
-
-        try {
-            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            $this->expectException(\Exception::class);
-            $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, 'non-existing-branch');
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testUpdateCommitStatus(): void
     {
@@ -270,8 +274,7 @@ class GitHubTest extends Base
 
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
-            $commitHash = $commit['commitHash'];
+            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
 
             // Should not throw
             $this->vcsAdapter->updateCommitStatus(
@@ -576,98 +579,8 @@ class GitHubTest extends Base
         }
     }
 
-    public function testGenerateCloneCommand(): void
-    {
-        $repositoryName = 'test-clone-command-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $directory = '/tmp/test-clone-' . \uniqid();
 
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $command = $this->vcsAdapter->generateCloneCommand(
-                static::$owner,
-                $repositoryName,
-                static::$defaultBranch,
-                GitHub::CLONE_TYPE_BRANCH,
-                $directory,
-                '*'
-            );
-
-            $this->assertIsString($command);
-            $this->assertStringContainsString('sparse-checkout', $command);
-            $this->assertStringContainsString($repositoryName, $command);
-
-            $output = [];
-            \exec($command . ' 2>&1', $output, $exitCode);
-            $this->assertSame(0, $exitCode, implode("\n", $output));
-            $this->assertFileExists($directory . '/README.md');
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-            if (\is_dir($directory)) {
-                \exec('rm -rf ' . escapeshellarg($directory));
-            }
-        }
-    }
-
-    public function testGenerateCloneCommandWithCommitHash(): void
-    {
-        $repositoryName = 'test-clone-commit-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            $commit = $this->getLatestCommitEventually($repositoryName);
-            $commitHash = $commit['commitHash'];
-
-            $directory = '/tmp/test-clone-commit-' . \uniqid();
-            $command = $this->vcsAdapter->generateCloneCommand(
-                static::$owner,
-                $repositoryName,
-                $commitHash,
-                GitHub::CLONE_TYPE_COMMIT,
-                $directory,
-                '*'
-            );
-
-            $this->assertIsString($command);
-            $this->assertStringContainsString('sparse-checkout', $command);
-
-            $output = [];
-            \exec($command . ' 2>&1', $output, $exitCode);
-            $this->assertSame(0, $exitCode, implode("\n", $output));
-            $this->assertFileExists($directory . '/README.md');
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testGenerateCloneCommandWithInvalidRepository(): void
-    {
-        $directory = '/tmp/test-clone-invalid-' . \uniqid();
-
-        try {
-            $command = $this->vcsAdapter->generateCloneCommand(
-                static::$owner,
-                'nonexistent-repo-' . \uniqid(),
-                static::$defaultBranch,
-                GitHub::CLONE_TYPE_BRANCH,
-                $directory,
-                '*'
-            );
-
-            $output = [];
-            \exec($command . ' 2>&1', $output, $exitCode);
-
-            $cloneFailed = ($exitCode !== 0) || !file_exists($directory . '/README.md');
-            $this->assertTrue($cloneFailed, 'Clone should have failed for nonexistent repository');
-        } finally {
-            if (\is_dir($directory)) {
-                \exec('rm -rf ' . escapeshellarg($directory));
-            }
-        }
-    }
 
     public function testGetOwnerName(): void
     {

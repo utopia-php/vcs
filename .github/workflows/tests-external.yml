@@ -48,9 +48,16 @@ jobs:
       # Always shows internal service status, so a connection failure mid-run
       # leaves a record of what was down at that point. On an actual test
       # failure it also dumps webhook delivery activity, so a timeout has an
-      # actual cause next time instead of another guess.
-      if: always() && matrix.adapter == 'gitlab'
+      # actual cause next time instead of another guess. Detects GitLab by
+      # whether its container exists rather than the adapter name, so it
+      # doesn't need updating if adapters are renamed or added.
+      if: always()
       run: |
+        container=$(docker compose ps -q --status=running gitlab || true)
+        if [ -z "$container" ]; then
+          exit 0
+        fi
+
         echo "--- gitlab-ctl status ---"
         docker compose exec -T gitlab gitlab-ctl status || true
 

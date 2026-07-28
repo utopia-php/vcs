@@ -31,7 +31,42 @@ jobs:
           TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
           TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
       run: |
-        docker compose --profile ${{ matrix.adapter }} up -d --wait --wait-timeout 900
+        docker compose --profile ${{ matrix.adapter }} up -d
+
+    - name: Wait for the provider to settle
+      run: |
+        container=$(docker compose ps -q ${{ matrix.adapter }} || true)
+
+        # The github profile has no provider container: the suite talks to github.com
+        if [ -z "$container" ]; then
+          echo "No provider container for ${{ matrix.adapter }}, nothing to wait for"
+          exit 0
+        fi
+
+        # GitLab reports healthy and then flaps while it finishes starting up, so
+        # require a run of healthy checks rather than the first one.
+        required=3
+        streak=0
+
+        for attempt in $(seq 1 90); do
+          status=$(docker inspect -f '{{.State.Health.Status}}' "$container" 2>/dev/null || echo unknown)
+
+          if [ "$status" = "healthy" ]; then
+            streak=$((streak + 1))
+            if [ "$streak" -ge "$required" ]; then
+              echo "${{ matrix.adapter }} healthy $streak checks in a row"
+              exit 0
+            fi
+          else
+            streak=0
+          fi
+
+          sleep 10
+        done
+
+        echo "${{ matrix.adapter }} never stayed healthy"
+        docker compose logs --tail 50 ${{ matrix.adapter }}
+        exit 1
 
     - name: Doctor
       run: |

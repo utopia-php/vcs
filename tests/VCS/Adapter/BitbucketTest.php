@@ -289,7 +289,8 @@ class BitbucketTest extends Base
         $this->assertFalse($result['branchDeleted']);
         $this->assertSame('main', $result['branch']);
         $this->assertSame('https://bitbucket.org/test-workspace/test-repo/branch/main', $result['branchUrl']);
-        $this->assertSame('{11111111-2222-3333-4444-555555555555}', $result['repositoryId']);
+        // The routable identifier, matching what getRepositoryName() resolves
+        $this->assertSame('test-workspace/test-repo', $result['repositoryId']);
         $this->assertSame('test-repo', $result['repositoryName']);
         $this->assertSame('https://bitbucket.org/test-workspace/test-repo', $result['repositoryUrl']);
         $this->assertSame('test-workspace', $result['owner']);
@@ -367,6 +368,106 @@ class BitbucketTest extends Base
         $this->assertSame('', $result['commitHash']);
     }
 
+    /**
+     * A repositoryId has to be resolvable by the adapter that reported it.
+     */
+    public function testGetEventReportsResolvableRepositoryId(): void
+    {
+        $repositoryName = 'test-event-repository-id-' . \uniqid();
+        $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $payload = json_encode([
+                'repository' => [
+                    'uuid' => $created['uuid'] ?? '',
+                    'name' => $repositoryName,
+                    'full_name' => $created['full_name'] ?? '',
+                    'workspace' => ['slug' => $this->ownerPath()],
+                ],
+                'push' => ['changes' => [['new' => ['type' => 'branch', 'name' => 'main']]]],
+            ]);
+
+            if ($payload === false) {
+                $this->fail('Failed to encode JSON payload');
+            }
+
+            $event = $this->vcsAdapter->getEvent('repo:push', $payload);
+
+            $this->assertSame($created['id'], $event['repositoryId']);
+            $this->assertSame($repositoryName, $this->vcsAdapter->getRepositoryName($event['repositoryId']));
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    /**
+     * Bitbucket reports every ref a push touched in one delivery.
+     */
+    public function testGetEventsReportsEveryPushedBranch(): void
+    {
+        $payload = json_encode([
+            'actor' => ['links' => []],
+            'repository' => [
+                'name' => 'test-repo',
+                'full_name' => 'test-workspace/test-repo',
+                'workspace' => ['slug' => 'test-workspace'],
+                'links' => ['html' => ['href' => 'https://bitbucket.org/test-workspace/test-repo']],
+            ],
+            'push' => [
+                'changes' => [
+                    ['new' => ['type' => 'branch', 'name' => 'main', 'target' => ['hash' => 'aaa111']], 'created' => false, 'closed' => false],
+                    ['new' => ['type' => 'tag', 'name' => 'v1.0.0', 'target' => ['hash' => 'bbb222']]],
+                    ['new' => ['type' => 'branch', 'name' => 'feature', 'target' => ['hash' => 'ccc333']], 'created' => true, 'closed' => false],
+                ],
+            ],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        /** @var Bitbucket $adapter */
+        $adapter = $this->vcsAdapter;
+
+        $events = $adapter->getEvents('repo:push', $payload);
+
+        // The tag is left out; the shared event shape describes a branch push
+        $this->assertCount(2, $events);
+        $this->assertSame(['main', 'feature'], array_column($events, 'branch'));
+        $this->assertSame(['aaa111', 'ccc333'], array_column($events, 'commitHash'));
+        $this->assertTrue($events[1]['branchCreated']);
+
+        // getEvent() reports the first of them
+        $this->assertSame($events[0], $adapter->getEvent('repo:push', $payload));
+    }
+
+    /**
+     * A tag-only push has no branch to report.
+     */
+    public function testGetEventTagPushIsNotReportedAsBranch(): void
+    {
+        $payload = json_encode([
+            'repository' => ['name' => 'test-repo', 'full_name' => 'test-workspace/test-repo'],
+            'push' => ['changes' => [['new' => ['type' => 'tag', 'name' => 'v1.0.0', 'target' => ['hash' => 'aaa111']]]]],
+        ]);
+
+        if ($payload === false) {
+            $this->fail('Failed to encode JSON payload');
+        }
+
+        $this->assertSame([], $this->vcsAdapter->getEvent('repo:push', $payload));
+    }
+
+    /**
+     * The interface's int return can't carry Bitbucket's UUID, so no hook is
+     * created through it at all.
+     */
+    public function testCreateWebhookThroughSharedInterfaceIsRefused(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->vcsAdapter->createWebhook(static::$owner, 'some-repo', 'https://example.com/webhook', 'secret');
+    }
+
     public function testGetEventPullRequest(): void
     {
         $result = $this->vcsAdapter->getEvent('pullrequest:created', $this->pullRequestPayload());
@@ -377,7 +478,8 @@ class BitbucketTest extends Base
         $this->assertSame('opened', $result['action']);
         $this->assertFalse($result['external']);
         $this->assertSame(1, $result['pullRequestNumber']);
-        $this->assertSame('{11111111-2222-3333-4444-555555555555}', $result['repositoryId']);
+        // The routable identifier, matching what getRepositoryName() resolves
+        $this->assertSame('test-workspace/test-repo', $result['repositoryId']);
         $this->assertSame('test-repo', $result['repositoryName']);
         $this->assertSame('abc123', $result['commitHash']);
         $this->assertSame('https://bitbucket.org/test-workspace/test-repo/commits/abc123', $result['headCommitUrl']);

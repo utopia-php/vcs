@@ -980,15 +980,14 @@ class Bitbucket extends Git
     }
 
     /**
-     * Bitbucket identifies webhooks by UUID, which has no integer form, so this
-     * reports 0 on success. Use createRepositoryWebhook() to get the UUID
-     * needed to address the hook later.
+     * Bitbucket identifies webhooks by UUID, which an int return can't carry.
+     * Rather than leave a live hook behind under an id the caller can never
+     * address it by, this creates nothing: use createRepositoryWebhook(), which
+     * returns the UUID that deleteWebhook() takes.
      */
     public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): int
     {
-        $this->createRepositoryWebhook($owner, $repositoryName, $url, $secret, $events);
-
-        return 0;
+        throw new Exception('createWebhook() is not supported for ' . $this->getName() . '; its webhooks are identified by UUID -- use createRepositoryWebhook() instead');
     }
 
     /**
@@ -1218,6 +1217,18 @@ class Bitbucket extends Git
 
     public function getEvent(string $event, string $payload): array
     {
+        return $this->getEvents($event, $payload)[0] ?? [];
+    }
+
+    /**
+     * Bitbucket batches every ref a push touched into a single delivery, so one
+     * payload can describe several branches, of which getEvent() only reports
+     * the first. This reports all of them, in the order the payload lists them.
+     *
+     * @return array<array<mixed>>
+     */
+    public function getEvents(string $event, string $payload): array
+    {
         $payloadArray = json_decode($payload, true);
         if ($payloadArray === null || !is_array($payloadArray)) {
             return [];
@@ -1225,111 +1236,181 @@ class Bitbucket extends Git
 
         $repository = is_array($payloadArray['repository'] ?? null) ? $payloadArray['repository'] : [];
         $actor = is_array($payloadArray['actor'] ?? null) ? $payloadArray['actor'] : [];
-        $actorLinks = is_array($actor['links'] ?? null) ? $actor['links'] : [];
-
-        $repositoryId = strval($repository['uuid'] ?? '');
-        $repositoryName = $repository['name'] ?? '';
-        $repositoryUrl = $repository['links']['html']['href'] ?? '';
-        $workspace = is_array($repository['workspace'] ?? null) ? $repository['workspace'] : [];
-        $owner = $workspace['slug'] ?? '';
-        if (empty($owner) && strpos((string) ($repository['full_name'] ?? ''), '/') !== false) {
-            $owner = explode('/', (string) $repository['full_name'])[0];
-        }
 
         switch ($event) {
             case 'repo:push':
                 $push = is_array($payloadArray['push'] ?? null) ? $payloadArray['push'] : [];
                 $changes = is_array($push['changes'] ?? null) ? $push['changes'] : [];
 
-                // A push that advances several refs at once is reported as one
-                // event with one change per ref. The shared event shape only
-                // carries a single branch, so report the first change, matching
-                // how the other adapters report a single ref per push.
-                $change = is_array($changes[0] ?? null) ? $changes[0] : [];
+                $events = [];
+                foreach ($changes as $change) {
+                    if (!is_array($change) || !$this->isBranchChange($change)) {
+                        continue;
+                    }
 
-                $new = is_array($change['new'] ?? null) ? $change['new'] : [];
-                $old = is_array($change['old'] ?? null) ? $change['old'] : [];
-
-                // A deleted branch is reported as a change with no new state
-                $branch = $new['name'] ?? ($old['name'] ?? '');
-                $target = is_array($new['target'] ?? null) ? $new['target'] : [];
-                $author = is_array($target['author'] ?? null) ? $target['author'] : [];
-                $raw = (string) ($author['raw'] ?? '');
-
-                $authorName = $author['user']['display_name'] ?? '';
-                if (empty($authorName)) {
-                    $authorName = \trim(\preg_replace('/<[^>]*>/', '', $raw) ?? '');
+                    $events[] = $this->parsePushChange($change, $repository, $actor);
                 }
 
-                $authorEmail = '';
-                if (\preg_match('/<([^>]*)>/', $raw, $matches) === 1) {
-                    $authorEmail = $matches[1];
-                }
-
-                return [
-                    'branchCreated' => ($change['created'] ?? false) === true,
-                    'branchDeleted' => ($change['closed'] ?? false) === true,
-                    'branch' => $branch,
-                    'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
-                    'repositoryId' => $repositoryId,
-                    'repositoryName' => $repositoryName,
-                    'repositoryUrl' => $repositoryUrl,
-                    'installationId' => '', // Bitbucket has no installations
-                    'commitHash' => $target['hash'] ?? '',
-                    'owner' => $owner,
-                    'authorUrl' => $actorLinks['html']['href'] ?? '',
-                    'authorAvatarUrl' => $actorLinks['avatar']['href'] ?? '',
-                    'headCommitAuthorName' => $authorName,
-                    'headCommitAuthorEmail' => $authorEmail,
-                    'headCommitMessage' => $target['message'] ?? '',
-                    'headCommitUrl' => $target['links']['html']['href'] ?? '',
-                    'external' => false,
-                    'pullRequestNumber' => '',
-                    'action' => '',
-                    // Bitbucket's push payload carries no per-commit file lists
-                    'affectedFiles' => [],
-                ];
+                return $events;
 
             case 'pullrequest:created':
             case 'pullrequest:updated':
             case 'pullrequest:fulfilled':
             case 'pullrequest:rejected':
-                $pullRequest = is_array($payloadArray['pullrequest'] ?? null) ? $payloadArray['pullrequest'] : [];
-                $source = is_array($pullRequest['source'] ?? null) ? $pullRequest['source'] : [];
-                $destination = is_array($pullRequest['destination'] ?? null) ? $pullRequest['destination'] : [];
-
-                $branch = $source['branch']['name'] ?? '';
-                $commitHash = $source['commit']['hash'] ?? '';
-
-                // A pull request whose source lives in another repository is a
-                // fork-based external contribution; defaults to false
-                // (intentional) if either uuid is missing.
-                $sourceRepositoryId = $source['repository']['uuid'] ?? null;
-                $destinationRepositoryId = $destination['repository']['uuid'] ?? null;
-                $external = $sourceRepositoryId !== null
-                    && $destinationRepositoryId !== null
-                    && $sourceRepositoryId !== $destinationRepositoryId;
-
-                return [
-                    'branch' => $branch,
-                    'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
-                    'repositoryId' => $repositoryId,
-                    'repositoryName' => $repositoryName,
-                    'repositoryUrl' => $repositoryUrl,
-                    'installationId' => '',
-                    'commitHash' => $commitHash,
-                    'owner' => $owner,
-                    'authorUrl' => $actorLinks['html']['href'] ?? '',
-                    'authorAvatarUrl' => $actorLinks['avatar']['href'] ?? '',
-                    'headCommitUrl' => !empty($repositoryUrl) && !empty($commitHash) ? $repositoryUrl . '/commits/' . $commitHash : '',
-                    'external' => $external,
-                    'pullRequestNumber' => $pullRequest['id'] ?? '',
-                    'action' => self::PULL_REQUEST_ACTION_MAP[$event],
-                ];
+                return [$this->parsePullRequestEvent($event, $payloadArray, $repository, $actor)];
 
             default:
                 return [];
         }
+    }
+
+    /**
+     * A push carries tag changes alongside branch ones, and the shared event
+     * shape describes a branch push, so tags are left out rather than reported
+     * as a branch. A change with no type at all is taken to be a branch.
+     *
+     * @param array<mixed> $change
+     */
+    private function isBranchChange(array $change): bool
+    {
+        $new = is_array($change['new'] ?? null) ? $change['new'] : [];
+        $old = is_array($change['old'] ?? null) ? $change['old'] : [];
+
+        $type = $new['type'] ?? ($old['type'] ?? 'branch');
+
+        return \in_array($type, ['branch', 'named_branch'], true);
+    }
+
+    /**
+     * Identifier of the repository a webhook payload describes. Bitbucket's
+     * repository UUID isn't routable on its own, so this reports the
+     * "workspace/slug" pair getRepositoryName() resolves, matching the `id`
+     * createRepository() and getRepository() report.
+     *
+     * @param array<mixed> $repository
+     */
+    private function getEventRepositoryId(array $repository): string
+    {
+        return strval($repository['full_name'] ?? '');
+    }
+
+    /**
+     * @param array<mixed> $repository
+     * @return array{owner: string, url: string}
+     */
+    private function getEventRepositoryOwner(array $repository): array
+    {
+        $url = (string) ($repository['links']['html']['href'] ?? '');
+
+        $workspace = is_array($repository['workspace'] ?? null) ? $repository['workspace'] : [];
+        $owner = (string) ($workspace['slug'] ?? '');
+
+        $fullName = (string) ($repository['full_name'] ?? '');
+        if (empty($owner) && strpos($fullName, '/') !== false) {
+            $owner = explode('/', $fullName)[0];
+        }
+
+        return ['owner' => $owner, 'url' => $url];
+    }
+
+    /**
+     * @param array<mixed> $change
+     * @param array<mixed> $repository
+     * @param array<mixed> $actor
+     * @return array<mixed>
+     */
+    private function parsePushChange(array $change, array $repository, array $actor): array
+    {
+        $actorLinks = is_array($actor['links'] ?? null) ? $actor['links'] : [];
+        ['owner' => $owner, 'url' => $repositoryUrl] = $this->getEventRepositoryOwner($repository);
+
+        $new = is_array($change['new'] ?? null) ? $change['new'] : [];
+        $old = is_array($change['old'] ?? null) ? $change['old'] : [];
+
+        // A deleted branch is reported as a change with no new state
+        $branch = $new['name'] ?? ($old['name'] ?? '');
+        $target = is_array($new['target'] ?? null) ? $new['target'] : [];
+        $author = is_array($target['author'] ?? null) ? $target['author'] : [];
+        $raw = (string) ($author['raw'] ?? '');
+
+        $authorName = $author['user']['display_name'] ?? '';
+        if (empty($authorName)) {
+            $authorName = \trim(\preg_replace('/<[^>]*>/', '', $raw) ?? '');
+        }
+
+        $authorEmail = '';
+        if (\preg_match('/<([^>]*)>/', $raw, $matches) === 1) {
+            $authorEmail = $matches[1];
+        }
+
+        return [
+            'branchCreated' => ($change['created'] ?? false) === true,
+            'branchDeleted' => ($change['closed'] ?? false) === true,
+            'branch' => $branch,
+            'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
+            'repositoryId' => $this->getEventRepositoryId($repository),
+            'repositoryName' => $repository['name'] ?? '',
+            'repositoryUrl' => $repositoryUrl,
+            'installationId' => '', // Bitbucket has no installations
+            'commitHash' => $target['hash'] ?? '',
+            'owner' => $owner,
+            'authorUrl' => $actorLinks['html']['href'] ?? '',
+            'authorAvatarUrl' => $actorLinks['avatar']['href'] ?? '',
+            'headCommitAuthorName' => $authorName,
+            'headCommitAuthorEmail' => $authorEmail,
+            'headCommitMessage' => $target['message'] ?? '',
+            'headCommitUrl' => $target['links']['html']['href'] ?? '',
+            'external' => false,
+            'pullRequestNumber' => '',
+            'action' => '',
+            // Bitbucket's push payload carries no per-commit file lists
+            'affectedFiles' => [],
+        ];
+    }
+
+    /**
+     * @param array<mixed> $payloadArray
+     * @param array<mixed> $repository
+     * @param array<mixed> $actor
+     * @return array<mixed>
+     */
+    private function parsePullRequestEvent(string $event, array $payloadArray, array $repository, array $actor): array
+    {
+        $actorLinks = is_array($actor['links'] ?? null) ? $actor['links'] : [];
+        ['owner' => $owner, 'url' => $repositoryUrl] = $this->getEventRepositoryOwner($repository);
+
+        $pullRequest = is_array($payloadArray['pullrequest'] ?? null) ? $payloadArray['pullrequest'] : [];
+        $source = is_array($pullRequest['source'] ?? null) ? $pullRequest['source'] : [];
+        $destination = is_array($pullRequest['destination'] ?? null) ? $pullRequest['destination'] : [];
+
+        $branch = $source['branch']['name'] ?? '';
+        $commitHash = $source['commit']['hash'] ?? '';
+
+        // A pull request whose source lives in another repository is a
+        // fork-based external contribution; defaults to false (intentional) if
+        // either uuid is missing.
+        $sourceRepositoryId = $source['repository']['uuid'] ?? null;
+        $destinationRepositoryId = $destination['repository']['uuid'] ?? null;
+        $external = $sourceRepositoryId !== null
+            && $destinationRepositoryId !== null
+            && $sourceRepositoryId !== $destinationRepositoryId;
+
+        return [
+            'branch' => $branch,
+            'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
+            'repositoryId' => $this->getEventRepositoryId($repository),
+            'repositoryName' => $repository['name'] ?? '',
+            'repositoryUrl' => $repositoryUrl,
+            'installationId' => '',
+            'commitHash' => $commitHash,
+            'owner' => $owner,
+            'authorUrl' => $actorLinks['html']['href'] ?? '',
+            'authorAvatarUrl' => $actorLinks['avatar']['href'] ?? '',
+            'headCommitUrl' => !empty($repositoryUrl) && !empty($commitHash) ? $repositoryUrl . '/commits/' . $commitHash : '',
+            'external' => $external,
+            'pullRequestNumber' => $pullRequest['id'] ?? '',
+            'action' => self::PULL_REQUEST_ACTION_MAP[$event],
+        ];
     }
 
     /**

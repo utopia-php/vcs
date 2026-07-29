@@ -1060,7 +1060,7 @@ class GitLab extends Git
     {
         $payloadArray = json_decode($payload, true);
         if ($payloadArray === null || !is_array($payloadArray)) {
-            return [];
+            throw new Exception("Invalid payload.");
         }
 
         switch ($event) {

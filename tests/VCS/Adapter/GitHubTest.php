@@ -14,6 +14,9 @@ class GitHubTest extends Base
     protected static string $owner = '';
     protected static string $installationId = '';
     protected static string $defaultBranch = 'main';
+    protected static bool $reportsPushedAtOnEmptyRepository = false;
+    protected static string $eventHeader = 'x-github-event';
+    protected static string $signatureHeader = 'x-hub-signature-256';
 
     protected function setupAdapter(): void
     {
@@ -41,11 +44,6 @@ class GitHubTest extends Base
         $this->vcsAdapter = $adapter;
     }
 
-    public function testWebhookHeaderNames(): void
-    {
-        $this->assertSame('x-github-event', $this->vcsAdapter->getEventHeaderName());
-        $this->assertSame('x-hub-signature-256', $this->vcsAdapter->getSignatureHeaderName());
-    }
 
     public function testGetEventPush(): void
     {
@@ -666,6 +664,31 @@ class GitHubTest extends Base
     public function testListTags(): void
     {
         $this->markTestSkipped('createTag() is not implemented for GitHub');
+    }
+
+    public function testGenerateCloneCommandWithTag(): void
+    {
+        $this->markTestSkipped('createTag() is not implemented for GitHub');
+    }
+
+    public function testCreateRepositoryWithInvalidName(): void
+    {
+        $this->markTestSkipped('GitHub normalizes spaces in repository names instead of rejecting them');
+    }
+
+    public function testGetOwnerNameWithoutRepositoryId(): void
+    {
+        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
+    }
+
+    public function testGetOwnerNameWithZeroRepositoryId(): void
+    {
+        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
+    }
+
+    public function testGetOwnerNameWithNullRepositoryId(): void
+    {
+        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
     }
 
     public function testListRepositoryLanguages(): void

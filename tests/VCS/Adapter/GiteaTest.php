@@ -2,12 +2,10 @@
 
 namespace Utopia\Tests\Adapter;
 
-use Exception;
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
 use Utopia\Tests\Base;
-use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\Gitea;
 use Utopia\VCS\Exception\RepositoryNotFound;
 
@@ -17,9 +15,10 @@ class GiteaTest extends Base
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
     protected static string $existingUser = 'utopia';
-    protected static string $avatarDomain = 'gravatar.com';
+    protected static string $userHandleField = 'login';
     protected static string $eventHeader = 'x-gitea-event';
     protected static string $signatureHeader = 'x-gitea-signature';
+    protected static string $avatarDomain = 'gravatar.com';
 
     protected function setupAdapter(): void
     {
@@ -95,11 +94,6 @@ class GiteaTest extends Base
     }
 
 
-    public function testWebhookHeaderNames(): void
-    {
-        $this->assertSame(static::$eventHeader, $this->vcsAdapter->getEventHeaderName());
-        $this->assertSame(static::$signatureHeader, $this->vcsAdapter->getSignatureHeaderName());
-    }
 
     public function testGetCommitAuthorAvatar(): void
     {
@@ -156,42 +150,6 @@ class GiteaTest extends Base
         $this->assertTrue($this->vcsAdapter->deleteRepository(static::$owner, $repositoryName));
     }
 
-    public function testGenerateCloneCommandWithTag(): void
-    {
-        $repositoryName = 'test-clone-tag-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            // Create initial file and get commit hash
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test Tag');
-
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
-            $commitHash = $commit['commitHash'];
-
-            // Create a tag
-            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.0.0', $commitHash, 'Release v1.0.0');
-
-            $command = $this->vcsAdapter->generateCloneCommand(
-                static::$owner,
-                $repositoryName,
-                'v1.0.0',
-                Git::CLONE_TYPE_TAG,
-                '/tmp/test-clone-tag-' . \uniqid(),
-                '/'
-            );
-
-            // Verify the command contains tag-specific git commands
-            $this->assertIsString($command);
-            $this->assertStringContainsString('git init', $command);
-            $this->assertStringContainsString('git remote add origin', $command);
-            $this->assertStringContainsString('git config core.sparseCheckout true', $command);
-            $this->assertStringContainsString('refs/tags', $command);
-            $this->assertStringContainsString('v1.0.0', $command);
-            $this->assertStringContainsString('git checkout FETCH_HEAD', $command);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testGetEventPush(): void
     {
@@ -394,13 +352,6 @@ class GiteaTest extends Base
         $this->assertFalse($result);
     }
 
-    public function testGetEventInvalidPayload(): void
-    {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Invalid payload');
-
-        $this->vcsAdapter->getEvent('push', 'invalid json');
-    }
 
     public function testSearchRepositoriesPagination(): void
     {
@@ -429,36 +380,9 @@ class GiteaTest extends Base
         }
     }
 
-    public function testSearchRepositoriesMatchesName(): void
-    {
-        $match = 'test-search-match-' . \uniqid();
-        $other = 'test-search-other-' . \uniqid();
-
-        $this->vcsAdapter->createRepository(static::$owner, $match, false);
-        $this->vcsAdapter->createRepository(static::$owner, $other, false);
-
-        try {
-            $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10, $match);
-
-            $names = array_column($result['items'], 'name');
-            $this->assertContains($match, $names);
-            $this->assertNotContains($other, $names);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $match);
-            $this->vcsAdapter->deleteRepository(static::$owner, $other);
-        }
-    }
 
 
-    public function testGetOwnerNameWithZeroRepositoryId(): void
-    {
-        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', 0));
-    }
 
-    public function testGetOwnerNameWithoutRepositoryId(): void
-    {
-        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName(''));
-    }
 
     public function testGetOwnerNameWithInvalidRepositoryId(): void
     {
@@ -467,10 +391,6 @@ class GiteaTest extends Base
         $this->vcsAdapter->getOwnerName('', 999999999);
     }
 
-    public function testGetOwnerNameWithNullRepositoryId(): void
-    {
-        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', null));
-    }
 
     public function testGetInstallationRepository(): void
     {
@@ -625,10 +545,5 @@ class GiteaTest extends Base
         }
     }
 
-    public function testCreateRepositoryWithInvalidName(): void
-    {
-        $this->expectException(Exception::class);
-        $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
-    }
 
 }

@@ -13,6 +13,9 @@ class GitLabTest extends Base
     protected static string $accessToken = '';
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
+    protected static string $openPullRequestState = 'opened';
+    protected static string $eventHeader = 'x-gitlab-event';
+    protected static string $signatureHeader = 'x-gitlab-token';
 
     protected function setupAdapter(): void
     {
@@ -55,11 +58,46 @@ class GitLabTest extends Base
         return \explode(':', static::$owner)[1] ?? static::$owner;
     }
 
-    public function testWebhookHeaderNames(): void
+    /**
+     * GitLab reports a project's owner as its namespace.
+     *
+     * @param array<string, mixed> $repository
+     */
+    protected function ownerOf(array $repository): string
     {
-        $this->assertSame('x-gitlab-event', $this->vcsAdapter->getEventHeaderName());
-        $this->assertSame('x-gitlab-token', $this->vcsAdapter->getSignatureHeaderName());
+        $this->assertArrayHasKey('namespace', $repository);
+        $this->assertIsArray($repository['namespace']);
+        $this->assertArrayHasKey('path', $repository['namespace']);
+
+        return (string) $repository['namespace']['path'];
     }
+
+    /**
+     * GitLab reports visibility as a string rather than a boolean flag.
+     *
+     * @param array<string, mixed> $repository
+     */
+    protected function isPrivate(array $repository): bool
+    {
+        $this->assertArrayHasKey('visibility', $repository);
+        $this->assertIsString($repository['visibility']);
+
+        return $repository['visibility'] === 'private';
+    }
+
+    /**
+     * GitLab numbers merge requests per project, under 'iid'.
+     *
+     * @param array<string, mixed> $pullRequest
+     */
+    protected function pullRequestNumberOf(array $pullRequest): int
+    {
+        $this->assertArrayHasKey('iid', $pullRequest);
+        $this->assertIsNumeric($pullRequest['iid']);
+
+        return (int) $pullRequest['iid'];
+    }
+
 
     public function testListTagsCommitlessRepository(): void
     {
@@ -87,25 +125,6 @@ class GitLabTest extends Base
     }
 
 
-    public function testSearchRepositoriesWithSearch(): void
-    {
-        $uniqueId = \uniqid();
-        $repositoryName = 'test-search-unique-' . $uniqueId;
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10, $uniqueId);
-
-            $this->assertIsArray($result);
-            $this->assertArrayHasKey('items', $result);
-            $this->assertNotEmpty($result['items']);
-
-            $names = array_column($result['items'], 'name');
-            $this->assertContains($repositoryName, $names);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testGetCommitStatuses(): void
     {
@@ -162,36 +181,6 @@ class GitLabTest extends Base
         }
     }
 
-    public function testGenerateCloneCommandWithTag(): void
-    {
-        $repositoryName = 'test-clone-tag-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
-            $commitHash = $commit['commitHash'];
-
-            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.0.0', $commitHash);
-
-            $directory = '/tmp/test-clone-tag-' . \uniqid();
-            $command = $this->vcsAdapter->generateCloneCommand(
-                static::$owner,
-                $repositoryName,
-                'v1.0.0',
-                \Utopia\VCS\Adapter\Git::CLONE_TYPE_TAG,
-                $directory,
-                '/'
-            );
-
-            $this->assertIsString($command);
-            $this->assertStringContainsString('refs/tags', $command);
-            $this->assertStringContainsString('v1.0.0', $command);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testValidateWebhookEvent(): void
     {
@@ -457,21 +446,8 @@ class GitLabTest extends Base
         $this->assertSame('http://example.com/commit/def456', $result['headCommitUrl']);
     }
 
-    public function testCreateRepositoryWithInvalidName(): void
-    {
-        $this->expectException(\Exception::class);
-        $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
-    }
 
-    public function testGetOwnerNameWithoutRepositoryId(): void
-    {
-        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName(''));
-    }
 
-    public function testGetOwnerNameWithZeroRepositoryId(): void
-    {
-        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', 0));
-    }
 
     public function testGetEventPushDetectsBranchCreated(): void
     {

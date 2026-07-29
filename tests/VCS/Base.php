@@ -22,6 +22,29 @@ abstract class Base extends TestCase
     protected static string $existingUser = 'root';
 
     /**
+     * Field the provider reports a user's handle under.
+     */
+    protected static string $userHandleField = 'username';
+
+    /**
+     * State the provider reports for a freshly opened pull request.
+     */
+    protected static string $openPullRequestState = 'open';
+
+    /**
+     * Whether the provider reports a pushed_at timestamp for a repository
+     * that has no commits yet. GitHub reports null until the first push.
+     */
+    protected static bool $reportsPushedAtOnEmptyRepository = true;
+
+    /**
+     * Headers the provider sends its webhook event type and signature under.
+     */
+    protected static string $eventHeader = '';
+
+    protected static string $signatureHeader = '';
+
+    /**
      * Build the adapter under test and assign it to $this->vcsAdapter.
      */
     abstract protected function setupAdapter(): void;
@@ -89,41 +112,64 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Owner of a repository: 'owner.login' on GitHub and Gitea, 'namespace.path' on GitLab.
+     * Owner of a repository, as GitHub and Gitea report it. GitLab overrides this.
      *
      * @param array<string, mixed> $repository
      */
     protected function ownerOf(array $repository): string
     {
-        $owner = $repository['owner'] ?? [];
-        if (\is_array($owner) && !empty($owner['login'])) {
-            return (string) $owner['login'];
-        }
+        $this->assertArrayHasKey('owner', $repository);
+        $this->assertIsArray($repository['owner']);
+        $this->assertArrayHasKey('login', $repository['owner']);
 
-        $namespace = $repository['namespace'] ?? [];
-        if (\is_array($namespace) && !empty($namespace['path'])) {
-            return (string) $namespace['path'];
-        }
-
-        $this->fail('Repository reports no owner');
+        return (string) $repository['owner']['login'];
     }
 
     /**
-     * GitHub and Gitea report visibility as a 'private' flag, GitLab as a 'visibility' string.
+     * Visibility as GitHub and Gitea report it, a boolean flag. GitLab overrides this.
      *
      * @param array<string, mixed> $repository
      */
     protected function isPrivate(array $repository): bool
     {
-        if (\array_key_exists('private', $repository)) {
-            return $repository['private'] === true;
+        $this->assertArrayHasKey('private', $repository);
+        $this->assertIsBool($repository['private']);
+
+        return $repository['private'];
+    }
+
+    /**
+     * Number of a pull request, as every provider but GitLab reports it.
+     *
+     * @param array<string, mixed> $pullRequest
+     */
+    protected function pullRequestNumberOf(array $pullRequest): int
+    {
+        $this->assertArrayHasKey('number', $pullRequest);
+        $this->assertIsNumeric($pullRequest['number']);
+
+        return (int) $pullRequest['number'];
+    }
+
+    /**
+     * A repository with no commits reports pushed_at differently per provider.
+     *
+     * @param array<string, mixed> $repository
+     */
+    protected function assertPushedAtOnEmptyRepository(array $repository): void
+    {
+        $this->assertArrayHasKey('pushed_at', $repository);
+
+        if (!static::$reportsPushedAtOnEmptyRepository) {
+            $this->assertNull($repository['pushed_at']);
+
+            return;
         }
 
-        if (\array_key_exists('visibility', $repository)) {
-            return $repository['visibility'] === 'private';
-        }
-
-        $this->fail('Repository reports neither a private flag nor a visibility');
+        $this->assertNotFalse(
+            \strtotime((string) $repository['pushed_at']),
+            'pushed_at is not a parseable timestamp'
+        );
     }
 
     protected function assertEventually(callable $probe, int $timeoutMs = 15000, int $waitMs = 500): void
@@ -166,16 +212,10 @@ abstract class Base extends TestCase
         );
     }
 
-    public function testGetEventHeaderName(): void
+    public function testWebhookHeaderNames(): void
     {
-        $this->assertIsString($this->vcsAdapter->getEventHeaderName());
-        $this->assertNotEmpty($this->vcsAdapter->getEventHeaderName());
-    }
-
-    public function testGetSignatureHeaderName(): void
-    {
-        $this->assertIsString($this->vcsAdapter->getSignatureHeaderName());
-        $this->assertNotEmpty($this->vcsAdapter->getSignatureHeaderName());
+        $this->assertSame(static::$eventHeader, $this->vcsAdapter->getEventHeaderName());
+        $this->assertSame(static::$signatureHeader, $this->vcsAdapter->getSignatureHeaderName());
     }
 
     public function testGetSupportedWebhookScopes(): void
@@ -195,14 +235,8 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertArrayHasKey('name', $result);
             $this->assertSame($repositoryName, $result['name']);
-            $this->assertArrayHasKey('pushed_at', $result);
-            // GitHub reports null until the first push; anything else must be a real timestamp
-            $this->assertTrue(
-                $result['pushed_at'] === null || \strtotime((string) $result['pushed_at']) !== false,
-                'pushed_at is neither null nor a parseable timestamp'
-            );
+            $this->assertPushedAtOnEmptyRepository($result);
 
-            // GitHub and Gitea report a 'private' flag, GitLab a 'visibility' string
             $this->assertFalse($this->isPrivate($result), 'createRepository() reported the new repository as private');
             $this->assertSame($this->ownerPath(), $this->ownerOf($result));
 
@@ -243,10 +277,7 @@ abstract class Base extends TestCase
 
             $this->assertIsArray($result);
             $this->assertSame($repositoryName, $result['name']);
-            $this->assertArrayHasKey('pushed_at', $result);
-            $this->assertTrue(
-                $result['pushed_at'] === null || \strtotime($result['pushed_at']) !== false
-            );
+            $this->assertPushedAtOnEmptyRepository($result);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -305,7 +336,8 @@ abstract class Base extends TestCase
         try {
             $this->assertIsArray($created);
             $this->assertArrayHasKey('id', $created);
-            $repositoryId = (string) ($created['id'] ?? '');
+            $this->assertIsNumeric($created['id']);
+            $repositoryId = (string) $created['id'];
 
             $result = $this->vcsAdapter->getRepositoryName($repositoryId);
 
@@ -830,6 +862,21 @@ abstract class Base extends TestCase
         }
     }
 
+    public function testGetOwnerNameWithoutRepositoryId(): void
+    {
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName(''));
+    }
+
+    public function testGetOwnerNameWithZeroRepositoryId(): void
+    {
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', 0));
+    }
+
+    public function testGetOwnerNameWithNullRepositoryId(): void
+    {
+        $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', null));
+    }
+
     public function testGetOwnerName(): void
     {
         $repositoryName = 'test-get-owner-name-' . \uniqid();
@@ -838,11 +885,74 @@ abstract class Base extends TestCase
         try {
             $this->assertIsArray($created);
             $this->assertArrayHasKey('id', $created);
-            $repositoryId = (int) ($created['id'] ?? 0);
+            $this->assertIsNumeric($created['id']);
+            $repositoryId = (int) $created['id'];
 
             $this->assertSame($this->ownerPath(), $this->vcsAdapter->getOwnerName('', $repositoryId));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testCreateRepositoryWithInvalidName(): void
+    {
+        $this->expectException(Exception::class);
+        $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
+    }
+
+    public function testGenerateCloneCommandWithTag(): void
+    {
+        $repositoryName = 'test-clone-tag-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+        $directory = '/tmp/test-clone-tag-' . \uniqid();
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test Tag');
+            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
+
+            $this->vcsAdapter->createTag(static::$owner, $repositoryName, 'v1.0.0', $commitHash, 'Release v1.0.0');
+
+            $command = $this->vcsAdapter->generateCloneCommand(
+                static::$owner,
+                $repositoryName,
+                'v1.0.0',
+                Git::CLONE_TYPE_TAG,
+                $directory,
+                '/'
+            );
+
+            $this->assertIsString($command);
+            $this->assertStringContainsString('git init', $command);
+            $this->assertStringContainsString('git remote add origin', $command);
+            $this->assertStringContainsString('git config core.sparseCheckout true', $command);
+            $this->assertStringContainsString('refs/tags', $command);
+            $this->assertStringContainsString('v1.0.0', $command);
+            $this->assertStringContainsString('git checkout FETCH_HEAD', $command);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testSearchRepositoriesMatchesName(): void
+    {
+        $match = 'test-search-match-' . \uniqid();
+        $other = 'test-search-other-' . \uniqid();
+
+        $this->vcsAdapter->createRepository(static::$owner, $match, false);
+        $this->vcsAdapter->createRepository(static::$owner, $other, false);
+
+        try {
+            $names = [];
+            $this->assertEventually(function () use (&$names, $match) {
+                $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10, $match);
+                $names = array_column($result['items'], 'name');
+                $this->assertContains($match, $names);
+            }, 60000, 2000);
+
+            $this->assertNotContains($other, $names);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $match);
+            $this->vcsAdapter->deleteRepository(static::$owner, $other);
         }
     }
 
@@ -871,11 +981,7 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('id', $repository);
                 $this->assertArrayHasKey('name', $repository);
                 $this->assertArrayHasKey('private', $repository);
-                $this->assertArrayHasKey('pushed_at', $repository);
-                $this->assertTrue(
-                    $repository['pushed_at'] === null || \strtotime((string) $repository['pushed_at']) !== false,
-                    'pushed_at is neither null nor a parseable timestamp'
-                );
+                $this->assertPushedAtOnEmptyRepository($repository);
             }
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repo1Name);
@@ -902,7 +1008,7 @@ abstract class Base extends TestCase
                 'Test PR description'
             );
 
-            $prNumber = $pr['iid'] ?? $pr['number'] ?? 0;
+            $prNumber = $this->pullRequestNumberOf($pr);
             $this->assertGreaterThan(0, $prNumber);
 
             $result = $this->vcsAdapter->getPullRequest(static::$owner, $repositoryName, $prNumber);
@@ -915,7 +1021,7 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('base', $result);
             $this->assertSame($prNumber, $result['number']);
             $this->assertSame('Test PR', $result['title']);
-            $this->assertContains($result['state'], ['open', 'opened']);
+            $this->assertSame(static::$openPullRequestState, $result['state']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -939,7 +1045,7 @@ abstract class Base extends TestCase
                 static::$defaultBranch
             );
 
-            $prNumber = $pr['iid'] ?? $pr['number'] ?? 0;
+            $prNumber = $this->pullRequestNumberOf($pr);
 
             $result = [];
             $this->assertEventually(function () use (&$result, $repositoryName, $prNumber) {
@@ -991,7 +1097,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertNotEmpty($result);
             $this->assertArrayHasKey('head', $result);
-            $this->assertSame('my-feature', $result['head']['ref'] ?? '');
+            $this->assertSame('my-feature', $result['head']['ref']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -1034,7 +1140,7 @@ abstract class Base extends TestCase
                 static::$defaultBranch
             );
 
-            $prNumber = $pr['iid'] ?? $pr['number'] ?? 0;
+            $prNumber = $this->pullRequestNumberOf($pr);
             $this->assertGreaterThan(0, $prNumber);
 
             $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Test comment');
@@ -1064,7 +1170,7 @@ abstract class Base extends TestCase
                 static::$defaultBranch
             );
 
-            $prNumber = $pr['iid'] ?? $pr['number'] ?? 0;
+            $prNumber = $this->pullRequestNumberOf($pr);
             $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Test comment');
 
             $result = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
@@ -1094,7 +1200,7 @@ abstract class Base extends TestCase
                 static::$defaultBranch
             );
 
-            $prNumber = $pr['iid'] ?? $pr['number'] ?? 0;
+            $prNumber = $this->pullRequestNumberOf($pr);
             $commentId = $this->vcsAdapter->createComment(static::$owner, $repositoryName, $prNumber, 'Original comment');
 
             $updatedCommentId = $this->vcsAdapter->updateComment(static::$owner, $repositoryName, $commentId, 'Updated comment');
@@ -1145,7 +1251,8 @@ abstract class Base extends TestCase
         $this->assertArrayHasKey('id', $result);
         $this->assertNotEmpty($result['id']);
         // GitLab reports the handle as 'username', Gitea and its forks as 'login'
-        $this->assertSame(static::$existingUser, $result['username'] ?? $result['login'] ?? '');
+        $this->assertArrayHasKey(static::$userHandleField, $result);
+        $this->assertSame(static::$existingUser, $result[static::$userHandleField]);
     }
 
     public function testGetUserWithInvalidUsername(): void
@@ -1166,6 +1273,12 @@ abstract class Base extends TestCase
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
+    }
+
+    public function testGetEventInvalidPayload(): void
+    {
+        $this->expectException(Exception::class);
+        $this->vcsAdapter->getEvent('push', 'invalid json');
     }
 
     public function testGetEventUnsupportedEvent(): void

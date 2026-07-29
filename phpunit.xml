@@ -24,5 +24,8 @@
         <testsuite name="gogs">
             <file>./tests/VCS/Adapter/GogsTest.php</file>
         </testsuite>
+        <testsuite name="bitbucket">
+            <file>./tests/VCS/Adapter/BitbucketTest.php</file>
+        </testsuite>
     </testsuites>
 </phpunit>

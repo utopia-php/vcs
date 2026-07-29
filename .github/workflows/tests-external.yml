@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [gitea, forgejo, github, gitlab, gogs]
+        adapter: [gitea, forgejo, github, gitlab, gogs, bitbucket]
 
     steps:
     - name: Check out the repo
@@ -30,6 +30,8 @@ jobs:
           TESTS_GITHUB_PRIVATE_KEY: ${{ secrets.TESTS_GITHUB_PRIVATE_KEY }}
           TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
           TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
+          TESTS_BITBUCKET_ACCESS_TOKEN: ${{ secrets.TESTS_BITBUCKET_ACCESS_TOKEN }}
+          TESTS_BITBUCKET_WORKSPACE: ${{ secrets.TESTS_BITBUCKET_WORKSPACE }}
       run: |
         docker compose --profile ${{ matrix.adapter }} up -d --wait --wait-timeout 900
 

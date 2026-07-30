@@ -18,8 +18,6 @@ class GitHubTest extends Base
     protected static array $supportedWebhookScopes = [GitHub::WEBHOOK_SCOPE_INSTALLATION, GitHub::WEBHOOK_SCOPE_REPOSITORY];
 
     protected static bool $supportsInstallationRepository = true;
-    protected static string $presignedTarballFragment = 'tarball';
-    protected static string $presignedZipballFragment = 'zipball';
 
     protected function signWebhookPayload(string $payload, string $secret): string
     {
@@ -685,6 +683,11 @@ class GitHubTest extends Base
     }
 
     public function testGetOwnerNameWithNullRepositoryId(): void
+    {
+        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
+    }
+
+    public function testGetOwnerNameWithInvalidRepositoryId(): void
     {
         $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
     }

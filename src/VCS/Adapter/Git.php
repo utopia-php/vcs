@@ -114,6 +114,77 @@ abstract class Git extends Adapter
     }
 
     /**
+     * Create a check run for a commit.
+     *
+     * Only some providers model checks separately from commit statuses, so the
+     * default reports it as unsupported.
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @param array<mixed> $actions
+     * @return array<mixed>
+     */
+    public function createCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $headSha,
+        string $name,
+        string $status = 'queued',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        throw new Exception('createCheckRun() is not supported by ' . $this->getName());
+    }
+
+    /**
+     * Get a check run by id.
+     *
+     * @return array<mixed>
+     */
+    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    {
+        throw new Exception('getCheckRun() is not supported by ' . $this->getName());
+    }
+
+    /**
+     * Update a check run.
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @param array<mixed> $actions
+     * @return array<mixed>
+     */
+    public function updateCheckRun(
+        string $owner,
+        string $repositoryName,
+        int $checkRunId,
+        string $name = '',
+        string $status = '',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        throw new Exception('updateCheckRun() is not supported by ' . $this->getName());
+    }
+
+    /**
      * Get commit statuses
      *
      * Every adapter reports each status as

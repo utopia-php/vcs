@@ -18,6 +18,14 @@ class GitHubTest extends Base
     protected static array $supportedWebhookScopes = [GitHub::WEBHOOK_SCOPE_INSTALLATION, GitHub::WEBHOOK_SCOPE_REPOSITORY];
 
     protected static bool $supportsInstallationRepository = true;
+    protected static bool $supportsPullRequestCreation = false;
+    protected static bool $supportsCommitStatusLookup = false;
+    protected static bool $supportsTags = false;
+    protected static bool $supportsUserLookup = false;
+    protected static bool $supportsRepositoryLanguages = false;
+    protected static bool $supportsWebhookDelivery = false;
+    protected static bool $resolvesOwnerFromRepositoryId = false;
+    protected static bool $rejectsInvalidRepositoryNames = false;
 
     protected function signWebhookPayload(string $payload, string $secret): string
     {
@@ -597,110 +605,26 @@ class GitHubTest extends Base
 
 
 
-    public function testGetPullRequest(): void
-    {
-        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
-    }
 
-    public function testGetPullRequestFiles(): void
-    {
-        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
-    }
 
-    public function testGetPullRequestWithInvalidNumber(): void
-    {
-        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
-    }
 
-    public function testGetPullRequestFromBranch(): void
-    {
-        $this->markTestSkipped('createPullRequest() is not implemented for GitHub');
-    }
 
-    public function testGetComment(): void
-    {
-        $this->markTestSkipped('Needs a pull request, and createPullRequest() is not implemented for GitHub');
-    }
 
-    public function testCreateComment(): void
-    {
-        $this->markTestSkipped('Needs a pull request, and createPullRequest() is not implemented for GitHub');
-    }
 
-    public function testUpdateComment(): void
-    {
-        $this->markTestSkipped('Needs a pull request, and createPullRequest() is not implemented for GitHub');
-    }
 
-    public function testGetUser(): void
-    {
-        $this->markTestSkipped('GitHub::getUser() returns the raw response envelope instead of the shared user shape');
-    }
 
-    public function testGetUserWithInvalidUsername(): void
-    {
-        $this->markTestSkipped('GitHub::getUser() returns the raw response envelope instead of throwing');
-    }
 
-    public function testListTags(): void
-    {
-        $this->markTestSkipped('createTag() is not implemented for GitHub');
-    }
 
-    public function testGenerateCloneCommandWithTag(): void
-    {
-        $this->markTestSkipped('createTag() is not implemented for GitHub');
-    }
 
-    public function testCreateTag(): void
-    {
-        $this->markTestSkipped('createTag() is not implemented for GitHub');
-    }
 
-    public function testGetCommitStatuses(): void
-    {
-        $this->markTestSkipped('getCommitStatuses() is not implemented for GitHub');
-    }
 
-    public function testGetCommitStatusesEmptyForNewCommit(): void
-    {
-        $this->markTestSkipped('getCommitStatuses() is not implemented for GitHub');
-    }
 
-    public function testCreateRepositoryWithInvalidName(): void
-    {
-        $this->markTestSkipped('GitHub normalizes spaces in repository names instead of rejecting them');
-    }
 
-    public function testGetOwnerNameWithoutRepositoryId(): void
-    {
-        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
-    }
 
-    public function testGetOwnerNameWithZeroRepositoryId(): void
-    {
-        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
-    }
 
-    public function testGetOwnerNameWithNullRepositoryId(): void
-    {
-        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
-    }
 
-    public function testGetOwnerNameWithInvalidRepositoryId(): void
-    {
-        $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
-    }
 
-    public function testWebhookPushEvent(): void
-    {
-        $this->markTestSkipped('github.com cannot deliver webhooks to the local request catcher');
-    }
 
-    public function testWebhookPullRequestEvent(): void
-    {
-        $this->markTestSkipped('github.com cannot deliver webhooks to the local request catcher');
-    }
 
     public function testListRepositoryLanguages(): void
     {

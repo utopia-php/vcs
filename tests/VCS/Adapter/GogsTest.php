@@ -13,6 +13,11 @@ class GogsTest extends GiteaTest
     protected static string $owner = '';
 
     protected static string $defaultBranch = 'master';
+    protected static bool $supportsPullRequestCreation = false;
+    protected static bool $supportsPullRequestLookup = false;
+    protected static bool $supportsCommitStatuses = false;
+    protected static bool $supportsCommitStatusLookup = false;
+    protected static bool $supportsRepositoryLanguages = false;
     protected static string $eventHeader = 'x-gogs-event';
     protected static string $signatureHeader = 'x-gogs-signature';
 
@@ -58,77 +63,13 @@ class GogsTest extends GiteaTest
     // --- Skip tests for unsupported Gogs features ---
 
     // Pull request API
-    public function testGetComment(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
-    public function testGetPullRequest(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
-    public function testGetPullRequestWithInvalidNumber(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
-    public function testGetPullRequestFromBranch(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
-    public function testGetPullRequestFromBranchNoPR(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
-    public function testUpdateComment(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
-    public function testCreateComment(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
-    public function testWebhookPullRequestEvent(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
 
     // Commit status
-    public function testUpdateCommitStatus(): void
-    {
-        $this->markTestSkipped('Gogs does not support commit status API');
-    }
-    public function testUpdateCommitStatusWithInvalidCommit(): void
-    {
-        $this->markTestSkipped('Gogs does not support commit status API');
-    }
-    public function testUpdateCommitStatusWithNonExistingRepository(): void
-    {
-        $this->markTestSkipped('Gogs does not support commit status API');
-    }
 
-    public function testGetCommitStatuses(): void
-    {
-        $this->markTestSkipped('Gogs does not support commit status API');
-    }
 
-    public function testGetCommitStatusesEmptyForNewCommit(): void
-    {
-        $this->markTestSkipped('Gogs does not support commit status API');
-    }
 
     // Repository languages
-    public function testListRepositoryLanguages(): void
-    {
-        $this->markTestSkipped('Gogs does not support repository languages endpoint');
-    }
-    public function testListRepositoryLanguagesEmptyRepo(): void
-    {
-        $this->markTestSkipped('Gogs does not support repository languages endpoint');
-    }
 
-    public function testGetPullRequestFiles(): void
-    {
-        $this->markTestSkipped('Gogs does not support pull request API');
-    }
     public function testListBranchesEmptyRepository(): void
     {
         // The Gogs adapter creates repositories with `auto_init: true` (plus a

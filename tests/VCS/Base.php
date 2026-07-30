@@ -78,6 +78,30 @@ abstract class Base extends TestCase
     protected static string $repositoryNotFoundException = RepositoryNotFound::class;
 
     /**
+     * Parts of the contract a provider may not offer at all. Each one skips the
+     * tests that need it, instead of every adapter overriding them to say so.
+     */
+    protected static bool $supportsPullRequestCreation = true;
+
+    protected static bool $supportsPullRequestLookup = true;
+
+    protected static bool $supportsCommitStatuses = true;
+
+    protected static bool $supportsCommitStatusLookup = true;
+
+    protected static bool $supportsTags = true;
+
+    protected static bool $supportsUserLookup = true;
+
+    protected static bool $supportsRepositoryLanguages = true;
+
+    protected static bool $supportsWebhookDelivery = true;
+
+    protected static bool $resolvesOwnerFromRepositoryId = true;
+
+    protected static bool $rejectsInvalidRepositoryNames = true;
+
+    /**
      * Headers the provider sends its webhook event type and signature under.
      */
     protected static string $eventHeader = '';
@@ -209,6 +233,13 @@ abstract class Base extends TestCase
         );
     }
 
+    protected function skipUnlessSupported(bool $supported, string $capability): void
+    {
+        if (!$supported) {
+            $this->markTestSkipped(static::class . ' does not support ' . $capability);
+        }
+    }
+
     protected function assertEventually(callable $probe, int $timeoutMs = 15000, int $waitMs = 500): void
     {
         $start = microtime(true) * 1000;
@@ -239,39 +270,10 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Remove repositories a passing test created. Every repository is attempted
-     * before reporting, so one failure cannot strand the rest, and a repository
-     * that was never created is not a failure. Anything else - auth, transport,
-     * a provider fault - surfaces rather than leaving the repository behind.
-     */
-    protected function deleteRepositories(string ...$repositoryNames): void
-    {
-        $failures = [];
-
-        foreach ($repositoryNames as $repositoryName) {
-            try {
-                $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-            } catch (RepositoryNotFound) {
-                continue;
-            } catch (Exception $e) {
-                // Adapters carry the HTTP status as the exception code
-                if ($e->getCode() === 404) {
-                    continue;
-                }
-
-                $failures[] = "{$repositoryName}: {$e->getMessage()}";
-            }
-        }
-
-        if ($failures !== []) {
-            throw new Exception('Failed to clean up ' . \implode(', ', $failures));
-        }
-    }
-
-    /**
-     * Remove repositories while a failure is already on its way out. Reporting
-     * a cleanup problem here would replace the reason the test actually failed,
-     * so this stays quiet.
+     * Remove repositories a test created. Cleanup is best effort on purpose: a
+     * provider hiccup while tearing down should not fail an otherwise passing
+     * test, or replace the reason a failing one failed. Deleting is asserted by
+     * the delete tests instead.
      */
     protected function discardRepositories(string ...$repositoryNames): void
     {
@@ -325,7 +327,7 @@ abstract class Base extends TestCase
             $this->assertFalse($this->isPrivate($fetched), 'getRepository() reported the new repository as private');
             $this->assertSame($this->ownerPath(), $this->ownerOf($fetched));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -344,7 +346,7 @@ abstract class Base extends TestCase
             $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
             $this->assertTrue($this->isPrivate($fetched), 'getRepository() did not report the new repository as private');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -360,7 +362,7 @@ abstract class Base extends TestCase
             $this->assertSame($repositoryName, $result['name']);
             $this->assertPushedAt($result);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -425,7 +427,7 @@ abstract class Base extends TestCase
             $this->assertIsString($result);
             $this->assertSame($repositoryName, $result);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -466,7 +468,7 @@ abstract class Base extends TestCase
             $this->assertContains('src/main.php', $treeRecursive);
             $this->assertGreaterThanOrEqual(3, \count($treeRecursive));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -482,7 +484,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($tree);
             $this->assertEmpty($tree);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -505,7 +507,7 @@ abstract class Base extends TestCase
             $this->assertSame($fileContent, $result['content']);
             $this->assertGreaterThan(0, $result['size']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -522,7 +524,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertSame('main branch content', $result['content']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -537,7 +539,7 @@ abstract class Base extends TestCase
             $this->expectException(FileNotFound::class);
             $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'non-existing.txt');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -570,7 +572,7 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('size', $item);
             }
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -586,12 +588,14 @@ abstract class Base extends TestCase
             $this->assertIsArray($contents);
             $this->assertEmpty($contents);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testListRepositoryLanguages(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryLanguages, 'repository languages');
+
         $repositoryName = 'test-list-repository-languages-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -608,12 +612,14 @@ abstract class Base extends TestCase
             $this->assertIsArray($languages);
             $this->assertContains('PHP', $languages);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testListRepositoryLanguagesEmptyRepo(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryLanguages, 'repository languages');
+
         $repositoryName = 'test-list-repository-languages-empty-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -622,7 +628,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($languages);
             $this->assertEmpty($languages);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -648,7 +654,7 @@ abstract class Base extends TestCase
             $this->assertNotEmpty($branches);
             $this->assertContains(static::$defaultBranch, $branches);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -663,12 +669,14 @@ abstract class Base extends TestCase
             $this->assertIsArray($branches);
             $this->assertEmpty($branches);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testListTags(): void
     {
+        $this->skipUnlessSupported(static::$supportsTags, 'creating tags');
+
         $repositoryName = 'test-list-tags-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -693,7 +701,7 @@ abstract class Base extends TestCase
             $this->assertSame(['v2.0.0'], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v2.0.0'));
             $this->assertEmpty($this->vcsAdapter->listTags(static::$owner, $repositoryName, 'nope-*'));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -710,7 +718,7 @@ abstract class Base extends TestCase
             // Glob against a repository with no tags stays empty
             $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName, 'v*'));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -744,7 +752,7 @@ abstract class Base extends TestCase
             $this->assertStringContainsString($repositoryName, $result['commitUrl']);
             $this->assertNotEmpty($result['commitAuthor']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -782,7 +790,7 @@ abstract class Base extends TestCase
             $this->assertStringStartsWith($secondMessage, $commit2['commitMessage']);
             $this->assertNotSame($commit1Hash, $commit2['commitHash']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -797,12 +805,14 @@ abstract class Base extends TestCase
             $this->expectException(Exception::class);
             $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, 'non-existing-branch');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testUpdateCommitStatus(): void
     {
+        $this->skipUnlessSupported(static::$supportsCommitStatusLookup, 'reading commit statuses');
+
         $repositoryName = 'test-update-commit-status-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -839,7 +849,7 @@ abstract class Base extends TestCase
             $this->assertSame('success', $written['state']);
             $this->assertSame('Build passed', $written['description']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -873,7 +883,7 @@ abstract class Base extends TestCase
             $this->assertSame(0, $exitCode, implode("\n", $output));
             $this->assertFileExists($directory . '/README.md');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
             if (\is_dir($directory)) {
                 \exec('rm -rf ' . escapeshellarg($directory));
             }
@@ -911,7 +921,7 @@ abstract class Base extends TestCase
             $this->assertSame(0, $exitCode, implode("\n", $output));
             $this->assertFileExists($directory . '/README.md');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
             if (\is_dir($directory)) {
                 \exec('rm -rf ' . escapeshellarg($directory));
             }
@@ -948,16 +958,22 @@ abstract class Base extends TestCase
 
     public function testGetOwnerNameWithoutRepositoryId(): void
     {
+        $this->skipUnlessSupported(static::$resolvesOwnerFromRepositoryId, 'resolving an owner from a repository id');
+
         $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName(''));
     }
 
     public function testGetOwnerNameWithZeroRepositoryId(): void
     {
+        $this->skipUnlessSupported(static::$resolvesOwnerFromRepositoryId, 'resolving an owner from a repository id');
+
         $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', 0));
     }
 
     public function testGetOwnerNameWithNullRepositoryId(): void
     {
+        $this->skipUnlessSupported(static::$resolvesOwnerFromRepositoryId, 'resolving an owner from a repository id');
+
         $this->assertSame(static::$existingUser, $this->vcsAdapter->getOwnerName('', null));
     }
 
@@ -974,18 +990,22 @@ abstract class Base extends TestCase
 
             $this->assertSame($this->ownerPath(), $this->vcsAdapter->getOwnerName('', $repositoryId));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testCreateRepositoryWithInvalidName(): void
     {
+        $this->skipUnlessSupported(static::$rejectsInvalidRepositoryNames, 'rejecting invalid repository names');
+
         $this->expectException(Exception::class);
         $this->vcsAdapter->createRepository(static::$owner, 'invalid name with spaces', false);
     }
 
     public function testGenerateCloneCommandWithTag(): void
     {
+        $this->skipUnlessSupported(static::$supportsTags, 'creating tags');
+
         $repositoryName = 'test-clone-tag-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
         $directory = '/tmp/test-clone-tag-' . \uniqid();
@@ -1013,7 +1033,7 @@ abstract class Base extends TestCase
             $this->assertStringContainsString('v1.0.0', $command);
             $this->assertStringContainsString('git checkout FETCH_HEAD', $command);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1034,13 +1054,9 @@ abstract class Base extends TestCase
             }, 60000, 2000);
 
             $this->assertNotContains($other, $names);
-        } catch (\Throwable $e) {
+        } finally {
             $this->discardRepositories($match, $other);
-
-            throw $e;
         }
-
-        $this->deleteRepositories($match, $other);
     }
 
     public function testSearchRepositories(): void
@@ -1070,17 +1086,15 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('private', $repository);
                 $this->assertPushedAt($repository);
             }
-        } catch (\Throwable $e) {
+        } finally {
             $this->discardRepositories($repo1Name, $repo2Name);
-
-            throw $e;
         }
-
-        $this->deleteRepositories($repo1Name, $repo2Name);
     }
 
     public function testGetPullRequest(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
+
         $repositoryName = 'test-get-pull-request-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1113,12 +1127,14 @@ abstract class Base extends TestCase
             $this->assertSame('Test PR', $result['title']);
             $this->assertSame(static::$openPullRequestState, $result['state']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetPullRequestFiles(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
+
         $repositoryName = 'test-get-pull-request-files-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1147,12 +1163,14 @@ abstract class Base extends TestCase
             $filenames = array_column($result, 'filename');
             $this->assertContains('feature.txt', $filenames);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetPullRequestWithInvalidNumber(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestLookup, 'looking up pull requests');
+
         $repositoryName = 'test-get-pull-request-invalid-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1160,12 +1178,14 @@ abstract class Base extends TestCase
             $this->expectException(Exception::class);
             $this->vcsAdapter->getPullRequest(static::$owner, $repositoryName, 99999);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetPullRequestFromBranch(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
+
         $repositoryName = 'test-get-pr-from-branch-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1189,12 +1209,14 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('head', $result);
             $this->assertSame('my-feature', $result['head']['ref']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetPullRequestFromBranchNoPR(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestLookup, 'looking up pull requests');
+
         $repositoryName = 'test-get-pr-no-pr-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1208,12 +1230,14 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertEmpty($result);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testCreateComment(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
+
         $repositoryName = 'test-create-comment-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1238,12 +1262,14 @@ abstract class Base extends TestCase
             $this->assertNotEmpty($commentId);
             $this->assertIsString($commentId);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetComment(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
+
         $repositoryName = 'test-get-comment-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1268,12 +1294,14 @@ abstract class Base extends TestCase
             $this->assertIsString($result);
             $this->assertSame('Test comment', $result);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testUpdateComment(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
+
         $repositoryName = 'test-update-comment-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1300,7 +1328,7 @@ abstract class Base extends TestCase
             $finalComment = $this->vcsAdapter->getComment(static::$owner, $repositoryName, $commentId);
             $this->assertSame('Updated comment', $finalComment);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1314,7 +1342,7 @@ abstract class Base extends TestCase
             $this->expectException(Exception::class);
             $this->vcsAdapter->createComment(static::$owner, $repositoryName, 99999, 'Test comment');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1329,12 +1357,14 @@ abstract class Base extends TestCase
             $this->assertIsString($result);
             $this->assertSame('', $result);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetUser(): void
     {
+        $this->skipUnlessSupported(static::$supportsUserLookup, 'looking up users');
+
         $result = $this->vcsAdapter->getUser(static::$existingUser);
 
         $this->assertIsArray($result);
@@ -1347,6 +1377,8 @@ abstract class Base extends TestCase
 
     public function testGetUserWithInvalidUsername(): void
     {
+        $this->skipUnlessSupported(static::$supportsUserLookup, 'looking up users');
+
         $this->expectException(Exception::class);
         $this->vcsAdapter->getUser('non-existent-user-' . \uniqid());
     }
@@ -1361,7 +1393,7 @@ abstract class Base extends TestCase
             $this->expectException(Exception::class);
             $this->vcsAdapter->getCommit(static::$owner, $repositoryName, 'invalid-sha-12345');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1426,7 +1458,7 @@ abstract class Base extends TestCase
             // Without a ref the provider falls back to the default branch
             $this->assertStringStartsWith('http', $this->vcsAdapter->getRepositoryPresignedUrl(static::$owner, $repositoryName));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1459,18 +1491,22 @@ abstract class Base extends TestCase
             $this->assertIsArray($repository);
             $this->assertSame($repositoryName, $repository['name']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetOwnerNameWithInvalidRepositoryId(): void
     {
+        $this->skipUnlessSupported(static::$resolvesOwnerFromRepositoryId, 'resolving an owner from a repository id');
+
         $this->expectException(static::$repositoryNotFoundException);
         $this->vcsAdapter->getOwnerName('', 999999999);
     }
 
     public function testWebhookPushEvent(): void
     {
+        $this->skipUnlessSupported(static::$supportsWebhookDelivery, 'webhook delivery to the test catcher');
+
         $repositoryName = 'test-webhook-push-' . \uniqid();
         $secret = 'test-webhook-secret-' . \uniqid();
         $catcherUrl = System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000');
@@ -1498,12 +1534,14 @@ abstract class Base extends TestCase
             $this->assertSame($this->ownerPath(), $event['owner']);
             $this->assertNotEmpty($event['commitHash']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testWebhookPullRequestEvent(): void
     {
+        $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
+
         $repositoryName = 'test-webhook-pr-' . \uniqid();
         $secret = 'test-webhook-secret-' . \uniqid();
         $catcherUrl = System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000');
@@ -1546,7 +1584,7 @@ abstract class Base extends TestCase
             $this->assertContains($event['action'], static::$pullRequestOpenedActions);
             $this->assertGreaterThan(0, $event['pullRequestNumber']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1566,12 +1604,14 @@ abstract class Base extends TestCase
                 $this->assertContains('README.md', $tree);
             });
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testCreateTag(): void
     {
+        $this->skipUnlessSupported(static::$supportsTags, 'creating tags');
+
         $repositoryName = 'test-create-tag-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1590,7 +1630,7 @@ abstract class Base extends TestCase
                 $this->assertContains('v1.0.0', $this->vcsAdapter->listTags(static::$owner, $repositoryName));
             });
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1613,13 +1653,9 @@ abstract class Base extends TestCase
             $this->assertCount(1, $page1['items']);
             $this->assertCount(1, $this->vcsAdapter->searchRepositories(static::$owner, 2, 1, $prefix)['items']);
             $this->assertEmpty($this->vcsAdapter->searchRepositories(static::$owner, 20, 1, $prefix)['items']);
-        } catch (\Throwable $e) {
+        } finally {
             $this->discardRepositories($repo1, $repo2);
-
-            throw $e;
         }
-
-        $this->deleteRepositories($repo1, $repo2);
     }
 
     public function testListTagsCommitlessRepository(): void
@@ -1632,12 +1668,14 @@ abstract class Base extends TestCase
             // a repository that simply has no tags
             $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetCommitStatuses(): void
     {
+        $this->skipUnlessSupported(static::$supportsCommitStatusLookup, 'reading commit statuses');
+
         $repositoryName = 'test-get-commit-statuses-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1659,12 +1697,14 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('context', $status);
             }
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testGetCommitStatusesEmptyForNewCommit(): void
     {
+        $this->skipUnlessSupported(static::$supportsCommitStatusLookup, 'reading commit statuses');
+
         $repositoryName = 'test-get-commit-statuses-empty-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1674,7 +1714,7 @@ abstract class Base extends TestCase
 
             $this->assertSame([], $this->vcsAdapter->getCommitStatuses(static::$owner, $repositoryName, $commitHash));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1715,7 +1755,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertNotEmpty($result);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1748,7 +1788,7 @@ abstract class Base extends TestCase
             );
             $this->assertSame('# Feature', $content['content']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1773,7 +1813,7 @@ abstract class Base extends TestCase
             $this->assertContains('file1.php', $names);
             $this->assertContains('file2.php', $names);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -1787,6 +1827,8 @@ abstract class Base extends TestCase
 
     public function testUpdateCommitStatusWithInvalidCommit(): void
     {
+        $this->skipUnlessSupported(static::$supportsCommitStatuses, 'commit statuses');
+
         $repositoryName = 'test-update-status-invalid-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1799,12 +1841,14 @@ abstract class Base extends TestCase
                 'success'
             );
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
     public function testUpdateCommitStatusWithNonExistingRepository(): void
     {
+        $this->skipUnlessSupported(static::$supportsCommitStatuses, 'commit statuses');
+
         $this->expectException(Exception::class);
         $this->vcsAdapter->updateCommitStatus(
             'nonexistent-repo-' . \uniqid(),

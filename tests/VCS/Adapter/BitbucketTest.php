@@ -199,15 +199,6 @@ class BitbucketTest extends Base
     }
 
     /**
-     * Bitbucket reads the owner off the account its token belongs to, so no
-     * repository - not even one that does not exist - changes the answer.
-     */
-    public function testGetOwnerNameIgnoresRepositoryId(): void
-    {
-        $this->assertSame($this->ownerPath(), $this->vcsAdapter->getOwnerName('', 999999999));
-    }
-
-    /**
      * Bitbucket looks accounts up by uuid, and reports the handle as `nickname`
      * for every account but the authenticated one.
      */

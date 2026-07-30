@@ -1661,7 +1661,17 @@ abstract class Base extends TestCase
 
     public function testGetOwnerNameWithInvalidRepositoryId(): void
     {
-        $this->skipUnlessSupported(static::$resolvesOwnerFromRepositoryId, 'resolving an owner from a repository id');
+        if (!static::$resolvesOwnerFromRepositoryId) {
+            // GitHub reads the owner off the installation and Bitbucket off the
+            // account its token belongs to, so an id that resolves to nothing
+            // does not change the answer
+            $this->assertSame(
+                $this->ownerPath(),
+                $this->vcsAdapter->getOwnerName(static::$installationId, 999999999)
+            );
+
+            return;
+        }
 
         $this->expectException(static::$repositoryNotFoundException);
         $this->vcsAdapter->getOwnerName('', 999999999);

@@ -482,7 +482,7 @@ class GitHub extends Git
      */
     public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array
     {
-        $url = "/repos/$owner/$repositoryName/contents/" . $path;
+        $url = "/repos/$owner/$repositoryName/contents/" . $this->normalizeRepositoryPath($path);
         if (!empty($ref)) {
             $url .= "?ref=$ref";
         }
@@ -526,6 +526,7 @@ class GitHub extends Git
      */
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
+        $path = $this->normalizeRepositoryPath($path);
         $url = "/repos/$owner/$repositoryName/contents";
         if (!empty($path)) {
             $url .= "/$path";
@@ -735,6 +736,12 @@ class GitHub extends Git
         $url = "/repos/{$owner}/{$repositoryName}/pulls/{$pullRequestNumber}";
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to get pull request: HTTP {$statusCode}", $statusCode);
+        }
 
         return $response['body'] ?? [];
     }

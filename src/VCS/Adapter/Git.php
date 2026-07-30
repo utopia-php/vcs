@@ -2,6 +2,7 @@
 
 namespace Utopia\VCS\Adapter;
 
+use Exception;
 use Utopia\VCS\Adapter;
 use Utopia\Cache\Cache;
 
@@ -97,6 +98,106 @@ abstract class Git extends Adapter
     abstract public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array;
 
     /**
+     * Get a short-lived URL to download the repository archive.
+     *
+     * Not every provider offers one, so the default reports it as unsupported
+     * rather than forcing an implementation.
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $ref Branch, tag or commit to archive
+     * @param string $format Either 'tarball' or 'zipball'
+     */
+    public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
+    {
+        throw new Exception('getRepositoryPresignedUrl() is not supported by ' . $this->getName());
+    }
+
+    /**
+     * Create a check run for a commit.
+     *
+     * Only some providers model checks separately from commit statuses, so the
+     * default reports it as unsupported.
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @param array<mixed> $actions
+     * @return array<mixed>
+     */
+    public function createCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $headSha,
+        string $name,
+        string $status = 'queued',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        throw new Exception('createCheckRun() is not supported by ' . $this->getName());
+    }
+
+    /**
+     * Get a check run by id.
+     *
+     * @return array<mixed>
+     */
+    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    {
+        throw new Exception('getCheckRun() is not supported by ' . $this->getName());
+    }
+
+    /**
+     * Update a check run.
+     *
+     * @param array<mixed> $annotations
+     * @param array<mixed> $images
+     * @param array<mixed> $actions
+     * @return array<mixed>
+     */
+    public function updateCheckRun(
+        string $owner,
+        string $repositoryName,
+        int $checkRunId,
+        string $name = '',
+        string $status = '',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        throw new Exception('updateCheckRun() is not supported by ' . $this->getName());
+    }
+
+    /**
+     * List namespaces the credentials can create repositories in.
+     *
+     * Only some providers model namespaces separately, so the default reports
+     * it as unsupported.
+     *
+     * @return array{items: array<array<string, mixed>>, total: int}
+     */
+    public function listNamespaces(int $page, int $per_page, string $search = ''): array
+    {
+        throw new Exception('listNamespaces() is not supported by ' . $this->getName());
+    }
+
+    /**
      * Get commit statuses
      *
      * Every adapter reports each status as
@@ -108,6 +209,21 @@ abstract class Git extends Adapter
      * @return array<mixed> List of commit statuses
      */
     abstract public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array;
+
+    /**
+     * Resolve the path sentinels a caller may pass - '', '.', './', 'src//' -
+     * to the plain path every provider's API expects. Providers differ on
+     * whether they do this themselves, so adapters normalize before calling.
+     */
+    protected function normalizeRepositoryPath(string $path): string
+    {
+        $segments = \array_filter(
+            \explode('/', $path),
+            fn (string $segment): bool => $segment !== '' && $segment !== '.'
+        );
+
+        return \implode('/', $segments);
+    }
 
     /**
      * Filter ref names by a shell glob pattern (e.g. 'v1.*', 'v?.0.0').

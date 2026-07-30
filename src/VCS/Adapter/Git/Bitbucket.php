@@ -171,20 +171,6 @@ class Bitbucket extends Git
     }
 
     /**
-     * Bitbucket paths are literal URL segments, so unlike GitHub it never
-     * resolves './' or '.' to the repository root on its own.
-     */
-    private function normalizeRepositoryPath(string $path): string
-    {
-        $segments = array_filter(
-            explode('/', $path),
-            fn (string $segment): bool => $segment !== '' && $segment !== '.'
-        );
-
-        return implode('/', $segments);
-    }
-
-    /**
      * Encode a repository path for use in a URL while keeping its separators.
      */
     private function encodeRepositoryPath(string $path): string
@@ -1221,8 +1207,8 @@ class Bitbucket extends Git
     public function getEvents(string $event, string $payload): array
     {
         $payloadArray = json_decode($payload, true);
-        if ($payloadArray === null || !is_array($payloadArray)) {
-            return [];
+        if (!is_array($payloadArray)) {
+            throw new Exception("Invalid payload.");
         }
 
         $repository = is_array($payloadArray['repository'] ?? null) ? $payloadArray['repository'] : [];

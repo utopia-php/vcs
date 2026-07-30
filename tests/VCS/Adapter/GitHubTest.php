@@ -7,12 +7,10 @@ use Utopia\Cache\Cache;
 use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git\GitHub;
-use Utopia\VCS\Exception\FileNotFound;
 
 class GitHubTest extends Base
 {
     protected static string $owner = '';
-    protected static string $installationId = '';
     protected static string $defaultBranch = 'main';
     /** @var array<string> */
     protected static array $supportedWebhookScopes = [GitHub::WEBHOOK_SCOPE_INSTALLATION, GitHub::WEBHOOK_SCOPE_REPOSITORY];
@@ -25,7 +23,7 @@ class GitHubTest extends Base
     protected static bool $supportsCommitStatusLookup = false;
     protected static bool $supportsTags = false;
     protected static bool $supportsUserLookup = false;
-    protected static bool $supportsRepositoryLanguages = false;
+    protected static bool $computesLanguagesAsynchronously = true;
     protected static bool $supportsWebhookDelivery = false;
     protected static bool $resolvesOwnerFromRepositoryId = false;
     protected static bool $rejectsInvalidRepositoryNames = false;
@@ -179,38 +177,7 @@ class GitHubTest extends Base
     }
 
 
-    public function testGetRepositoryContentSha(): void
-    {
-        $repositoryName = 'test-get-repository-content-sha-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            $result = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'README.md');
-
-            // GitHub reports the git blob SHA, so it has to match what git would compute
-            $expectedSha = \hash('sha1', 'blob ' . $result['size'] . "\0" . $result['content']);
-            $this->assertSame($expectedSha, $result['sha']);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testGetRepositoryContentCaseSensitive(): void
-    {
-        $repositoryName = 'test-get-repository-content-case-' . \uniqid();
-
-        try {
-            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            $this->expectException(FileNotFound::class);
-            $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'readme.md');
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testListBranchesPagination(): void
     {
@@ -266,14 +233,6 @@ class GitHubTest extends Base
 
 
 
-    public function testGetOwnerName(): void
-    {
-        $result = $this->vcsAdapter->getOwnerName(static::$installationId);
-
-        $this->assertIsString($result);
-        $this->assertNotEmpty($result);
-        $this->assertSame(static::$owner, $result);
-    }
 
 
 
@@ -298,35 +257,6 @@ class GitHubTest extends Base
 
 
 
-    public function testListRepositoryLanguages(): void
-    {
-        $repositoryName = 'test-list-repository-languages-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'main.php', '<?php echo "test";');
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'script.js', 'console.log("test");');
-
-            // Unlike the self-hosted providers, GitHub computes language stats out of
-            // band with no guaranteed turnaround, and reports none at all until that
-            // finishes. Waiting it out is the best we can do; a repository that still
-            // has no stats says nothing about the adapter, so report that as
-            // inconclusive instead of failing the suite.
-            $languages = [];
-            try {
-                $this->assertEventually(function () use (&$languages, $repositoryName) {
-                    $languages = $this->vcsAdapter->listRepositoryLanguages(static::$owner, $repositoryName);
-                    $this->assertNotEmpty($languages);
-                }, 60000, 5000);
-            } catch (\Throwable $e) {
-                $this->markTestSkipped('GitHub has not computed language stats for the new repository yet');
-            }
-
-            $this->assertContains('PHP', $languages);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
 
 

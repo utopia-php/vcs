@@ -22,6 +22,12 @@ abstract class Base extends TestCase
     protected static string $existingUser = 'root';
 
     /**
+     * Installation the credentials belong to, for providers that resolve an
+     * owner from it rather than from a repository.
+     */
+    protected static string $installationId = '';
+
+    /**
      * Field the provider reports a user's handle under.
      */
     protected static string $userHandleField = 'username';
@@ -104,6 +110,13 @@ abstract class Base extends TestCase
     protected static bool $supportsCheckRuns = false;
 
     protected static bool $supportsNamespaceListing = false;
+
+    /**
+     * Whether the provider computes language stats out of band. GitHub does,
+     * with no guaranteed turnaround, so a repository that still has none says
+     * nothing about the adapter.
+     */
+    protected static bool $computesLanguagesAsynchronously = false;
 
     /**
      * Whether the provider links the commit author back to an account. GitLab
@@ -630,10 +643,18 @@ abstract class Base extends TestCase
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'script.js', 'console.log("test");');
 
             $languages = [];
-            $this->assertEventually(function () use (&$languages, $repositoryName) {
-                $languages = $this->vcsAdapter->listRepositoryLanguages(static::$owner, $repositoryName);
-                $this->assertNotEmpty($languages);
-            }, 30000, 2000);
+            try {
+                $this->assertEventually(function () use (&$languages, $repositoryName) {
+                    $languages = $this->vcsAdapter->listRepositoryLanguages(static::$owner, $repositoryName);
+                    $this->assertNotEmpty($languages);
+                }, static::$computesLanguagesAsynchronously ? 60000 : 30000, static::$computesLanguagesAsynchronously ? 5000 : 2000);
+            } catch (\Throwable $e) {
+                if (!static::$computesLanguagesAsynchronously) {
+                    throw $e;
+                }
+
+                $this->markTestSkipped('The provider has not computed language stats for the new repository yet');
+            }
 
             $this->assertIsArray($languages);
             $this->assertContains('PHP', $languages);
@@ -1020,7 +1041,9 @@ abstract class Base extends TestCase
             $this->assertIsNumeric($created['id']);
             $repositoryId = (int) $created['id'];
 
-            $this->assertSame($this->ownerPath(), $this->vcsAdapter->getOwnerName('', $repositoryId));
+            // GitHub resolves the owner from the installation, the others from the
+            // repository, so pass both and let each use what it reads
+            $this->assertSame($this->ownerPath(), $this->vcsAdapter->getOwnerName(static::$installationId, $repositoryId));
         } finally {
             $this->discardRepositories($repositoryName);
         }
@@ -2139,6 +2162,39 @@ abstract class Base extends TestCase
             $this->assertEquals(array_column($clean, 'name'), array_column($doubleSlash, 'name'));
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+
+    public function testGetRepositoryContentIsCaseSensitive(): void
+    {
+        $repositoryName = 'test-get-repository-content-case-' . \uniqid();
+
+        try {
+            $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $this->expectException(FileNotFound::class);
+            $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'readme.md');
+        } finally {
+            $this->discardRepositories($repositoryName);
+        }
+    }
+
+    public function testGetRepositoryContentReportsBlobSha(): void
+    {
+        $repositoryName = 'test-get-repository-content-sha-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+
+            $result = $this->vcsAdapter->getRepositoryContent(static::$owner, $repositoryName, 'README.md');
+
+            // Every provider here is git backed, so the sha is the blob hash
+            $expected = \hash('sha1', 'blob ' . $result['size'] . "\0" . $result['content']);
+            $this->assertSame($expected, $result['sha']);
+        } finally {
+            $this->discardRepositories($repositoryName);
         }
     }
 

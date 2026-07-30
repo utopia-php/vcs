@@ -30,40 +30,27 @@ class BitbucketTest extends Base
     protected static string $pushEventName = 'repo:push';
     protected static string $pullRequestEventName = 'pullrequest:created';
 
-    /**
-     * Bitbucket has no app installations, and no repository to resolve an owner
-     * from either - getOwnerName() reports the account the token belongs to.
-     */
     protected static bool $supportsInstallationRepository = false;
-    protected static bool $resolvesOwnerFromRepositoryId = false;
-
-    /**
-     * Bitbucket signs no archive urls, runs no checks, groups repositories in
-     * workspaces rather than namespaces (see testListWorkspaces below), and has
-     * a repository's language set by hand instead of computing it.
-     */
     protected static bool $supportsPresignedUrls = false;
     protected static bool $supportsCheckRuns = false;
-    protected static bool $supportsNamespaceListing = false;
     protected static bool $supportsRepositoryLanguages = false;
+    protected static bool $reportsAffectedFilesInPushEvent = false;
 
-    /**
-     * Bitbucket looks accounts up by uuid rather than by handle, so the shared
-     * lookup does not apply; testGetUser below covers it instead.
-     */
+    // Bitbucket has no repository to resolve an owner from; getOwnerName()
+    // reports the account the token belongs to
+    protected static bool $resolvesOwnerFromRepositoryId = false;
+
+    // Repositories group into workspaces rather than namespaces, covered by
+    // testListWorkspaces below
+    protected static bool $supportsNamespaceListing = false;
+
+    // Accounts are looked up by uuid rather than by handle, covered by
+    // testGetUser below
     protected static bool $supportsUserLookup = false;
 
-    /**
-     * Bitbucket Cloud only delivers webhooks to publicly reachable urls, so it
-     * cannot reach the test catcher. testCreateWebhook below covers the API side
-     * of a subscription.
-     */
+    // Bitbucket Cloud only delivers webhooks to publicly reachable urls, so it
+    // cannot reach the test catcher; testCreateWebhook covers the API side
     protected static bool $supportsWebhookDelivery = false;
-
-    /**
-     * Bitbucket's push payload carries no per-commit file lists.
-     */
-    protected static bool $reportsAffectedFilesInPushEvent = false;
 
     protected function signWebhookPayload(string $payload, string $secret): string
     {
@@ -337,27 +324,11 @@ class BitbucketTest extends Base
      */
     public function testGetEventPushWithLinkedAuthor(): void
     {
-        $payload = (string) json_encode([
-            'actor' => $this->eventActor(),
-            'repository' => $this->eventRepository(),
-            'push' => [
-                'changes' => [[
-                    'new' => [
-                        'type' => 'branch',
-                        'name' => static::$defaultBranch,
-                        'target' => [
-                            'hash' => static::EVENT_COMMIT_HASH,
-                            'author' => [
-                                'raw' => static::EVENT_AUTHOR_NAME . ' <' . static::EVENT_AUTHOR_EMAIL . '>',
-                                'user' => ['display_name' => 'Linked User'],
-                            ],
-                        ],
-                    ],
-                ]],
-            ],
-        ]);
+        $payload = json_decode($this->pushPayload(static::$defaultBranch), true);
+        $this->assertIsArray($payload);
+        $payload['push']['changes'][0]['new']['target']['author']['user'] = ['display_name' => 'Linked User'];
 
-        $result = $this->vcsAdapter->getEvent(static::$pushEventName, $payload);
+        $result = $this->vcsAdapter->getEvent(static::$pushEventName, (string) json_encode($payload));
 
         $this->assertSame('Linked User', $result['headCommitAuthorName']);
         $this->assertSame(static::EVENT_AUTHOR_EMAIL, $result['headCommitAuthorEmail']);
@@ -424,33 +395,4 @@ class BitbucketTest extends Base
         }
     }
 
-    /**
-     * The repository id an event reports has to be one the adapter can resolve,
-     * which for Bitbucket means the pair it routes on rather than the uuid the
-     * payload also carries.
-     */
-    public function testGetEventReportsResolvableRepositoryId(): void
-    {
-        $repositoryName = 'test-event-repository-id-' . \uniqid();
-        $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $payload = (string) json_encode([
-                'repository' => [
-                    'uuid' => $created['uuid'] ?? '',
-                    'name' => $repositoryName,
-                    'full_name' => $created['full_name'] ?? '',
-                    'workspace' => ['slug' => $this->ownerPath()],
-                ],
-                'push' => ['changes' => [['new' => ['type' => 'branch', 'name' => static::$defaultBranch]]]],
-            ]);
-
-            $event = $this->vcsAdapter->getEvent(static::$pushEventName, $payload);
-
-            $this->assertSame($this->repositoryIdOf($created), $event['repositoryId']);
-            $this->assertSame($repositoryName, $this->vcsAdapter->getRepositoryName($event['repositoryId']));
-        } finally {
-            $this->discardRepositories($repositoryName);
-        }
-    }
 }

@@ -25,8 +25,11 @@ class GitLabTest extends Base
     protected static string $presignedTarballFragment = '/repository/archive.tar.gz?access_token=';
     protected static string $presignedZipballFragment = '/repository/archive.zip?access_token=';
     protected static string $repositoryNotFoundException = \Exception::class;
-    protected static bool $supportsNamespaceListing = true;
     protected static bool $deletesRepositoriesSynchronously = false;
+    protected static bool $supportsCheckRuns = false;
+    protected static bool $supportsInstallationRepository = false;
+    protected static bool $reportsCommitAuthorAvatar = false;
+    protected static bool $reportsCommitAuthorUrl = false;
 
     protected function signWebhookPayload(string $payload, string $secret): string
     {

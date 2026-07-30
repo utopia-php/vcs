@@ -92,7 +92,7 @@ abstract class Base extends TestCase
      */
     protected static bool $hasAccessToAllRepositories = true;
 
-    protected static bool $supportsInstallationRepository = false;
+    protected static bool $supportsInstallationRepository = true;
 
     /**
      * Exception the provider raises for a repository id that does not exist.
@@ -125,9 +125,9 @@ abstract class Base extends TestCase
 
     protected static bool $rejectsInvalidRepositoryNames = true;
 
-    protected static bool $supportsCheckRuns = false;
+    protected static bool $supportsCheckRuns = true;
 
-    protected static bool $supportsNamespaceListing = false;
+    protected static bool $supportsNamespaceListing = true;
 
     /**
      * Whether the provider computes language stats out of band. GitHub does,
@@ -157,9 +157,9 @@ abstract class Base extends TestCase
      * Whether the provider links the commit author back to an account. GitLab
      * reports neither, Gitea an avatar but no profile url.
      */
-    protected static bool $reportsCommitAuthorAvatar = false;
+    protected static bool $reportsCommitAuthorAvatar = true;
 
-    protected static bool $reportsCommitAuthorUrl = false;
+    protected static bool $reportsCommitAuthorUrl = true;
 
     /**
      * Headers the provider sends its webhook event type and signature under.

@@ -15,12 +15,9 @@ class GitHubTest extends Base
     /** @var array<string> */
     protected static array $supportedWebhookScopes = [GitHub::WEBHOOK_SCOPE_INSTALLATION, GitHub::WEBHOOK_SCOPE_REPOSITORY];
 
-    protected static bool $supportsInstallationRepository = true;
-    protected static bool $supportsCheckRuns = true;
-    protected static bool $reportsCommitAuthorAvatar = true;
     protected static string $avatarDomain = 'githubusercontent.com';
-    protected static bool $reportsCommitAuthorUrl = true;
     protected static bool $supportsPullRequestCreation = false;
+    protected static bool $supportsNamespaceListing = false;
     protected static bool $supportsCommitStatusLookup = false;
     protected static bool $supportsTags = false;
     protected static bool $supportsUserLookup = false;

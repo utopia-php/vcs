@@ -29,7 +29,10 @@ class GiteaTest extends Base
         return hash_hmac('sha256', $payload, $secret);
     }
     protected static string $avatarDomain = 'gravatar.com';
-    protected static bool $reportsCommitAuthorAvatar = true;
+    protected static bool $supportsCheckRuns = false;
+    protected static bool $supportsNamespaceListing = false;
+    protected static bool $supportsInstallationRepository = false;
+    protected static bool $reportsCommitAuthorUrl = false;
 
     protected function setupAdapter(): void
     {

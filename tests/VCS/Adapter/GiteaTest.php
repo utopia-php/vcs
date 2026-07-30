@@ -409,8 +409,7 @@ class GiteaTest extends Base
         try {
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $commit = $this->vcsAdapter->getLatestCommit(static::$owner, $repositoryName, static::$defaultBranch);
-            $commitHash = $commit['commitHash'];
+            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
 
             $result = $this->vcsAdapter->createTag(
                 static::$owner,

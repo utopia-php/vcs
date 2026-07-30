@@ -353,18 +353,36 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Remove repositories a test created. Cleanup is best effort on purpose: a
-     * provider hiccup while tearing down should not fail an otherwise passing
-     * test, or replace the reason a failing one failed. Deleting is asserted by
-     * the delete tests instead.
+     * Remove repositories a test created.
+     *
+     * Cleanup never decides whether a test passed: a provider hiccup here would
+     * otherwise fail an passing test or replace the reason a failing one failed,
+     * and a GitLab 500 during teardown did exactly that. Deleting is asserted by
+     * the delete tests. A repository that was never created is nothing to report,
+     * but anything else is written to the log so a leak stays visible.
      */
     protected function discardRepositories(string ...$repositoryNames): void
     {
         foreach ($repositoryNames as $repositoryName) {
             try {
                 $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-            } catch (\Throwable) {
+            } catch (RepositoryNotFound) {
                 continue;
+            } catch (\Throwable $e) {
+                // Adapters carry the HTTP status as the exception code
+                if ($e->getCode() === 404) {
+                    continue;
+                }
+
+                \fwrite(
+                    STDERR,
+                    \sprintf(
+                        "\nCleanup could not delete %s/%s and may have left it behind: %s\n",
+                        static::$owner,
+                        $repositoryName,
+                        $e->getMessage()
+                    )
+                );
             }
         }
     }

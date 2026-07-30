@@ -2,6 +2,7 @@
 
 namespace Utopia\VCS\Adapter;
 
+use Exception;
 use Utopia\VCS\Adapter;
 use Utopia\Cache\Cache;
 
@@ -95,6 +96,22 @@ abstract class Git extends Adapter
      * @return array<mixed> Created tag details
      */
     abstract public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array;
+
+    /**
+     * Get a short-lived URL to download the repository archive.
+     *
+     * Not every provider offers one, so the default reports it as unsupported
+     * rather than forcing an implementation.
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param string $ref Branch, tag or commit to archive
+     * @param string $format Either 'tarball' or 'zipball'
+     */
+    public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
+    {
+        throw new Exception('getRepositoryPresignedUrl() is not supported by ' . $this->getName());
+    }
 
     /**
      * Get commit statuses

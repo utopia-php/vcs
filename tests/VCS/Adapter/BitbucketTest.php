@@ -302,12 +302,6 @@ class BitbucketTest extends Base
         }
     }
 
-    public function testGetRepositoryPresignedUrlIsUnsupported(): void
-    {
-        $this->expectException(\Exception::class);
-        $this->vcsAdapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch);
-    }
-
     /**
      * Bitbucket identifies a webhook by uuid rather than by a numeric id.
      */

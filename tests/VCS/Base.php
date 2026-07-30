@@ -1596,7 +1596,12 @@ abstract class Base extends TestCase
 
     public function testGetRepositoryPresignedUrl(): void
     {
-        $this->skipUnlessSupported(static::$supportsPresignedUrls, 'presigned archive urls');
+        if (!static::$supportsPresignedUrls) {
+            $this->expectException(Exception::class);
+            $this->vcsAdapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch);
+
+            return;
+        }
 
         $repositoryName = 'test-presigned-url-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);

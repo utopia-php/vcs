@@ -198,15 +198,23 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Remove a repository during cleanup, tolerating one that was never created.
-     * Deleting is asserted on its own in the delete tests.
+     * Remove a repository during cleanup. One that was never created is not a
+     * failure, but anything else - auth, transport, a provider fault - has to
+     * surface rather than quietly leave the repository behind.
      */
     protected function deleteRepositoryIfExists(string $repositoryName): void
     {
         try {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        } catch (\Throwable) {
-            // nothing to clean up
+        } catch (RepositoryNotFound) {
+            return;
+        } catch (Exception $e) {
+            // Adapters carry the HTTP status as the exception code
+            if ($e->getCode() === 404) {
+                return;
+            }
+
+            throw $e;
         }
     }
 

@@ -80,9 +80,11 @@ abstract class Git extends Adapter
      * @param string $url Webhook URL to send events to
      * @param string $secret Webhook secret for signature validation
      * @param array<string> $events Events to trigger the webhook
-     * @return int Webhook ID
+     * @return int|string Webhook ID, as the provider identifies it: an int on
+     *                    the providers that number their hooks, a string where
+     *                    they don't (Bitbucket identifies them by UUID)
      */
-    abstract public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): int;
+    abstract public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): int|string;
 
 
     /**

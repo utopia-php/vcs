@@ -980,24 +980,15 @@ class Bitbucket extends Git
     }
 
     /**
-     * Bitbucket identifies webhooks by UUID, which an int return can't carry.
-     * Rather than leave a live hook behind under an id the caller can never
-     * address it by, this creates nothing: use createRepositoryWebhook(), which
-     * returns the UUID that deleteWebhook() takes.
-     */
-    public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): int
-    {
-        throw new Exception('createWebhook() is not supported for ' . $this->getName() . '; its webhooks are identified by UUID -- use createRepositoryWebhook() instead');
-    }
-
-    /**
-     * Create a webhook on a repository and return Bitbucket's UUID for it.
+     * Create a webhook on a repository. Bitbucket identifies hooks by UUID
+     * rather than by number, so this returns the UUID that deleteWebhook()
+     * takes.
      *
      * @param array<string> $events Event names, either this library's ('push',
      *                              'pull_request') or Bitbucket's own keys
      *                              (e.g. 'repo:push')
      */
-    public function createRepositoryWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): string
+    public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): string
     {
         $apiUrl = "/repositories/{$owner}/{$repositoryName}/hooks";
 

@@ -249,7 +249,7 @@ class BitbucketTest extends Base
             /** @var Bitbucket $adapter */
             $adapter = $this->vcsAdapter;
 
-            $uuid = $adapter->createRepositoryWebhook(
+            $uuid = $adapter->createWebhook(
                 static::$owner,
                 $repositoryName,
                 'https://example.com/webhook',
@@ -456,16 +456,6 @@ class BitbucketTest extends Base
         }
 
         $this->assertSame([], $this->vcsAdapter->getEvent('repo:push', $payload));
-    }
-
-    /**
-     * The interface's int return can't carry Bitbucket's UUID, so no hook is
-     * created through it at all.
-     */
-    public function testCreateWebhookThroughSharedInterfaceIsRefused(): void
-    {
-        $this->expectException(\Exception::class);
-        $this->vcsAdapter->createWebhook(static::$owner, 'some-repo', 'https://example.com/webhook', 'secret');
     }
 
     public function testGetEventPullRequest(): void

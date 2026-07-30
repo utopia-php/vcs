@@ -1182,6 +1182,34 @@ class Bitbucket extends Git
         return (string) ($user['username'] ?? ($user['nickname'] ?? ''));
     }
 
+    /**
+     * @link https://support.atlassian.com/bitbucket-cloud/kb/how-to-download-repositories-using-the-api/
+     *
+     * Unlike GitHub/GitLab, this archive download lives on the browser host
+     * (bitbucket.org/{owner}/{repo}/get/{ref}.{ext}), not the API host, and
+     * only supports zip/gz/bz2 -- there's no distinct "tarball" extension.
+     * Auth is embedded the same way generateCloneCommand() embeds it for git
+     * clones, since this URL is handed off for a plain download rather than
+     * called with a bearer header.
+     */
+    public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
+    {
+        $extension = match ($format) {
+            'tarball' => 'gz',
+            'zipball' => 'zip',
+            default => throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'."),
+        };
+
+        $baseUrl = $this->bitbucketUrl;
+        if (!empty($this->accessToken)) {
+            $baseUrl = str_replace('://', '://x-token-auth:' . urlencode($this->accessToken) . '@', $this->bitbucketUrl);
+        }
+
+        $refSegment = !empty($ref) ? $ref : 'HEAD';
+
+        return "{$baseUrl}/{$owner}/{$repositoryName}/get/" . rawurlencode($refSegment) . ".{$extension}";
+    }
+
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
     {
         if (empty($rootDirectory) || $rootDirectory === '/') {

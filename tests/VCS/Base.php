@@ -32,10 +32,12 @@ abstract class Base extends TestCase
     protected static string $openPullRequestState = 'open';
 
     /**
-     * Whether the provider reports a pushed_at timestamp for a repository
-     * that has no commits yet. GitHub reports null until the first push.
+     * Scopes the provider accepts webhooks at. Only GitHub registers them
+     * once per installation as well as per repository.
+     *
+     * @var array<string>
      */
-    protected static bool $reportsPushedAtOnEmptyRepository = true;
+    protected static array $supportedWebhookScopes = [Git::WEBHOOK_SCOPE_REPOSITORY];
 
     /**
      * Headers the provider sends its webhook event type and signature under.
@@ -152,20 +154,14 @@ abstract class Base extends TestCase
     }
 
     /**
-     * A repository with no commits reports pushed_at differently per provider.
+     * Every provider reports pushed_at as a timestamp, including for a
+     * repository that has no commits yet.
      *
      * @param array<string, mixed> $repository
      */
-    protected function assertPushedAtOnEmptyRepository(array $repository): void
+    protected function assertPushedAt(array $repository): void
     {
         $this->assertArrayHasKey('pushed_at', $repository);
-
-        if (!static::$reportsPushedAtOnEmptyRepository) {
-            $this->assertNull($repository['pushed_at']);
-
-            return;
-        }
-
         $this->assertNotFalse(
             \strtotime((string) $repository['pushed_at']),
             'pushed_at is not a parseable timestamp'
@@ -201,6 +197,19 @@ abstract class Base extends TestCase
         return $commit;
     }
 
+    /**
+     * Remove a repository during cleanup, tolerating one that was never created.
+     * Deleting is asserted on its own in the delete tests.
+     */
+    protected function deleteRepositoryIfExists(string $repositoryName): void
+    {
+        try {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        } catch (\Throwable) {
+            // nothing to clean up
+        }
+    }
+
     protected function deleteLastWebhookRequest(): void
     {
         $catcherUrl = System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000');
@@ -220,9 +229,7 @@ abstract class Base extends TestCase
 
     public function testGetSupportedWebhookScopes(): void
     {
-        $scopes = $this->vcsAdapter->getSupportedWebhookScopes();
-        $this->assertIsArray($scopes);
-        $this->assertNotEmpty($scopes);
+        $this->assertSame(static::$supportedWebhookScopes, $this->vcsAdapter->getSupportedWebhookScopes());
     }
 
     public function testCreateRepository(): void
@@ -235,7 +242,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($result);
             $this->assertArrayHasKey('name', $result);
             $this->assertSame($repositoryName, $result['name']);
-            $this->assertPushedAtOnEmptyRepository($result);
+            $this->assertPushedAt($result);
 
             $this->assertFalse($this->isPrivate($result), 'createRepository() reported the new repository as private');
             $this->assertSame($this->ownerPath(), $this->ownerOf($result));
@@ -277,7 +284,7 @@ abstract class Base extends TestCase
 
             $this->assertIsArray($result);
             $this->assertSame($repositoryName, $result['name']);
-            $this->assertPushedAtOnEmptyRepository($result);
+            $this->assertPushedAt($result);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -660,7 +667,7 @@ abstract class Base extends TestCase
             $this->assertArrayHasKey('commitAuthorUrl', $result);
             $this->assertSame($commitHash, $result['commitHash']);
             $this->assertStringStartsWith($customMessage, $result['commitMessage']);
-            $this->assertNotEmpty($result['commitUrl']);
+            $this->assertStringContainsString($repositoryName, $result['commitUrl']);
             $this->assertNotEmpty($result['commitAuthor']);
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -684,7 +691,7 @@ abstract class Base extends TestCase
             $this->assertIsArray($commit1);
             $this->assertNotEmpty($commit1['commitHash']);
             $this->assertStringStartsWith($firstMessage, $commit1['commitMessage']);
-            $this->assertNotEmpty($commit1['commitUrl']);
+            $this->assertStringContainsString($repositoryName, $commit1['commitUrl']);
             $this->assertNotEmpty($commit1['commitAuthor']);
 
             $commit1Hash = $commit1['commitHash'];
@@ -747,7 +754,8 @@ abstract class Base extends TestCase
 
             $written = null;
             foreach ($statuses as $status) {
-                if (($status['context'] ?? '') === 'ci/build') {
+                $this->assertArrayHasKey('context', $status);
+                if ($status['context'] === 'ci/build') {
                     $written = $status;
                     break;
                 }
@@ -853,8 +861,10 @@ abstract class Base extends TestCase
             $output = [];
             \exec($command . ' 2>&1', $output, $exitCode);
 
-            $cloneFailed = ($exitCode !== 0) || !file_exists($directory . '/README.md');
-            $this->assertTrue($cloneFailed, 'Clone should have failed for nonexistent repository');
+            // The command sets up a local repository first, so a missing remote
+            // does not have to fail it outright - what matters is that nothing
+            // from the repository was checked out.
+            $this->assertFileDoesNotExist($directory . '/README.md');
         } finally {
             if (\is_dir($directory)) {
                 \exec('rm -rf ' . escapeshellarg($directory));
@@ -938,10 +948,10 @@ abstract class Base extends TestCase
         $match = 'test-search-match-' . \uniqid();
         $other = 'test-search-other-' . \uniqid();
 
-        $this->vcsAdapter->createRepository(static::$owner, $match, false);
-        $this->vcsAdapter->createRepository(static::$owner, $other, false);
-
         try {
+            $this->vcsAdapter->createRepository(static::$owner, $match, false);
+            $this->vcsAdapter->createRepository(static::$owner, $other, false);
+
             $names = [];
             $this->assertEventually(function () use (&$names, $match) {
                 $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10, $match);
@@ -951,8 +961,8 @@ abstract class Base extends TestCase
 
             $this->assertNotContains($other, $names);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $match);
-            $this->vcsAdapter->deleteRepository(static::$owner, $other);
+            $this->deleteRepositoryIfExists($match);
+            $this->deleteRepositoryIfExists($other);
         }
     }
 
@@ -961,10 +971,10 @@ abstract class Base extends TestCase
         $repo1Name = 'test-search-repo1-' . \uniqid();
         $repo2Name = 'test-search-repo2-' . \uniqid();
 
-        $this->vcsAdapter->createRepository(static::$owner, $repo1Name, false);
-        $this->vcsAdapter->createRepository(static::$owner, $repo2Name, false);
-
         try {
+            $this->vcsAdapter->createRepository(static::$owner, $repo1Name, false);
+            $this->vcsAdapter->createRepository(static::$owner, $repo2Name, false);
+
             $result = [];
             $this->assertEventually(function () use (&$result) {
                 $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 10);
@@ -981,11 +991,11 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('id', $repository);
                 $this->assertArrayHasKey('name', $repository);
                 $this->assertArrayHasKey('private', $repository);
-                $this->assertPushedAtOnEmptyRepository($repository);
+                $this->assertPushedAt($repository);
             }
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repo1Name);
-            $this->vcsAdapter->deleteRepository(static::$owner, $repo2Name);
+            $this->deleteRepositoryIfExists($repo1Name);
+            $this->deleteRepositoryIfExists($repo2Name);
         }
     }
 

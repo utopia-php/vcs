@@ -14,7 +14,8 @@ class GitHubTest extends Base
     protected static string $owner = '';
     protected static string $installationId = '';
     protected static string $defaultBranch = 'main';
-    protected static bool $reportsPushedAtOnEmptyRepository = false;
+    /** @var array<string> */
+    protected static array $supportedWebhookScopes = [GitHub::WEBHOOK_SCOPE_INSTALLATION, GitHub::WEBHOOK_SCOPE_REPOSITORY];
     protected static string $eventHeader = 'x-github-event';
     protected static string $signatureHeader = 'x-hub-signature-256';
 

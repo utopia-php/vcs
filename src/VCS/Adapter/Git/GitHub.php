@@ -737,6 +737,12 @@ class GitHub extends Git
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "Bearer $this->accessToken"]);
 
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to get pull request: HTTP {$statusCode}", $statusCode);
+        }
+
         return $response['body'] ?? [];
     }
 

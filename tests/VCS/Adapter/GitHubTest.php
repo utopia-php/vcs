@@ -226,6 +226,11 @@ class GitHubTest extends Base
             /** @var GitHub $adapter */
             $adapter = $this->vcsAdapter;
 
+            // Both branches have to be listable before paging through them
+            $this->assertEventually(function () use ($adapter, $repositoryName) {
+                $this->assertCount(3, $adapter->listBranches(static::$owner, $repositoryName, 100, 1));
+            });
+
             $page1 = $adapter->listBranches(static::$owner, $repositoryName, 1, 1);
             $this->assertSame(['branch-a'], $page1);
 

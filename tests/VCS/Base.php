@@ -355,34 +355,49 @@ abstract class Base extends TestCase
     /**
      * Remove repositories a test created.
      *
-     * Cleanup never decides whether a test passed: a provider hiccup here would
-     * otherwise fail an passing test or replace the reason a failing one failed,
-     * and a GitLab 500 during teardown did exactly that. Deleting is asserted by
-     * the delete tests. A repository that was never created is nothing to report,
-     * but anything else is written to the log so a leak stays visible.
+     * A repository that was never created is nothing to clean up. Anything else
+     * is retried first, because a provider hiccup during teardown once failed a
+     * test that had passed, and then reported if it still will not delete - a
+     * repository left behind contaminates later runs, so it has to be visible
+     * in the result rather than only in the log.
      */
     protected function discardRepositories(string ...$repositoryNames): void
     {
+        $failures = [];
+
         foreach ($repositoryNames as $repositoryName) {
             try {
+                $this->deleteRepositoryWithRetries($repositoryName);
+            } catch (\Throwable $e) {
+                $failures[] = "{$repositoryName}: {$e->getMessage()}";
+            }
+        }
+
+        if ($failures !== []) {
+            throw new Exception('Cleanup left repositories behind - ' . \implode(', ', $failures));
+        }
+    }
+
+    private function deleteRepositoryWithRetries(string $repositoryName, int $attempts = 3): void
+    {
+        for ($attempt = 1;; $attempt++) {
+            try {
                 $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+
+                return;
             } catch (RepositoryNotFound) {
-                continue;
+                return;
             } catch (\Throwable $e) {
                 // Adapters carry the HTTP status as the exception code
                 if ($e->getCode() === 404) {
-                    continue;
+                    return;
                 }
 
-                \fwrite(
-                    STDERR,
-                    \sprintf(
-                        "\nCleanup could not delete %s/%s and may have left it behind: %s\n",
-                        static::$owner,
-                        $repositoryName,
-                        $e->getMessage()
-                    )
-                );
+                if ($attempt >= $attempts) {
+                    throw $e;
+                }
+
+                \usleep(2000000);
             }
         }
     }

@@ -16,6 +16,20 @@ class GitLabTest extends Base
     protected static string $openPullRequestState = 'opened';
     protected static string $eventHeader = 'x-gitlab-event';
     protected static string $signatureHeader = 'x-gitlab-token';
+    protected static string $pushEventName = 'Push Hook';
+    protected static string $pullRequestEventName = 'Merge Request Hook';
+
+    /** @var array<string> */
+    protected static array $pullRequestOpenedActions = ['opened', 'synchronize'];
+
+    protected static string $presignedTarballFragment = '/repository/archive.tar.gz?access_token=';
+    protected static string $presignedZipballFragment = '/repository/archive.zip?access_token=';
+    protected static string $repositoryNotFoundException = \Exception::class;
+
+    protected function signWebhookPayload(string $payload, string $secret): string
+    {
+        return $secret;
+    }
 
     protected function setupAdapter(): void
     {
@@ -99,18 +113,6 @@ class GitLabTest extends Base
     }
 
 
-    public function testListTagsCommitlessRepository(): void
-    {
-        $repositoryName = 'test-list-tags-commitless-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            // No commits at all, which GitLab answers differently from an empty tag list
-            $this->assertSame([], $this->vcsAdapter->listTags(static::$owner, $repositoryName));
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     protected function setupGitLab(): void
     {
@@ -126,168 +128,11 @@ class GitLabTest extends Base
 
 
 
-    public function testGetCommitStatuses(): void
-    {
-        $repositoryName = 'test-get-commit-statuses-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
-
-            $this->vcsAdapter->updateCommitStatus(
-                $repositoryName,
-                $commitHash,
-                static::$owner,
-                'pending',
-                'Build started',
-                '',
-                'ci/test'
-            );
-
-            $result = $this->vcsAdapter->getCommitStatuses(static::$owner, $repositoryName, $commitHash);
-
-            $this->assertIsArray($result);
-            $this->assertNotEmpty($result);
-
-            foreach ($result as $status) {
-                $this->assertArrayHasKey('state', $status);
-                $this->assertArrayHasKey('description', $status);
-                $this->assertArrayHasKey('target_url', $status);
-                $this->assertArrayHasKey('context', $status);
-            }
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testGetCommitStatusesEmptyForNewCommit(): void
-    {
-        $repositoryName = 'test-get-commit-statuses-empty-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
-
-            $result = $this->vcsAdapter->getCommitStatuses(static::$owner, $repositoryName, $commitHash);
-
-            $this->assertIsArray($result);
-            $this->assertEmpty($result);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
 
-    public function testValidateWebhookEvent(): void
-    {
-        $secret = 'my-secret-token';
-        $payload = '{"object_kind":"push"}';
 
-        // GitLab sends the secret verbatim rather than an HMAC of the payload
-        $this->assertTrue(
-            $this->vcsAdapter->validateWebhookEvent($payload, $secret, $secret)
-        );
 
-        $hmacSignature = hash_hmac('sha256', $payload, $secret);
-        $this->assertFalse(
-            $this->vcsAdapter->validateWebhookEvent($payload, $hmacSignature, $secret)
-        );
 
-        $this->assertFalse(
-            $this->vcsAdapter->validateWebhookEvent($payload, 'wrong-token', $secret)
-        );
-    }
-
-    public function testWebhookPushEvent(): void
-    {
-        $repositoryName = 'test-webhook-push-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            // Clear previous requests
-            $this->deleteLastWebhookRequest();
-
-            // Create webhook
-            $webhookId = $this->vcsAdapter->createWebhook(
-                static::$owner,
-                $repositoryName,
-                System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000'),
-                'test-secret',
-                ['push']
-            );
-            $this->assertGreaterThan(0, $webhookId);
-
-            // Trigger push by creating a file
-            $this->vcsAdapter->createFile(
-                static::$owner,
-                $repositoryName,
-                'README.md',
-                '# Test',
-                'Initial commit'
-            );
-
-            // GitLab queues hook deliveries through Sidekiq, which can still be
-            // warming up right after the instance becomes reachable, so allow more
-            // than the default wait
-            $payload = [];
-            $this->assertEventually(function () use (&$payload) {
-                $data = $this->getLastWebhookRequest();
-                $this->assertNotEmpty($data);
-                $payload = \json_decode($data['data'] ?? '{}', true);
-                $this->assertNotEmpty($payload);
-            }, 60000, 2000);
-
-            $this->assertSame('push', $payload['object_kind'] ?? '');
-            $this->assertNotEmpty($payload['checkout_sha'] ?? '');
-
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testWebhookPullRequestEvent(): void
-    {
-        $repositoryName = 'test-webhook-mr-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            // Clear previous requests
-            $this->deleteLastWebhookRequest();
-
-            // Create webhook
-            $webhookId = $this->vcsAdapter->createWebhook(
-                static::$owner,
-                $repositoryName,
-                System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000'),
-                'test-secret',
-                ['pull_request']
-            );
-            $this->assertGreaterThan(0, $webhookId);
-
-            // Setup and create MR
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature', static::$defaultBranch);
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'feature.txt', 'feature', 'Add feature', 'feature');
-            $this->vcsAdapter->createPullRequest(static::$owner, $repositoryName, 'Test MR', 'feature', static::$defaultBranch);
-
-            // Wait for webhook delivery; same Sidekiq warm-up allowance as the push test
-            $payload = [];
-            $this->assertEventually(function () use (&$payload) {
-                $data = $this->getLastWebhookRequest();
-                $this->assertNotEmpty($data);
-                $payload = \json_decode($data['data'] ?? '{}', true);
-                $this->assertNotEmpty($payload);
-            }, 60000, 2000);
-
-            $this->assertSame('merge_request', $payload['object_kind'] ?? '');
-            $this->assertContains($payload['object_attributes']['action'] ?? '', ['open', 'update']);
-
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testGetEventPush(): void
     {
@@ -384,26 +229,6 @@ class GitLabTest extends Base
     }
 
 
-    public function testCreateWebhook(): void
-    {
-        $repositoryName = 'test-create-webhook-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $webhookId = $this->vcsAdapter->createWebhook(
-                static::$owner,
-                $repositoryName,
-                'http://example.com/webhook',
-                'secret-token',
-                ['push', 'pull_request']
-            );
-
-            $this->assertIsInt($webhookId);
-            $this->assertGreaterThan(0, $webhookId);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testGetEventPushMatchesCheckoutSha(): void
     {
@@ -532,26 +357,6 @@ class GitLabTest extends Base
         $this->assertTrue($result['external']);
     }
 
-    public function testGetRepositoryPresignedUrl(): void
-    {
-        /** @var GitLab $adapter */
-        $adapter = $this->vcsAdapter;
-        $owner = static::$owner;
-
-        $url = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch);
-        $this->assertStringContainsString('/repository/archive.tar.gz?access_token=', $url);
-        $this->assertStringContainsString('&sha=' . static::$defaultBranch, $url);
-
-        $zip = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'zipball');
-        $this->assertStringContainsString('/repository/archive.zip?access_token=', $zip);
-
-        // Without a ref the sha param is omitted so the server uses the default branch
-        $noRef = $adapter->getRepositoryPresignedUrl($owner, 'some-repo');
-        $this->assertStringNotContainsString('sha=', $noRef);
-
-        $this->expectException(\Exception::class);
-        $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
-    }
 
     public function testListRepositoryContentsRootSentinels(): void
     {

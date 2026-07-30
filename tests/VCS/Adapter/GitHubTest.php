@@ -16,6 +16,15 @@ class GitHubTest extends Base
     protected static string $defaultBranch = 'main';
     /** @var array<string> */
     protected static array $supportedWebhookScopes = [GitHub::WEBHOOK_SCOPE_INSTALLATION, GitHub::WEBHOOK_SCOPE_REPOSITORY];
+
+    protected static bool $supportsInstallationRepository = true;
+    protected static string $presignedTarballFragment = 'tarball';
+    protected static string $presignedZipballFragment = 'zipball';
+
+    protected function signWebhookPayload(string $payload, string $secret): string
+    {
+        return 'sha256=' . hash_hmac('sha256', $payload, $secret);
+    }
     protected static string $eventHeader = 'x-github-event';
     protected static string $signatureHeader = 'x-hub-signature-256';
 
@@ -160,15 +169,6 @@ class GitHubTest extends Base
         $this->assertSame('1234', $result['installationId']);
     }
 
-    public function testValidateWebhookEvent(): void
-    {
-        $payload = '{"action":"push"}';
-        $secret = 'my-webhook-secret';
-        $signature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
-
-        $this->assertTrue($this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret));
-        $this->assertFalse($this->vcsAdapter->validateWebhookEvent($payload, 'sha256=wrongsig', $secret));
-    }
 
     public function testGetRepositoryContentSha(): void
     {
@@ -597,25 +597,7 @@ class GitHubTest extends Base
         $this->assertSame(static::$owner, $result);
     }
 
-    public function testHasAccessToAllRepositories(): void
-    {
-        $result = $this->vcsAdapter->hasAccessToAllRepositories();
-        $this->assertIsBool($result);
-    }
 
-    public function testGetInstallationRepository(): void
-    {
-        $repositoryName = 'test-installation-repo-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $repo = $this->vcsAdapter->getInstallationRepository($repositoryName);
-            $this->assertIsArray($repo);
-            $this->assertSame($repositoryName, $repo['name']);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
     public function testGetPullRequest(): void
     {
@@ -672,6 +654,21 @@ class GitHubTest extends Base
         $this->markTestSkipped('createTag() is not implemented for GitHub');
     }
 
+    public function testCreateTag(): void
+    {
+        $this->markTestSkipped('createTag() is not implemented for GitHub');
+    }
+
+    public function testGetCommitStatuses(): void
+    {
+        $this->markTestSkipped('getCommitStatuses() is not implemented for GitHub');
+    }
+
+    public function testGetCommitStatusesEmptyForNewCommit(): void
+    {
+        $this->markTestSkipped('getCommitStatuses() is not implemented for GitHub');
+    }
+
     public function testCreateRepositoryWithInvalidName(): void
     {
         $this->markTestSkipped('GitHub normalizes spaces in repository names instead of rejecting them');
@@ -690,6 +687,16 @@ class GitHubTest extends Base
     public function testGetOwnerNameWithNullRepositoryId(): void
     {
         $this->markTestSkipped('GitHub resolves the owner from the installation, not a repository id');
+    }
+
+    public function testWebhookPushEvent(): void
+    {
+        $this->markTestSkipped('github.com cannot deliver webhooks to the local request catcher');
+    }
+
+    public function testWebhookPullRequestEvent(): void
+    {
+        $this->markTestSkipped('github.com cannot deliver webhooks to the local request catcher');
     }
 
     public function testListRepositoryLanguages(): void
@@ -722,40 +729,6 @@ class GitHubTest extends Base
         }
     }
 
-    public function testGetRepositoryPresignedUrl(): void
-    {
-        $repositoryName = 'test-presigned-url-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-
-            /** @var GitHub $adapter */
-            $adapter = $this->vcsAdapter;
-
-            $tarballUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName, static::$defaultBranch);
-            $this->assertNotEmpty($tarballUrl);
-            $this->assertStringStartsWith('https://', $tarballUrl);
-
-            $zipballUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName, static::$defaultBranch, 'zipball');
-            $this->assertNotEmpty($zipballUrl);
-            $this->assertStringStartsWith('https://', $zipballUrl);
-
-            // Defaults to the default branch when no ref is given
-            $defaultUrl = $adapter->getRepositoryPresignedUrl(static::$owner, $repositoryName);
-            $this->assertNotEmpty($defaultUrl);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testGetRepositoryPresignedUrlWithInvalidFormat(): void
-    {
-        /** @var GitHub $adapter */
-        $adapter = $this->vcsAdapter;
-
-        $this->expectException(\Exception::class);
-        $adapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch, 'invalid');
-    }
 
 }

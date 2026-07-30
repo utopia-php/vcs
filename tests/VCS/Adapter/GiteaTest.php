@@ -18,6 +18,17 @@ class GiteaTest extends Base
     protected static string $userHandleField = 'login';
     protected static string $eventHeader = 'x-gitea-event';
     protected static string $signatureHeader = 'x-gitea-signature';
+
+    /** @var array<string> */
+    protected static array $pullRequestOpenedActions = ['opened', 'synchronized'];
+
+    protected static string $presignedTarballFragment = '.tar.gz?token=';
+    protected static string $presignedZipballFragment = '.zip?token=';
+
+    protected function signWebhookPayload(string $payload, string $secret): string
+    {
+        return hash_hmac('sha256', $payload, $secret);
+    }
     protected static string $avatarDomain = 'gravatar.com';
 
     protected function setupAdapter(): void
@@ -57,31 +68,6 @@ class GiteaTest extends Base
         }
     }
 
-    public function testGetRepositoryPresignedUrl(): void
-    {
-        /** @var Gitea $adapter */
-        $adapter = $this->vcsAdapter;
-        $owner = static::$owner;
-
-        $url = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch);
-        $this->assertStringContainsString("/repos/{$owner}/some-repo/archive/" . static::$defaultBranch . '.tar.gz?token=', $url);
-
-        $zip = $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'zipball');
-        $this->assertStringContainsString('.zip?token=', $zip);
-
-        // No ref: the default branch is resolved from the repository
-        $repositoryName = 'test-presigned-url-' . \uniqid();
-        $adapter->createRepository($owner, $repositoryName, false);
-        try {
-            $noRef = $adapter->getRepositoryPresignedUrl($owner, $repositoryName);
-            $this->assertStringContainsString('/archive/' . static::$defaultBranch . '.tar.gz?token=', $noRef);
-        } finally {
-            $adapter->deleteRepository($owner, $repositoryName);
-        }
-
-        $this->expectException(\Exception::class);
-        $adapter->getRepositoryPresignedUrl($owner, 'some-repo', static::$defaultBranch, 'invalid');
-    }
 
     public function testGetRepositoryAfterDeleteFails(): void
     {
@@ -113,42 +99,8 @@ class GiteaTest extends Base
         }
     }
 
-    public function testHasAccessToAllRepositories(): void
-    {
-        $this->assertTrue($this->vcsAdapter->hasAccessToAllRepositories());
-    }
 
-    public function testGetRepositoryTreeWithSlashInBranchName(): void
-    {
-        $repositoryName = 'test-branch-with-slash-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
-        $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-        $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature/test-branch', static::$defaultBranch);
-
-        $tree = $this->vcsAdapter->getRepositoryTree(static::$owner, $repositoryName, 'feature/test-branch');
-
-        $this->assertIsArray($tree);
-        $this->assertNotEmpty($tree);
-        $this->assertContains('README.md', $tree);
-
-        $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-    }
-
-    public function testGetRepositoryName(): void
-    {
-        $repositoryName = 'test-get-repository-name-' . \uniqid();
-        $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        $this->assertIsArray($created);
-        $this->assertArrayHasKey('id', $created);
-        $this->assertIsScalar($created['id']);
-        $repositoryId = (string) $created['id'];
-        $result = $this->vcsAdapter->getRepositoryName($repositoryId);
-
-        $this->assertSame($repositoryName, $result);
-        $this->assertTrue($this->vcsAdapter->deleteRepository(static::$owner, $repositoryName));
-    }
 
 
     public function testGetEventPush(): void
@@ -330,219 +282,19 @@ class GiteaTest extends Base
         $this->assertTrue($result['external']);
     }
 
-    public function testValidateWebhookEvent(): void
-    {
-        $payload = 'test payload content';
-        $secret = 'my-webhook-secret';
-        $validSignature = hash_hmac('sha256', $payload, $secret);
-
-        $result = $this->vcsAdapter->validateWebhookEvent($payload, $validSignature, $secret);
-
-        $this->assertTrue($result);
-    }
-
-    public function testValidateWebhookEventInvalid(): void
-    {
-        $payload = 'test payload content';
-        $secret = 'my-webhook-secret';
-        $invalidSignature = 'wrong-signature';
-
-        $result = $this->vcsAdapter->validateWebhookEvent($payload, $invalidSignature, $secret);
-
-        $this->assertFalse($result);
-    }
-
-
-    public function testSearchRepositoriesPagination(): void
-    {
-        $repo1 = 'test-pagination-1-' . \uniqid();
-        $repo2 = 'test-pagination-2-' . \uniqid();
-
-        $this->vcsAdapter->createRepository(static::$owner, $repo1, false);
-        $this->vcsAdapter->createRepository(static::$owner, $repo2, false);
-
-        try {
-            $result = $this->vcsAdapter->searchRepositories(static::$owner, 1, 1, 'test-pagination');
-
-            $this->assertSame(1, count($result['items']));
-            $this->assertGreaterThanOrEqual(2, $result['total']);
-
-            $result2 = $this->vcsAdapter->searchRepositories(static::$owner, 2, 1, 'test-pagination');
-            $this->assertSame(1, count($result2['items']));
-
-            $result20 = $this->vcsAdapter->searchRepositories(static::$owner, 20, 1, 'test-pagination');
-            $this->assertIsArray($result20);
-            $this->assertEmpty($result20['items']);
-
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repo1);
-            $this->vcsAdapter->deleteRepository(static::$owner, $repo2);
-        }
-    }
 
 
 
 
 
-    public function testGetOwnerNameWithInvalidRepositoryId(): void
-    {
-        $this->expectException(RepositoryNotFound::class);
-
-        $this->vcsAdapter->getOwnerName('', 999999999);
-    }
 
 
-    public function testGetInstallationRepository(): void
-    {
-        // This method is not applicable for this adapter
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('not applicable for this adapter');
 
-        $this->vcsAdapter->getInstallationRepository('any-repo-name');
-    }
 
-    public function testCreateTag(): void
-    {
-        $repositoryName = 'test-create-tag-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
 
-            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
 
-            $result = $this->vcsAdapter->createTag(
-                static::$owner,
-                $repositoryName,
-                'v1.0.0',
-                $commitHash,
-                'First release'
-            );
 
-            $this->assertIsArray($result);
-            $this->assertNotEmpty($result);
-            $this->assertArrayHasKey('name', $result);
-            $this->assertSame('v1.0.0', $result['name']);
-            $this->assertArrayHasKey('commit', $result);
-            $this->assertArrayHasKey('sha', $result['commit']);
-            $this->assertSame($commitHash, $result['commit']['sha']);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testWebhookPushEvent(): void
-    {
-        $repositoryName = 'test-webhook-push-' . \uniqid();
-        $secret = 'test-webhook-secret-' . \uniqid();
-
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $catcherUrl = System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000');
-            $this->deleteLastWebhookRequest();
-            $this->vcsAdapter->createWebhook(static::$owner, $repositoryName, $catcherUrl . '/webhook', $secret);
-
-            // Trigger a real push by creating a file
-            $this->vcsAdapter->createFile(
-                static::$owner,
-                $repositoryName,
-                'README.md',
-                '# Webhook Test',
-                'Initial commit'
-            );
-
-            // Wait for push webhook to arrive automatically
-            $eventHeader = $this->vcsAdapter->getEventHeaderName();
-            $webhookData = [];
-            $this->assertEventually(function () use (&$webhookData, $eventHeader) {
-                $webhookData = $this->getLastWebhookRequest();
-                $this->assertNotEmpty($webhookData, 'No webhook received');
-                $this->assertNotEmpty($webhookData['data'] ?? '', 'Webhook payload is empty');
-                $this->assertSame('push', $this->findHeader($webhookData['headers'] ?? [], $eventHeader), 'Expected push event');
-            }, 15000, 500);
-
-            $payload = $webhookData['data'];
-            $signatureHeader = $this->vcsAdapter->getSignatureHeaderName();
-            $signature = $this->findHeader($webhookData['headers'] ?? [], $signatureHeader);
-
-            $this->assertNotEmpty($signature, 'Missing ' . $signatureHeader . ' header');
-            $this->assertTrue(
-                $this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret),
-                'Webhook signature validation failed'
-            );
-
-            $event = $this->vcsAdapter->getEvent('push', $payload);
-            $this->assertIsArray($event);
-            $this->assertSame(static::$defaultBranch, $event['branch']);
-            $this->assertSame($repositoryName, $event['repositoryName']);
-            $this->assertSame(static::$owner, $event['owner']);
-            $this->assertNotEmpty($event['commitHash']);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-    public function testWebhookPullRequestEvent(): void
-    {
-        $repositoryName = 'test-webhook-pr-' . \uniqid();
-        $secret = 'test-webhook-secret-' . \uniqid();
-
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            // Create all files BEFORE configuring webhook
-            // so those push events don't pollute the catcher
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $this->vcsAdapter->createBranch(static::$owner, $repositoryName, 'feature-branch', static::$defaultBranch);
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'feature.txt', 'content', 'Add feature', 'feature-branch');
-
-            $catcherUrl = System::getEnv('TESTS_REQUEST_CATCHER_URL', 'http://request-catcher:5000');
-            $this->vcsAdapter->createWebhook(static::$owner, $repositoryName, $catcherUrl . '/webhook', $secret, ['pull_request']);
-
-            // Clear after setup so only PR event will arrive
-            $this->deleteLastWebhookRequest();
-
-            // Trigger real PR event
-            $this->vcsAdapter->createPullRequest(
-                static::$owner,
-                $repositoryName,
-                'Test Webhook PR',
-                'feature-branch',
-                static::$defaultBranch
-            );
-
-            // Wait for pull_request webhook to arrive automatically
-            $eventHeader = $this->vcsAdapter->getEventHeaderName();
-            $webhookData = [];
-            $this->assertEventually(function () use (&$webhookData, $eventHeader) {
-                $webhookData = $this->getLastWebhookRequest();
-                $this->assertNotEmpty($webhookData, 'No webhook received');
-                $this->assertNotEmpty($webhookData['data'] ?? '', 'Webhook payload is empty');
-                $this->assertSame('pull_request', $this->findHeader($webhookData['headers'] ?? [], $eventHeader), 'Expected pull_request event');
-            }, 15000, 500);
-
-            $payload = $webhookData['data'];
-            $signatureHeader = $this->vcsAdapter->getSignatureHeaderName();
-            $signature = $this->findHeader($webhookData['headers'] ?? [], $signatureHeader);
-
-            $this->assertNotEmpty($signature, 'Missing ' . $signatureHeader . ' header');
-            $this->assertTrue(
-                $this->vcsAdapter->validateWebhookEvent($payload, $signature, $secret),
-                'Webhook signature validation failed'
-            );
-
-            $event = $this->vcsAdapter->getEvent('pull_request', $payload);
-            $this->assertIsArray($event);
-            $this->assertSame('feature-branch', $event['branch']);
-            $this->assertSame($repositoryName, $event['repositoryName']);
-            $this->assertSame(static::$owner, $event['owner']);
-            $this->assertContains($event['action'], ['opened', 'synchronized']);
-            $this->assertGreaterThan(0, $event['pullRequestNumber']);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
 
 
 }

@@ -105,6 +105,16 @@ class GogsTest extends GiteaTest
         $this->markTestSkipped('Gogs does not support commit status API');
     }
 
+    public function testGetCommitStatuses(): void
+    {
+        $this->markTestSkipped('Gogs does not support commit status API');
+    }
+
+    public function testGetCommitStatusesEmptyForNewCommit(): void
+    {
+        $this->markTestSkipped('Gogs does not support commit status API');
+    }
+
     // Repository languages
     public function testListRepositoryLanguages(): void
     {

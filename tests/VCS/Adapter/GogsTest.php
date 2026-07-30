@@ -18,6 +18,7 @@ class GogsTest extends GiteaTest
     protected static bool $supportsCommitStatuses = false;
     protected static bool $supportsCommitStatusLookup = false;
     protected static bool $supportsRepositoryLanguages = false;
+    protected static bool $createsEmptyRepositories = false;
     protected static string $eventHeader = 'x-gogs-event';
     protected static string $signatureHeader = 'x-gogs-signature';
 
@@ -70,13 +71,4 @@ class GogsTest extends GiteaTest
 
     // Repository languages
 
-    public function testListBranchesEmptyRepository(): void
-    {
-        // The Gogs adapter creates repositories with `auto_init: true` (plus a
-        // default README), so a default branch always exists on creation —
-        // an empty repository is not reachable through this adapter. This
-        // also avoids Gogs' HTTP 500 response from `/branches` on commit-less
-        // repos.
-        $this->markTestSkipped('Gogs adapter creates repositories with auto_init, so a default branch always exists');
-    }
 }

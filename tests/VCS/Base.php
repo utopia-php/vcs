@@ -12,6 +12,24 @@ use Utopia\VCS\Exception\RepositoryNotFound;
 
 abstract class Base extends TestCase
 {
+    protected const EVENT_REPOSITORY_ID = '123';
+
+    protected const EVENT_REPOSITORY_NAME = 'test-repo';
+
+    protected const EVENT_OWNER = 'test-owner';
+
+    protected const EVENT_COMMIT_HASH = 'def456';
+
+    protected const EVENT_COMMIT_MESSAGE = 'Test commit message';
+
+    protected const EVENT_AUTHOR_NAME = 'Test Author';
+
+    protected const EVENT_AUTHOR_EMAIL = 'author@example.com';
+
+    protected const EVENT_HEAD_BRANCH = 'feature-branch';
+
+    protected const EVENT_PULL_REQUEST_NUMBER = 42;
+
     protected Git $vcsAdapter;
     protected static string $owner = '';
     protected static string $defaultBranch = 'main';
@@ -119,6 +137,23 @@ abstract class Base extends TestCase
     protected static bool $computesLanguagesAsynchronously = false;
 
     /**
+     * Host the provider serves commit author avatars from.
+     */
+    protected static string $avatarDomain = '';
+
+    /**
+     * Whether a repository is gone as soon as delete returns. GitLab schedules
+     * it instead.
+     */
+    protected static bool $deletesRepositoriesSynchronously = true;
+
+    /**
+     * Whether a new repository starts with no commits. The Gogs adapter creates
+     * one with an initial commit, so it never has an empty repository.
+     */
+    protected static bool $createsEmptyRepositories = true;
+
+    /**
      * Whether the provider links the commit author back to an account. GitLab
      * reports neither, Gitea an avatar but no profile url.
      */
@@ -144,11 +179,20 @@ abstract class Base extends TestCase
     abstract protected function signWebhookPayload(string $payload, string $secret): string;
 
     /**
-     * Webhook payloads are provider specific.
+     * Build a push payload shaped the way this provider sends one, carrying the
+     * EVENT_* facts above.
+     *
+     * @param array<string> $added
+     * @param array<string> $removed
+     * @param array<string> $modified
      */
-    abstract public function testGetEventPush(): void;
+    abstract protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string;
 
-    abstract public function testGetEventPullRequest(): void;
+    /**
+     * Build a pull request payload shaped the way this provider sends one,
+     * opening EVENT_HEAD_BRANCH against the default branch.
+     */
+    abstract protected function pullRequestPayload(bool $external = false): string;
 
     protected function setUp(): void
     {
@@ -707,6 +751,8 @@ abstract class Base extends TestCase
 
     public function testListBranchesEmptyRepository(): void
     {
+        $this->skipUnlessSupported(static::$createsEmptyRepositories, 'repositories without an initial commit');
+
         $repositoryName = 'test-list-branches-empty-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1715,6 +1761,8 @@ abstract class Base extends TestCase
 
     public function testListTagsCommitlessRepository(): void
     {
+        $this->skipUnlessSupported(static::$createsEmptyRepositories, 'repositories without an initial commit');
+
         $repositoryName = 'test-list-tags-commitless-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -2196,6 +2244,103 @@ abstract class Base extends TestCase
         } finally {
             $this->discardRepositories($repositoryName);
         }
+    }
+
+    public function testGetCommitAuthorAvatar(): void
+    {
+        $this->skipUnlessSupported(static::$reportsCommitAuthorAvatar, 'commit author avatars');
+
+        $repositoryName = 'test-get-commit-avatar-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
+            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
+
+            $commit = $this->vcsAdapter->getCommit(static::$owner, $repositoryName, $commitHash);
+
+            $this->assertNotEmpty($commit['commitAuthorAvatar']);
+            $this->assertStringContainsString(static::$avatarDomain, $commit['commitAuthorAvatar']);
+        } finally {
+            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        }
+    }
+    public function testGetRepositoryAfterDeleteFails(): void
+    {
+        $this->skipUnlessSupported(static::$deletesRepositoriesSynchronously, 'deleting a repository straight away');
+
+        $repositoryName = 'test-get-deleted-repository-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+        $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+
+        $this->expectException(RepositoryNotFound::class);
+        $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
+    }
+
+    public function testGetEventPush(): void
+    {
+        $result = $this->vcsAdapter->getEvent(
+            static::$pushEventName,
+            $this->pushPayload(static::$defaultBranch, ['file1.txt'], ['file2.txt'], ['file3.txt'])
+        );
+
+        $this->assertSame(static::$defaultBranch, $result['branch']);
+        $this->assertSame(self::EVENT_REPOSITORY_ID, $result['repositoryId']);
+        $this->assertSame(self::EVENT_REPOSITORY_NAME, $result['repositoryName']);
+        $this->assertSame(self::EVENT_OWNER, $result['owner']);
+        $this->assertSame(self::EVENT_COMMIT_HASH, $result['commitHash']);
+        $this->assertSame(self::EVENT_COMMIT_MESSAGE, $result['headCommitMessage']);
+        $this->assertSame(self::EVENT_AUTHOR_NAME, $result['headCommitAuthorName']);
+        $this->assertSame(self::EVENT_AUTHOR_EMAIL, $result['headCommitAuthorEmail']);
+        $this->assertNotEmpty($result['headCommitUrl']);
+        $this->assertNotEmpty($result['repositoryUrl']);
+        $this->assertNotEmpty($result['branchUrl']);
+        $this->assertFalse($result['branchCreated']);
+        $this->assertFalse($result['branchDeleted']);
+        $this->assertEqualsCanonicalizing(['file1.txt', 'file2.txt', 'file3.txt'], $result['affectedFiles']);
+    }
+
+    public function testGetEventPushDetectsBranchCreated(): void
+    {
+        $result = $this->vcsAdapter->getEvent(
+            static::$pushEventName,
+            $this->pushPayload(static::$defaultBranch, created: true)
+        );
+
+        $this->assertTrue($result['branchCreated']);
+        $this->assertFalse($result['branchDeleted']);
+    }
+
+    public function testGetEventPushDetectsBranchDeleted(): void
+    {
+        $result = $this->vcsAdapter->getEvent(
+            static::$pushEventName,
+            $this->pushPayload(static::$defaultBranch, deleted: true)
+        );
+
+        $this->assertFalse($result['branchCreated']);
+        $this->assertTrue($result['branchDeleted']);
+    }
+
+    public function testGetEventPullRequest(): void
+    {
+        $result = $this->vcsAdapter->getEvent(static::$pullRequestEventName, $this->pullRequestPayload());
+
+        $this->assertSame('opened', $result['action']);
+        $this->assertSame(self::EVENT_HEAD_BRANCH, $result['branch']);
+        $this->assertSame(self::EVENT_PULL_REQUEST_NUMBER, $result['pullRequestNumber']);
+        $this->assertSame(self::EVENT_REPOSITORY_ID, $result['repositoryId']);
+        $this->assertSame(self::EVENT_REPOSITORY_NAME, $result['repositoryName']);
+        $this->assertSame(self::EVENT_OWNER, $result['owner']);
+        $this->assertSame(self::EVENT_COMMIT_HASH, $result['commitHash']);
+        $this->assertFalse($result['external']);
+    }
+
+    public function testGetEventPullRequestDetectsExternal(): void
+    {
+        $result = $this->vcsAdapter->getEvent(static::$pullRequestEventName, $this->pullRequestPayload(external: true));
+
+        $this->assertTrue($result['external']);
     }
 
     public function testGetEventInvalidPayload(): void

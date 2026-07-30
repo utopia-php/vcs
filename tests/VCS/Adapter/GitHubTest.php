@@ -18,6 +18,7 @@ class GitHubTest extends Base
     protected static bool $supportsInstallationRepository = true;
     protected static bool $supportsCheckRuns = true;
     protected static bool $reportsCommitAuthorAvatar = true;
+    protected static string $avatarDomain = 'githubusercontent.com';
     protected static bool $reportsCommitAuthorUrl = true;
     protected static bool $supportsPullRequestCreation = false;
     protected static bool $supportsCommitStatusLookup = false;
@@ -62,98 +63,78 @@ class GitHubTest extends Base
     }
 
 
-    public function testGetEventPush(): void
+
+
+    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
     {
-        $payload = json_encode([
-            'created' => false,
-            'deleted' => false,
-            'ref' => 'refs/heads/main',
+        return (string) json_encode([
+            'created' => $created,
+            'deleted' => $deleted,
+            'ref' => 'refs/heads/' . $branch,
             'before' => 'abc123',
-            'after' => 'def456',
+            'after' => self::EVENT_COMMIT_HASH,
             'repository' => [
-                'id' => 603754812,
-                'name' => 'testing-fork',
-                'full_name' => 'vermakhushboo/testing-fork',
+                'id' => (int) self::EVENT_REPOSITORY_ID,
+                'name' => self::EVENT_REPOSITORY_NAME,
+                'full_name' => self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
                 'private' => true,
-                'html_url' => 'https://github.com/vermakhushboo/testing-fork',
-                'owner' => ['name' => 'vermakhushboo'],
+                'html_url' => 'https://github.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
+                'owner' => ['name' => self::EVENT_OWNER, 'login' => self::EVENT_OWNER],
             ],
             'installation' => ['id' => 1234],
             'head_commit' => [
-                'author' => ['name' => 'Khushboo Verma'],
-                'message' => 'Update index.js',
-                'url' => 'https://github.com/vermakhushboo/testing-fork/commit/def456',
+                'id' => self::EVENT_COMMIT_HASH,
+                'message' => self::EVENT_COMMIT_MESSAGE,
+                'url' => 'https://github.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME . '/commit/' . self::EVENT_COMMIT_HASH,
+                'author' => ['name' => self::EVENT_AUTHOR_NAME, 'email' => self::EVENT_AUTHOR_EMAIL],
             ],
-            'commits' => [
-                [
-                    'id' => 'def456',
-                    'added' => ['src/lib.js'],
-                    'removed' => ['README.md'],
-                    'modified' => ['src/main.js'],
-                ],
-            ],
+            'commits' => [[
+                'id' => self::EVENT_COMMIT_HASH,
+                'added' => $added,
+                'removed' => $removed,
+                'modified' => $modified,
+            ]],
             'sender' => [
-                'html_url' => 'https://github.com/vermakhushboo',
-                'avatar_url' => 'https://avatars.githubusercontent.com/u/43381712?v=4',
+                'html_url' => 'https://github.com/' . self::EVENT_AUTHOR_NAME,
+                'avatar_url' => 'https://avatars.githubusercontent.com/u/1?v=4',
             ],
         ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('push', $payload);
-
-        $this->assertSame('main', $result['branch']);
-        $this->assertSame('603754812', $result['repositoryId']);
-        $this->assertCount(3, $result['affectedFiles']);
-        $this->assertSame('src/lib.js', $result['affectedFiles'][0]);
-        $this->assertSame('README.md', $result['affectedFiles'][1]);
-        $this->assertSame('src/main.js', $result['affectedFiles'][2]);
     }
 
-    public function testGetEventPullRequest(): void
+    protected function pullRequestPayload(bool $external = false): string
     {
-        $payload = json_encode([
+        $headOwner = $external ? 'someone-else' : self::EVENT_OWNER;
+
+        return (string) json_encode([
             'action' => 'opened',
-            'number' => 1,
+            'number' => self::EVENT_PULL_REQUEST_NUMBER,
             'pull_request' => [
                 'id' => 1303283688,
                 'state' => 'open',
-                'html_url' => 'https://github.com/vermakhushboo/g4-node-function/pull/17',
+                'html_url' => 'https://github.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME . '/pull/' . self::EVENT_PULL_REQUEST_NUMBER,
                 'head' => [
-                    'ref' => 'test',
-                    'sha' => 'a27dbe54b17032ee35a16c24bac151e5c2b33328',
-                    'label' => 'vermakhushboo:test',
-                    'user' => ['login' => 'vermakhushboo'],
+                    'ref' => self::EVENT_HEAD_BRANCH,
+                    'sha' => self::EVENT_COMMIT_HASH,
+                    'label' => $headOwner . ':' . self::EVENT_HEAD_BRANCH,
+                    'user' => ['login' => $headOwner],
                 ],
                 'base' => [
-                    'label' => 'vermakhushboo:main',
-                    'user' => ['login' => 'vermakhushboo'],
+                    'ref' => static::$defaultBranch,
+                    'label' => self::EVENT_OWNER . ':' . static::$defaultBranch,
+                    'user' => ['login' => self::EVENT_OWNER],
                 ],
-                'user' => [
-                    'login' => 'vermakhushboo',
-                    'avatar_url' => 'https://avatars.githubusercontent.com/u/43381712?v=4',
-                ],
+                'user' => ['login' => $headOwner, 'avatar_url' => 'https://avatars.githubusercontent.com/u/1?v=4'],
             ],
             'repository' => [
-                'id' => 3498,
-                'name' => 'functions-example',
-                'owner' => ['login' => 'vermakhushboo'],
-                'html_url' => 'https://github.com/vermakhushboo/g4-node-function',
+                'id' => (int) self::EVENT_REPOSITORY_ID,
+                'name' => self::EVENT_REPOSITORY_NAME,
+                'full_name' => self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
+                'owner' => ['login' => self::EVENT_OWNER, 'name' => self::EVENT_OWNER],
+                'html_url' => 'https://github.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
             ],
             'installation' => ['id' => 9876],
-            'sender' => ['html_url' => 'https://github.com/vermakhushboo'],
+            'sender' => ['html_url' => 'https://github.com/' . $headOwner],
         ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('pull_request', $payload);
-
-        $this->assertSame('opened', $result['action']);
-        $this->assertSame(1, $result['pullRequestNumber']);
     }
 
     public function testGetEventInstallation(): void

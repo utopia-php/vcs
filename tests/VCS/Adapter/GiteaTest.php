@@ -7,7 +7,6 @@ use Utopia\Cache\Cache;
 use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git\Gitea;
-use Utopia\VCS\Exception\RepositoryNotFound;
 
 class GiteaTest extends Base
 {
@@ -69,233 +68,79 @@ class GiteaTest extends Base
         }
     }
 
-
-    public function testGetRepositoryAfterDeleteFails(): void
+    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
     {
-        $repositoryName = 'test-get-deleted-repository-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-        $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+        $repositoryUrl = 'http://gitea:3000/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
 
-        $this->expectException(RepositoryNotFound::class);
-        $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
-    }
-
-
-
-    public function testGetCommitAuthorAvatar(): void
-    {
-        $repositoryName = 'test-get-commit-avatar-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
-
-            $commit = $this->vcsAdapter->getCommit(static::$owner, $repositoryName, $commitHash);
-
-            $this->assertNotEmpty($commit['commitAuthorAvatar']);
-            $this->assertStringContainsString(static::$avatarDomain, $commit['commitAuthorAvatar']);
-        } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        }
-    }
-
-
-
-
-
-    public function testGetEventPush(): void
-    {
-        $payload = json_encode([
-            'ref' => 'refs/heads/' . static::$defaultBranch,
+        return (string) json_encode([
+            'ref' => 'refs/heads/' . $branch,
             'before' => 'abc123',
-            'after' => 'def456',
-            'created' => false,
-            'deleted' => false,
+            'after' => self::EVENT_COMMIT_HASH,
+            'created' => $created,
+            'deleted' => $deleted,
             'repository' => [
-                'id' => 123,
-                'name' => 'test-repo',
-                'html_url' => 'http://gitea:3000/test-owner/test-repo',
-                'owner' => [
-                    'login' => 'test-owner',
-                ],
+                'id' => (int) self::EVENT_REPOSITORY_ID,
+                'name' => self::EVENT_REPOSITORY_NAME,
+                'full_name' => self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
+                'html_url' => $repositoryUrl,
+                'owner' => ['login' => self::EVENT_OWNER],
             ],
             'sender' => [
-                'login' => 'pusher-user',
+                'login' => self::EVENT_AUTHOR_NAME,
                 'html_url' => 'http://gitea:3000/pusher-user',
                 'avatar_url' => 'http://gitea:3000/avatars/pusher',
             ],
             'head_commit' => [
-                'id' => 'def456',
-                'message' => 'Test commit message',
-                'url' => 'http://gitea:3000/test-owner/test-repo/commit/def456',
-                'author' => [
-                    'name' => 'Test Author',
-                    'email' => 'author@example.com',
-                ],
+                'id' => self::EVENT_COMMIT_HASH,
+                'message' => self::EVENT_COMMIT_MESSAGE,
+                'url' => $repositoryUrl . '/commit/' . self::EVENT_COMMIT_HASH,
+                'author' => ['name' => self::EVENT_AUTHOR_NAME, 'email' => self::EVENT_AUTHOR_EMAIL],
             ],
-            'commits' => [
-                [
-                    'id' => 'def456',
-                    'added' => ['file1.txt'],
-                    'removed' => ['file2.txt'],
-                    'modified' => ['file3.txt'],
-                ],
-            ],
+            'commits' => [[
+                'id' => self::EVENT_COMMIT_HASH,
+                'added' => $added,
+                'removed' => $removed,
+                'modified' => $modified,
+            ]],
         ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('push', $payload);
-
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('branch', $result);
-        $this->assertArrayHasKey('commitHash', $result);
-        $this->assertArrayHasKey('repositoryName', $result);
-        $this->assertArrayHasKey('owner', $result);
-        $this->assertArrayHasKey('affectedFiles', $result);
-
-        $this->assertSame(static::$defaultBranch, $result['branch']);
-        $this->assertSame('def456', $result['commitHash']);
-        $this->assertSame('test-repo', $result['repositoryName']);
-        $this->assertSame('test-owner', $result['owner']);
-        $this->assertSame('Test commit message', $result['headCommitMessage']);
-        $this->assertSame('Test Author', $result['headCommitAuthorName']);
-        $this->assertSame('author@example.com', $result['headCommitAuthorEmail']);
-
-        $this->assertIsArray($result['affectedFiles']);
-        $this->assertContains('file1.txt', $result['affectedFiles']);
-        $this->assertContains('file2.txt', $result['affectedFiles']);
-        $this->assertContains('file3.txt', $result['affectedFiles']);
     }
 
-    public function testGetEventPullRequest(): void
+    protected function pullRequestPayload(bool $external = false): string
     {
-        $payload = json_encode([
+        $repositoryUrl = 'http://gitea:3000/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
+        $headRepository = $external
+            ? 'someone-else/forked-repo'
+            : self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
+
+        return (string) json_encode([
             'action' => 'opened',
-            'number' => 42,
+            'number' => self::EVENT_PULL_REQUEST_NUMBER,
             'pull_request' => [
                 'id' => 1,
-                'number' => 42,
+                'number' => self::EVENT_PULL_REQUEST_NUMBER,
                 'state' => 'open',
                 'title' => 'Test PR',
                 'head' => [
-                    'ref' => 'feature-branch',
-                    'sha' => 'abc123',
-                    'repo' => [
-                        'full_name' => 'test-owner/test-repo',
-                    ],
-                    'user' => [
-                        'login' => 'pr-author',
-                    ],
+                    'ref' => self::EVENT_HEAD_BRANCH,
+                    'sha' => self::EVENT_COMMIT_HASH,
+                    'repo' => ['full_name' => $headRepository],
+                    'user' => ['login' => self::EVENT_OWNER],
                 ],
                 'base' => [
                     'ref' => static::$defaultBranch,
-                    'sha' => 'def456',
-                    'user' => [
-                        'login' => 'base-owner',
-                    ],
-                ],
-                'user' => [
-                    'login' => 'pr-author',
-                    'avatar_url' => 'http://gitea:3000/avatars/pr-author',
-                ],
-            ],
-            'repository' => [
-                'id' => 123,
-                'name' => 'test-repo',
-                'full_name' => 'test-owner/test-repo',
-                'html_url' => 'http://gitea:3000/test-owner/test-repo',
-                'owner' => [
-                    'login' => 'test-owner',
-                ],
-            ],
-            'sender' => [
-                'login' => 'sender-user',
-                'html_url' => 'http://gitea:3000/sender-user',
-            ],
-        ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('pull_request', $payload);
-
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('branch', $result);
-        $this->assertArrayHasKey('pullRequestNumber', $result);
-        $this->assertArrayHasKey('action', $result);
-        $this->assertArrayHasKey('commitHash', $result);
-        $this->assertArrayHasKey('external', $result);
-
-        $this->assertSame('feature-branch', $result['branch']);
-        $this->assertSame(42, $result['pullRequestNumber']);
-        $this->assertSame('opened', $result['action']);
-        $this->assertSame('abc123', $result['commitHash']);
-        $this->assertSame('test-repo', $result['repositoryName']);
-        $this->assertSame('test-owner', $result['owner']);
-        $this->assertFalse($result['external']);
-    }
-
-    public function testGetEventPullRequestExternal(): void
-    {
-        $payload = json_encode([
-            'action' => 'opened',
-            'number' => 42,
-            'pull_request' => [
-                'head' => [
-                    'ref' => 'feature-branch',
                     'sha' => 'abc123',
-                    'repo' => [
-                        'full_name' => 'external-user/forked-repo',
-                    ],
+                    'user' => ['login' => self::EVENT_OWNER],
                 ],
-                'base' => [
-                    'ref' => static::$defaultBranch,
-                ],
-                'user' => [
-                    'avatar_url' => 'http://gitea:3000/avatars/external',
-                ],
+                'user' => ['login' => self::EVENT_OWNER, 'avatar_url' => 'http://gitea:3000/avatars/pr-author'],
             ],
             'repository' => [
-                'id' => 123,
-                'name' => 'test-repo',
-                'full_name' => 'test-owner/test-repo',
-                'html_url' => 'http://gitea:3000/test-owner/test-repo',
-                'owner' => [
-                    'login' => 'test-owner',
-                ],
+                'id' => (int) self::EVENT_REPOSITORY_ID,
+                'name' => self::EVENT_REPOSITORY_NAME,
+                'full_name' => self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
+                'html_url' => $repositoryUrl,
+                'owner' => ['login' => self::EVENT_OWNER],
             ],
-            'sender' => [
-                'html_url' => 'http://gitea:3000/external-user',
-            ],
+            'sender' => ['login' => self::EVENT_OWNER, 'html_url' => 'http://gitea:3000/' . self::EVENT_OWNER],
         ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('pull_request', $payload);
-
-        $this->assertTrue($result['external']);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }

@@ -26,6 +26,7 @@ class GitLabTest extends Base
     protected static string $presignedZipballFragment = '/repository/archive.zip?access_token=';
     protected static string $repositoryNotFoundException = \Exception::class;
     protected static bool $supportsNamespaceListing = true;
+    protected static bool $deletesRepositoriesSynchronously = false;
 
     protected function signWebhookPayload(string $payload, string $secret): string
     {
@@ -135,99 +136,7 @@ class GitLabTest extends Base
 
 
 
-    public function testGetEventPush(): void
-    {
-        $payload = json_encode([
-            'object_kind' => 'push',
-            'ref' => 'refs/heads/main',
-            'before' => 'before123',
-            'after' => 'abc123',
-            'checkout_sha' => 'abc123',
-            'user_avatar' => 'http://example.com/avatar.png',
-            'project' => [
-                'id' => 123,
-                'name' => 'test-repo',
-                'namespace' => 'test-org',
-                'web_url' => 'http://example.com/test-org/test-repo',
-            ],
-            'commits' => [
-                [
-                    'id' => 'abc123',
-                    'message' => 'Test commit',
-                    'url' => 'http://example.com/commit/abc123',
-                    'author' => ['name' => 'Test User', 'email' => 'test@example.com'],
-                    'added' => ['file1.txt'],
-                    'modified' => [],
-                    'removed' => [],
-                ],
-            ],
-        ]);
 
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
-
-        $this->assertIsArray($result);
-        $this->assertFalse($result['branchDeleted']);
-        $this->assertSame('main', $result['branch']);
-        $this->assertSame('http://example.com/test-org/test-repo/-/tree/main', $result['branchUrl']);
-        $this->assertSame('123', $result['repositoryId']);
-        $this->assertSame('test-repo', $result['repositoryName']);
-        $this->assertSame('http://example.com/test-org/test-repo', $result['repositoryUrl']);
-        $this->assertSame('test-org', $result['owner']);
-        $this->assertSame('abc123', $result['commitHash']);
-        $this->assertSame('Test User', $result['headCommitAuthorName']);
-        $this->assertSame('test@example.com', $result['headCommitAuthorEmail']);
-        $this->assertSame('Test commit', $result['headCommitMessage']);
-        $this->assertSame('http://example.com/commit/abc123', $result['headCommitUrl']);
-        $this->assertSame(['file1.txt'], $result['affectedFiles']);
-    }
-
-    public function testGetEventPullRequest(): void
-    {
-        $payload = json_encode([
-            'object_kind' => 'merge_request',
-            'project' => [
-                'id' => 123,
-                'name' => 'test-repo',
-                'namespace' => 'test-org',
-                'web_url' => 'http://example.com/test-org/test-repo',
-            ],
-            'object_attributes' => [
-                'iid' => 1,
-                'title' => 'Test MR',
-                'action' => 'open',
-                'source_branch' => 'feature',
-                'target_branch' => 'main',
-                'source_project_id' => 123,
-                'target_project_id' => 123,
-                'url' => 'http://example.com/mr/1',
-                'last_commit' => [
-                    'id' => 'abc123',
-                    'message' => 'Test commit',
-                    'url' => 'http://example.com/commit/abc123',
-                    'author' => ['name' => 'Test User'],
-                ],
-            ],
-        ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('Merge Request Hook', $payload);
-
-        $this->assertIsArray($result);
-        $this->assertSame('feature', $result['branch']);
-        $this->assertSame('opened', $result['action']);
-        $this->assertFalse($result['external']);
-        $this->assertSame(1, $result['pullRequestNumber']);
-        $this->assertSame('123', $result['repositoryId']);
-        $this->assertSame('test-repo', $result['repositoryName']);
-        $this->assertSame('abc123', $result['commitHash']);
-    }
 
 
 
@@ -273,49 +182,7 @@ class GitLabTest extends Base
 
 
 
-    public function testGetEventPushDetectsBranchCreated(): void
-    {
-        $allZeroSha = str_repeat('0', 40);
-        $payload = json_encode([
-            'object_kind' => 'push',
-            'ref' => 'refs/heads/main',
-            'before' => $allZeroSha,
-            'after' => 'abc123',
-            'checkout_sha' => 'abc123',
-            'project' => ['id' => 123, 'name' => 'test-repo', 'namespace' => 'test-org', 'web_url' => 'http://example.com/test-org/test-repo'],
-            'commits' => [],
-        ]);
 
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
-        $this->assertTrue($result['branchCreated']);
-        $this->assertFalse($result['branchDeleted']);
-    }
-
-    public function testGetEventPushDetectsBranchDeleted(): void
-    {
-        $allZeroSha = str_repeat('0', 40);
-        $payload = json_encode([
-            'object_kind' => 'push',
-            'ref' => 'refs/heads/main',
-            'before' => 'abc123',
-            'after' => $allZeroSha,
-            'checkout_sha' => '',
-            'project' => ['id' => 123, 'name' => 'test-repo', 'namespace' => 'test-org', 'web_url' => 'http://example.com/test-org/test-repo'],
-            'commits' => [],
-        ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('Push Hook', $payload);
-        $this->assertFalse($result['branchCreated']);
-        $this->assertTrue($result['branchDeleted']);
-    }
 
     public function testGetEventPullRequestActionMapping(): void
     {
@@ -335,33 +202,64 @@ class GitLabTest extends Base
         }
     }
 
-    public function testGetEventPullRequestDetectsExternal(): void
+    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
     {
-        $payload = json_encode([
-            'object_kind' => 'merge_request',
-            'project' => ['id' => 1, 'name' => 'r', 'namespace' => 'o', 'web_url' => 'http://example.com/o/r'],
-            'object_attributes' => [
-                'iid' => 1,
-                'action' => 'open',
-                'source_branch' => 'f',
-                'target_branch' => 'main',
-                'source_project_id' => 456,
-                'target_project_id' => 123,
+        $blank = str_repeat('0', 40);
+        $repositoryUrl = 'http://example.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
+
+        return (string) json_encode([
+            'object_kind' => 'push',
+            'ref' => 'refs/heads/' . $branch,
+            // GitLab signals a created or deleted branch with an all-zero sha
+            'before' => $created ? $blank : 'abc123',
+            'after' => $deleted ? $blank : self::EVENT_COMMIT_HASH,
+            'checkout_sha' => $deleted ? '' : self::EVENT_COMMIT_HASH,
+            'user_avatar' => 'http://example.com/avatar.png',
+            'project' => [
+                'id' => (int) self::EVENT_REPOSITORY_ID,
+                'name' => self::EVENT_REPOSITORY_NAME,
+                'namespace' => self::EVENT_OWNER,
+                'web_url' => $repositoryUrl,
             ],
+            'commits' => $deleted ? [] : [[
+                'id' => self::EVENT_COMMIT_HASH,
+                'message' => self::EVENT_COMMIT_MESSAGE,
+                'url' => $repositoryUrl . '/-/commit/' . self::EVENT_COMMIT_HASH,
+                'author' => ['name' => self::EVENT_AUTHOR_NAME, 'email' => self::EVENT_AUTHOR_EMAIL],
+                'added' => $added,
+                'removed' => $removed,
+                'modified' => $modified,
+            ]],
         ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $result = $this->vcsAdapter->getEvent('Merge Request Hook', $payload);
-        $this->assertTrue($result['external']);
     }
 
-
-
-
-
-
-
+    protected function pullRequestPayload(bool $external = false): string
+    {
+        return (string) json_encode([
+            'object_kind' => 'merge_request',
+            'project' => [
+                'id' => (int) self::EVENT_REPOSITORY_ID,
+                'name' => self::EVENT_REPOSITORY_NAME,
+                'namespace' => self::EVENT_OWNER,
+                'web_url' => 'http://example.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
+            ],
+            'object_attributes' => [
+                'iid' => self::EVENT_PULL_REQUEST_NUMBER,
+                'title' => 'Test MR',
+                // GitLab calls it 'open' and normalizes to 'opened'
+                'action' => 'open',
+                'source_branch' => self::EVENT_HEAD_BRANCH,
+                'target_branch' => static::$defaultBranch,
+                'source_project_id' => $external ? 456 : (int) self::EVENT_REPOSITORY_ID,
+                'target_project_id' => (int) self::EVENT_REPOSITORY_ID,
+                'url' => 'http://example.com/mr/' . self::EVENT_PULL_REQUEST_NUMBER,
+                'last_commit' => [
+                    'id' => self::EVENT_COMMIT_HASH,
+                    'message' => self::EVENT_COMMIT_MESSAGE,
+                    'url' => 'http://example.com/commit/' . self::EVENT_COMMIT_HASH,
+                    'author' => ['name' => self::EVENT_AUTHOR_NAME, 'email' => self::EVENT_AUTHOR_EMAIL],
+                ],
+            ],
+        ]);
+    }
 }

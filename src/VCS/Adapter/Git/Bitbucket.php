@@ -436,7 +436,15 @@ class Bitbucket extends Git
         $path = $this->normalizeRepositoryPath($path);
         $url = "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $this->encodeRepositoryPath($path);
 
-        $metaResponse = $this->call(self::METHOD_GET, $url . '?format=meta', ['Authorization' => 'Bearer ' . $this->accessToken]);
+        // A missing file is the expected, common case here (not every repo
+        // has e.g. package.json) -- call() throws on a non-JSON/empty body,
+        // which a 404 can legitimately have, so that has to be caught here
+        // too rather than left to propagate as an uncaught fatal.
+        try {
+            $metaResponse = $this->call(self::METHOD_GET, $url . '?format=meta', ['Authorization' => 'Bearer ' . $this->accessToken]);
+        } catch (Exception $e) {
+            throw new FileNotFound();
+        }
 
         $metaHeaders = $metaResponse['headers'] ?? [];
         if (($metaHeaders['status-code'] ?? 0) !== 200) {
@@ -450,7 +458,11 @@ class Bitbucket extends Git
 
         // Bitbucket serves file contents raw, typed after the file extension, so
         // don't let the response be decoded as JSON.
-        $contentResponse = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [], false);
+        try {
+            $contentResponse = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [], false);
+        } catch (Exception $e) {
+            throw new FileNotFound();
+        }
 
         $contentHeaders = $contentResponse['headers'] ?? [];
         if (($contentHeaders['status-code'] ?? 0) !== 200) {

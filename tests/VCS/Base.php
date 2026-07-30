@@ -198,23 +198,32 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Remove a repository during cleanup. One that was never created is not a
+     * Remove repositories during cleanup. One that was never created is not a
      * failure, but anything else - auth, transport, a provider fault - has to
-     * surface rather than quietly leave the repository behind.
+     * surface rather than quietly leave the repository behind. Every repository
+     * is attempted before reporting, so one failure cannot strand the rest.
      */
-    protected function deleteRepositoryIfExists(string $repositoryName): void
+    protected function deleteRepositoriesIfExist(string ...$repositoryNames): void
     {
-        try {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
-        } catch (RepositoryNotFound) {
-            return;
-        } catch (Exception $e) {
-            // Adapters carry the HTTP status as the exception code
-            if ($e->getCode() === 404) {
-                return;
-            }
+        $failures = [];
 
-            throw $e;
+        foreach ($repositoryNames as $repositoryName) {
+            try {
+                $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            } catch (RepositoryNotFound) {
+                continue;
+            } catch (Exception $e) {
+                // Adapters carry the HTTP status as the exception code
+                if ($e->getCode() === 404) {
+                    continue;
+                }
+
+                $failures[] = "{$repositoryName}: {$e->getMessage()}";
+            }
+        }
+
+        if ($failures !== []) {
+            throw new Exception('Failed to clean up ' . \implode(', ', $failures));
         }
     }
 
@@ -969,8 +978,7 @@ abstract class Base extends TestCase
 
             $this->assertNotContains($other, $names);
         } finally {
-            $this->deleteRepositoryIfExists($match);
-            $this->deleteRepositoryIfExists($other);
+            $this->deleteRepositoriesIfExist($match, $other);
         }
     }
 
@@ -1002,8 +1010,7 @@ abstract class Base extends TestCase
                 $this->assertPushedAt($repository);
             }
         } finally {
-            $this->deleteRepositoryIfExists($repo1Name);
-            $this->deleteRepositoryIfExists($repo2Name);
+            $this->deleteRepositoriesIfExist($repo1Name, $repo2Name);
         }
     }
 

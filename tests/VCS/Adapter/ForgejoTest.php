@@ -16,7 +16,6 @@ class ForgejoTest extends GiteaTest
     protected static string $eventHeader = 'x-forgejo-event';
     protected static string $signatureHeader = 'x-forgejo-signature';
 
-
     protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

@@ -59,16 +59,4 @@ class GogsTest extends GiteaTest
             }
         }
     }
-
-
-    // --- Skip tests for unsupported Gogs features ---
-
-    // Pull request API
-
-    // Commit status
-
-
-
-    // Repository languages
-
 }

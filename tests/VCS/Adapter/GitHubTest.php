@@ -62,9 +62,6 @@ class GitHubTest extends Base
         $this->vcsAdapter = $adapter;
     }
 
-
-
-
     protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
     {
         return (string) json_encode([
@@ -157,9 +154,6 @@ class GitHubTest extends Base
         $this->assertSame('1234', $result['installationId']);
     }
 
-
-
-
     public function testListBranchesPagination(): void
     {
         $repositoryName = 'test-list-branches-pages-' . \uniqid();
@@ -197,48 +191,4 @@ class GitHubTest extends Base
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }

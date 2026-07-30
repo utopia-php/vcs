@@ -114,8 +114,6 @@ class GitLabTest extends Base
         return (int) $pullRequest['iid'];
     }
 
-
-
     protected function setupGitLab(): void
     {
         $tokenFile = '/gitlab-data/token.txt';
@@ -127,18 +125,6 @@ class GitLabTest extends Base
             }
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
 
     public function testGetEventPushMatchesCheckoutSha(): void
     {
@@ -178,11 +164,6 @@ class GitLabTest extends Base
         $this->assertSame('Head commit', $result['headCommitMessage']);
         $this->assertSame('http://example.com/commit/def456', $result['headCommitUrl']);
     }
-
-
-
-
-
 
     public function testGetEventPullRequestActionMapping(): void
     {

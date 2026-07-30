@@ -1192,6 +1192,11 @@ class Bitbucket extends Git
         return implode(' && ', $commands);
     }
 
+    /**
+     * Reports the first event a payload describes, per the shared contract. A
+     * Bitbucket push can touch several refs in one delivery, so a caller that
+     * must not miss one reads getEvents() below instead.
+     */
     public function getEvent(string $event, string $payload): array
     {
         return $this->getEvents($event, $payload)[0] ?? [];

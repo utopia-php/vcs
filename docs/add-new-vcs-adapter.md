@@ -76,6 +76,23 @@ $vcs->initializeVariables($installationId, $privateKey, $appId);
 
 Only include dependencies strictly necessary for the adapter, preferably official PHP libraries, if available.
 
+#### Webhook deliveries describing more than one event
+
+`getEvent()` returns the single event a payload describes, which is all most
+providers ever send. A provider that batches several refs into one delivery
+should override `getEvents()` as well, so a consumer can read all of them:
+
+```php
+public function getEvents(string $event, string $payload): array
+{
+    // one entry per ref the delivery touched
+}
+```
+
+The default `getEvents()` wraps `getEvent()`, so an adapter that never batches
+needs no override. Consumers that must not miss a ref should call `getEvents()`
+rather than `getEvent()` — the latter reports only the first event of a batch.
+
 ### Testing with Docker 🛠️
 
 The existing test suite is helpful when developing a new VCS adapter. Use official Docker images from trusted sources. Add new tests for your new VCS adapter in `tests/VCS/Adapter/VCSTest.php` test class. The specific `docker-compose` command for testing can be found in the [README](/README.md#tests).

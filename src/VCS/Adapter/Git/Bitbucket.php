@@ -1134,13 +1134,39 @@ class Bitbucket extends Git
      * Bitbucket has no installations and no numeric repository ids, so
      * $installationId and $repositoryId are both unused: the owner is always
      * the workspace of the account the token belongs to.
+     *
+     * `/user`'s `username` (old accounts) or `nickname` (accounts migrated to
+     * Atlassian's unified identity) are display handles, not workspace
+     * identifiers -- for migrated accounts `nickname` is an opaque value
+     * Bitbucket's repository API doesn't recognize as a workspace, silently
+     * returning zero repositories rather than an error. The account's own
+     * UUID doesn't double as its workspace's UUID either -- confirmed live,
+     * the two are unrelated. The workspace is instead resolved via
+     * `/user/workspaces`, the endpoint Atlassian's migration guidance names
+     * as the user-scoped replacement for the cross-workspace `/workspaces`
+     * listing CHANGE-2770 removed.
      */
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
+        $response = $this->call(self::METHOD_GET, '/user/workspaces', ['Authorization' => 'Bearer ' . $this->accessToken]);
+
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode < 400) {
+            $body = $response['body'] ?? [];
+            $values = is_array($body) ? ($body['values'] ?? []) : [];
+            $first = $values[0] ?? [];
+            // Some Bitbucket user-scoped list endpoints wrap the resource
+            // under its own key (e.g. the older /permissions/workspaces
+            // did); accept either shape rather than assume this one is flat.
+            $slug = $first['slug'] ?? ($first['workspace']['slug'] ?? '');
+            if (!empty($slug)) {
+                return (string) $slug;
+            }
+        }
+
         $user = $this->getAuthenticatedUser();
 
-        // A personal workspace is named after its account. `username` is only
-        // reported for the authenticated account itself, hence the fallback.
         return (string) ($user['username'] ?? ($user['nickname'] ?? ''));
     }
 

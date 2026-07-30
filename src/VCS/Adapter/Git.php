@@ -185,6 +185,19 @@ abstract class Git extends Adapter
     }
 
     /**
+     * List namespaces the credentials can create repositories in.
+     *
+     * Only some providers model namespaces separately, so the default reports
+     * it as unsupported.
+     *
+     * @return array{items: array<array<string, mixed>>, total: int}
+     */
+    public function listNamespaces(int $page, int $per_page, string $search = ''): array
+    {
+        throw new Exception('listNamespaces() is not supported by ' . $this->getName());
+    }
+
+    /**
      * Get commit statuses
      *
      * Every adapter reports each status as
@@ -196,6 +209,21 @@ abstract class Git extends Adapter
      * @return array<mixed> List of commit statuses
      */
     abstract public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array;
+
+    /**
+     * Resolve the path sentinels a caller may pass - '', '.', './', 'src//' -
+     * to the plain path every provider's API expects. Providers differ on
+     * whether they do this themselves, so adapters normalize before calling.
+     */
+    protected function normalizeRepositoryPath(string $path): string
+    {
+        $segments = \array_filter(
+            \explode('/', $path),
+            fn (string $segment): bool => $segment !== '' && $segment !== '.'
+        );
+
+        return \implode('/', $segments);
+    }
 
     /**
      * Filter ref names by a shell glob pattern (e.g. 'v1.*', 'v?.0.0').

@@ -123,20 +123,6 @@ class GitLab extends Git
     }
 
     /**
-     * GitLab passes path as a literal query/URL value, so unlike GitHub it
-     * never resolves './' or '.' to the repository root on its own.
-     */
-    private function normalizeRepositoryPath(string $path): string
-    {
-        $segments = array_filter(
-            explode('/', $path),
-            fn (string $segment): bool => $segment !== '' && $segment !== '.'
-        );
-
-        return implode('/', $segments);
-    }
-
-    /**
      * Extract namespace ID from "id:path" format
      */
     private function getNamespaceId(string $owner): string

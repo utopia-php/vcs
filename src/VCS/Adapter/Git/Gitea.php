@@ -423,6 +423,7 @@ class Gitea extends Git
 
     public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array
     {
+        $path = $this->normalizeRepositoryPath($path);
         $url = "/repos/{$owner}/{$repositoryName}/contents/{$path}";
         if (!empty($ref)) {
             $url .= "?ref=" . urlencode($ref);
@@ -456,6 +457,7 @@ class Gitea extends Git
 
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
+        $path = $this->normalizeRepositoryPath($path);
         $url = "/repos/{$owner}/{$repositoryName}/contents";
         if (!empty($path)) {
             $url .= "/{$path}";

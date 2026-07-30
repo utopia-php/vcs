@@ -198,12 +198,12 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Remove repositories during cleanup. One that was never created is not a
-     * failure, but anything else - auth, transport, a provider fault - has to
-     * surface rather than quietly leave the repository behind. Every repository
-     * is attempted before reporting, so one failure cannot strand the rest.
+     * Remove repositories a passing test created. Every repository is attempted
+     * before reporting, so one failure cannot strand the rest, and a repository
+     * that was never created is not a failure. Anything else - auth, transport,
+     * a provider fault - surfaces rather than leaving the repository behind.
      */
-    protected function deleteRepositoriesIfExist(string ...$repositoryNames): void
+    protected function deleteRepositories(string ...$repositoryNames): void
     {
         $failures = [];
 
@@ -224,6 +224,22 @@ abstract class Base extends TestCase
 
         if ($failures !== []) {
             throw new Exception('Failed to clean up ' . \implode(', ', $failures));
+        }
+    }
+
+    /**
+     * Remove repositories while a failure is already on its way out. Reporting
+     * a cleanup problem here would replace the reason the test actually failed,
+     * so this stays quiet.
+     */
+    protected function discardRepositories(string ...$repositoryNames): void
+    {
+        foreach ($repositoryNames as $repositoryName) {
+            try {
+                $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            } catch (\Throwable) {
+                continue;
+            }
         }
     }
 
@@ -977,9 +993,13 @@ abstract class Base extends TestCase
             }, 60000, 2000);
 
             $this->assertNotContains($other, $names);
-        } finally {
-            $this->deleteRepositoriesIfExist($match, $other);
+        } catch (\Throwable $e) {
+            $this->discardRepositories($match, $other);
+
+            throw $e;
         }
+
+        $this->deleteRepositories($match, $other);
     }
 
     public function testSearchRepositories(): void
@@ -1009,9 +1029,13 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('private', $repository);
                 $this->assertPushedAt($repository);
             }
-        } finally {
-            $this->deleteRepositoriesIfExist($repo1Name, $repo2Name);
+        } catch (\Throwable $e) {
+            $this->discardRepositories($repo1Name, $repo2Name);
+
+            throw $e;
         }
+
+        $this->deleteRepositories($repo1Name, $repo2Name);
     }
 
     public function testGetPullRequest(): void

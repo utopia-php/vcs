@@ -137,8 +137,6 @@ abstract class Base extends TestCase
 
     protected static bool $supportsNamespaceListing = true;
 
-    protected static bool $supportsPresignedUrls = true;
-
     /**
      * Whether a push event names the files it touched. Bitbucket's payload
      * carries no file lists at all.
@@ -1600,13 +1598,6 @@ abstract class Base extends TestCase
 
     public function testGetRepositoryPresignedUrl(): void
     {
-        if (!static::$supportsPresignedUrls) {
-            $this->expectException(Exception::class);
-            $this->vcsAdapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch);
-
-            return;
-        }
-
         $repositoryName = 'test-presigned-url-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1630,8 +1621,6 @@ abstract class Base extends TestCase
 
     public function testGetRepositoryPresignedUrlWithInvalidFormat(): void
     {
-        $this->skipUnlessSupported(static::$supportsPresignedUrls, 'presigned archive urls');
-
         $this->expectException(Exception::class);
         $this->vcsAdapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch, 'invalid');
     }
@@ -1724,7 +1713,10 @@ abstract class Base extends TestCase
      */
     public function testCreateAndDeleteWebhookWithoutDelivery(): void
     {
-        $this->skipUnlessSupported(!static::$supportsWebhookDelivery, 'duplicating the webhook deletion testWebhookPushEvent() already covers');
+        if (static::$supportsWebhookDelivery) {
+            $this->markTestSkipped('webhook deletion is already covered by testWebhookPushEvent()');
+        }
+
         $this->skipUnlessSupported(static::$supportsWebhookCreation, 'creating a webhook through the API');
 
         $repositoryName = 'test-create-delete-webhook-' . \uniqid();

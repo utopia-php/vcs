@@ -25,27 +25,6 @@ class Bitbucket extends Git
      */
     private const MAX_TREE_DEPTH = 100;
 
-    protected string $endpoint = 'https://api.bitbucket.org/2.0';
-
-    /**
-     * Browser-facing host. Bitbucket Cloud serves its API from a separate
-     * host, so unlike the self-hosted adapters this is tracked on its own.
-     */
-    protected string $bitbucketUrl = 'https://bitbucket.org';
-
-    protected string $accessToken;
-
-    protected ?string $refreshToken = null;
-
-    protected Cache $cache;
-
-    /**
-     * Global Headers
-     *
-     * @var array<string, string>
-     */
-    protected $headers = ['content-type' => 'application/json'];
-
     /**
      * Maps the state vocabulary shared by the other adapters (GitHub's) onto
      * Bitbucket's build states.
@@ -81,28 +60,35 @@ class Bitbucket extends Git
         'pullrequest:rejected' => 'closed',
     ];
 
+    protected string $endpoint = 'https://api.bitbucket.org/2.0';
+
+    /**
+     * Browser-facing host; the API lives on a separate host.
+     */
+    protected string $bitbucketUrl = 'https://bitbucket.org';
+
+    protected string $accessToken;
+
+    protected Cache $cache;
+
+    /**
+     * Global Headers
+     *
+     * @var array<string, string>
+     */
+    protected $headers = ['content-type' => 'application/json'];
+
     public function __construct(Cache $cache)
     {
         $this->cache = $cache;
     }
 
     /**
-     * Point the adapter at a different API base, e.g. a proxy in front of
-     * Bitbucket Cloud. Expects a full base URL such as
-     * 'https://api.bitbucket.org/2.0'.
+     * Moves only the API host; the browser-facing host stays on bitbucket.org.
      */
     public function setEndpoint(string $endpoint): void
     {
         $this->endpoint = rtrim($endpoint, '/');
-    }
-
-    /**
-     * Point the adapter at a different browser-facing host, e.g.
-     * 'https://bitbucket.org'.
-     */
-    public function setBitbucketUrl(string $bitbucketUrl): void
-    {
-        $this->bitbucketUrl = rtrim($bitbucketUrl, '/');
     }
 
     public function getName(): string
@@ -154,7 +140,6 @@ class Bitbucket extends Git
     {
         if (!empty($accessToken)) {
             $this->accessToken = $accessToken;
-            $this->refreshToken = $refreshToken;
 
             return;
         }
@@ -181,6 +166,17 @@ class Bitbucket extends Git
     }
 
     /**
+     * Name of the repository's main branch, or '' when it has none yet (an
+     * empty repository names its main branch only once the root commit lands).
+     */
+    private function mainBranchName(string $owner, string $repositoryName): string
+    {
+        $mainbranch = $this->getRepository($owner, $repositoryName)['mainbranch'] ?? [];
+
+        return (string) ($mainbranch['name'] ?? '');
+    }
+
+    /**
      * Bitbucket's source endpoints always want an explicit ref, so fall back to
      * the repository's main branch when the caller didn't name one.
      */
@@ -190,37 +186,51 @@ class Bitbucket extends Git
             return $ref;
         }
 
-        $repository = $this->getRepository($owner, $repositoryName);
-        $mainbranch = $repository['mainbranch'] ?? [];
-        $name = is_array($mainbranch) ? ($mainbranch['name'] ?? '') : '';
-
+        $name = $this->mainBranchName($owner, $repositoryName);
         if (empty($name)) {
             throw new Exception("Unable to resolve the main branch of {$owner}/{$repositoryName}.");
         }
 
-        return (string) $name;
+        return $name;
+    }
+
+    /**
+     * Slug of the workspace holding a repository, read off `workspace.slug` or
+     * the first segment of `full_name` when the workspace object is absent.
+     *
+     * @param array<mixed> $repository
+     */
+    private function workspaceSlugOf(array $repository): string
+    {
+        $slug = (string) ($repository['workspace']['slug'] ?? '');
+        if (!empty($slug)) {
+            return $slug;
+        }
+
+        $fullName = (string) ($repository['full_name'] ?? '');
+
+        return strpos($fullName, '/') !== false ? explode('/', $fullName)[0] : '';
     }
 
     /**
      * Repository responses carry Bitbucket's own field names; surface the keys
      * the other adapters report under so consumers can treat them alike.
      *
+     * Bitbucket has no numeric repository ids; "workspace/slug" is the
+     * identifier its API routes on, so that is what `id` carries and what
+     * getRepositoryName() and event payloads report back.
+     *
      * @param array<mixed> $repository
      * @return array<mixed>
      */
     private function normalizeRepository(array $repository): array
     {
-        $fullName = (string) ($repository['full_name'] ?? '');
-
-        // Bitbucket has no numeric repository ids; "workspace/slug" is the
-        // identifier its API routes on, so that is what getRepositoryName()
-        // and getOwnerName() expect to receive back.
-        $repository['id'] = $fullName;
+        $repository['id'] = (string) ($repository['full_name'] ?? '');
         $repository['private'] = ($repository['is_private'] ?? false) === true;
         $repository['pushed_at'] = $repository['updated_on'] ?? '';
 
-        if (empty($repository['workspace']['slug']) && strpos($fullName, '/') !== false) {
-            $repository['workspace'] = ['slug' => explode('/', $fullName)[0]];
+        if (empty($repository['workspace']['slug'])) {
+            $repository['workspace'] = ['slug' => $this->workspaceSlugOf($repository)];
         }
 
         return $repository;
@@ -242,9 +252,9 @@ class Bitbucket extends Git
             throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", $statusCode);
         }
 
-        $body = $response['body'] ?? [];
+        $responseBody = $response['body'] ?? [];
 
-        return $this->normalizeRepository(is_array($body) ? $body : []);
+        return $this->normalizeRepository(is_array($responseBody) ? $responseBody : []);
     }
 
     public function deleteRepository(string $owner, string $repositoryName): bool
@@ -274,28 +284,21 @@ class Bitbucket extends Git
             throw new RepositoryNotFound("Repository not found");
         }
 
-        $body = $response['body'] ?? [];
+        $responseBody = $response['body'] ?? [];
 
-        return $this->normalizeRepository(is_array($body) ? $body : []);
+        return $this->normalizeRepository(is_array($responseBody) ? $responseBody : []);
     }
 
     public function getRepositoryName(string $repositoryId): string
     {
-        // Bitbucket has no numeric repository ids, so $repositoryId is the
-        // "workspace/slug" pair reported as `id` by createRepository().
-        $url = "/repositories/{$repositoryId}";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
-
-        $responseHeaders = $response['headers'] ?? [];
-        $statusCode = $responseHeaders['status-code'] ?? 0;
-        if ($statusCode >= 400) {
+        // $repositoryId is the "workspace/slug" id normalizeRepository() mints
+        if (strpos($repositoryId, '/') === false) {
             throw new RepositoryNotFound("Repository {$repositoryId} not found");
         }
 
-        $responseBody = $response['body'] ?? [];
+        [$workspace, $slug] = explode('/', $repositoryId, 2);
 
-        return $responseBody['name'] ?? '';
+        return (string) ($this->getRepository($workspace, $slug)['name'] ?? '');
     }
 
     public function hasAccessToAllRepositories(): bool
@@ -334,12 +337,13 @@ class Bitbucket extends Git
 
         $repositories = [];
         foreach (($responseBody['values'] ?? []) as $repository) {
+            $repository = $this->normalizeRepository(is_array($repository) ? $repository : []);
             $repositories[] = [
-                'id' => $repository['full_name'] ?? '',
+                'id' => $repository['id'],
                 'name' => $repository['name'] ?? '',
                 'description' => $repository['description'] ?? '',
-                'private' => ($repository['is_private'] ?? false) === true,
-                'pushed_at' => $repository['updated_on'] ?? '',
+                'private' => $repository['private'],
+                'pushed_at' => $repository['pushed_at'],
             ];
         }
 
@@ -378,6 +382,18 @@ class Bitbucket extends Git
     }
 
     /**
+     * URL of a path in the repository's source tree at a ref, resolving the
+     * ref to the main branch when empty. Throws when that resolution fails.
+     */
+    private function sourceUrl(string $owner, string $repositoryName, string $path, string $ref): string
+    {
+        $ref = $this->resolveRef($owner, $repositoryName, $ref);
+        $path = $this->normalizeRepositoryPath($path);
+
+        return "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $this->encodeRepositoryPath($path);
+    }
+
+    /**
      * List entries of a directory in the repository, following pagination.
      * Returns an empty list when the ref or path doesn't exist.
      *
@@ -387,13 +403,10 @@ class Bitbucket extends Git
     private function listSource(string $owner, string $repositoryName, string $path, string $ref, string $suffix = ''): array
     {
         try {
-            $ref = $this->resolveRef($owner, $repositoryName, $ref);
+            $base = $this->sourceUrl($owner, $repositoryName, $path, $ref);
         } catch (Exception $e) {
             return [];
         }
-
-        $path = $this->normalizeRepositoryPath($path);
-        $base = "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $this->encodeRepositoryPath($path);
 
         $items = [];
         $page = 1;
@@ -428,13 +441,10 @@ class Bitbucket extends Git
     public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array
     {
         try {
-            $ref = $this->resolveRef($owner, $repositoryName, $ref);
+            $url = $this->sourceUrl($owner, $repositoryName, $path, $ref);
         } catch (Exception $e) {
             throw new FileNotFound();
         }
-
-        $path = $this->normalizeRepositoryPath($path);
-        $url = "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $this->encodeRepositoryPath($path);
 
         // A missing file is the expected, common case here (not every repo
         // has e.g. package.json) -- call() throws on a non-JSON/empty body,
@@ -489,7 +499,11 @@ class Bitbucket extends Git
      */
     public function listRepositoryLanguages(string $owner, string $repositoryName): array
     {
-        $repository = $this->getRepository($owner, $repositoryName);
+        try {
+            $repository = $this->getRepository($owner, $repositoryName);
+        } catch (RepositoryNotFound $e) {
+            return [];
+        }
 
         $language = (string) ($repository['language'] ?? '');
 
@@ -545,16 +559,12 @@ class Bitbucket extends Git
 
     /**
      * Name of the branch a commit lands on when the caller didn't pick one.
-     * An empty repository has no main branch yet, and Bitbucket names the
-     * branch of its root commit after whatever we ask for, so default to 'main'.
+     * Bitbucket names an empty repository's branch after whatever the first
+     * commit asks for, so default to 'main'.
      */
     private function resolveDefaultBranch(string $owner, string $repositoryName): string
     {
-        $repository = $this->getRepository($owner, $repositoryName);
-        $mainbranch = $repository['mainbranch'] ?? [];
-        $name = is_array($mainbranch) ? ($mainbranch['name'] ?? '') : '';
-
-        return empty($name) ? 'main' : (string) $name;
+        return $this->mainBranchName($owner, $repositoryName) ?: 'main';
     }
 
     public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
@@ -730,9 +740,9 @@ class Bitbucket extends Git
         ];
     }
 
-    public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
+    public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
-        $url = "/repositories/{$owner}/{$repositoryName}/commit/" . rawurlencode($SHA) . '/statuses/build';
+        $url = "/repositories/{$owner}/{$repositoryName}/commit/" . rawurlencode($commitHash) . '/statuses/build';
 
         // Bitbucket identifies a status by its key and overwrites a status
         // posted under a key it already has, so the context doubles as the key.
@@ -744,7 +754,7 @@ class Bitbucket extends Git
             'state' => self::COMMIT_STATE_MAP[$state] ?? $state,
             // A build status without a URL is rejected, so point at the commit
             // itself when the caller has nowhere better to link.
-            'url' => empty($target_url) ? $this->getCommitUrl($owner, $repositoryName, $SHA) : $target_url,
+            'url' => empty($target_url) ? $this->getCommitUrl($owner, $repositoryName, $commitHash) : $target_url,
         ];
 
         if (!empty($description)) {
@@ -991,10 +1001,6 @@ class Bitbucket extends Git
     }
 
     /**
-     * Create a webhook on a repository. Bitbucket identifies hooks by UUID
-     * rather than by number, so this returns the UUID that deleteWebhook()
-     * takes.
-     *
      * @param array<string> $events Event names, either this library's ('push',
      *                              'pull_request') or Bitbucket's own keys
      *                              (e.g. 'repo:push')
@@ -1024,11 +1030,8 @@ class Bitbucket extends Git
 
         $uuid = $response['body']['uuid'] ?? null;
         if ($uuid === null || $uuid === '') {
-            // The hook is already live on Bitbucket even without a uuid in this
-            // response. Recovering it by listing and matching on url is only
-            // safe when exactly one hook has that url -- guessing between
-            // several would risk the caller later deleting an unrelated hook
-            // while the real one it just created stays orphaned.
+            // The hook is live even without a uuid in the response; recover it
+            // from the hook list rather than leaving it undeletable.
             $uuid = $this->findSingleWebhookByUrl($owner, $repositoryName, $url);
         }
 
@@ -1074,9 +1077,6 @@ class Bitbucket extends Git
         return count($matches) === 1 ? $matches[0] : null;
     }
 
-    /**
-     * Delete a webhook from a repository.
-     */
     public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool
     {
         $url = "/repositories/{$owner}/{$repositoryName}/hooks/" . rawurlencode((string) $webhookId);
@@ -1134,17 +1134,17 @@ class Bitbucket extends Git
             throw new Exception("Failed to get user: HTTP {$statusCode}", $statusCode);
         }
 
-        $body = $response['body'] ?? [];
-        if (!is_array($body) || empty($body['uuid'])) {
+        $responseBody = $response['body'] ?? [];
+        if (!is_array($responseBody) || empty($responseBody['uuid'])) {
             throw new Exception("User not found: {$username}");
         }
 
         // Bitbucket has no numeric user ids, and reports the handle as
         // `nickname`; surface both under the shared keys.
-        $body['id'] = $body['uuid'];
-        $body['username'] = $body['username'] ?? ($body['nickname'] ?? '');
+        $responseBody['id'] = $responseBody['uuid'];
+        $responseBody['username'] = $responseBody['username'] ?? ($responseBody['nickname'] ?? '');
 
-        return $body;
+        return $responseBody;
     }
 
     /**
@@ -1162,26 +1162,16 @@ class Bitbucket extends Git
             throw new Exception("Failed to get current user: HTTP {$statusCode}", $statusCode);
         }
 
-        $body = $response['body'] ?? [];
+        $responseBody = $response['body'] ?? [];
 
-        return is_array($body) ? $body : [];
+        return is_array($responseBody) ? $responseBody : [];
     }
 
     /**
-     * Bitbucket has no installations and no numeric repository ids, so
-     * $installationId and $repositoryId are both unused: the owner is always
-     * the workspace of the account the token belongs to.
-     *
-     * `/user`'s `username` (old accounts) or `nickname` (accounts migrated to
-     * Atlassian's unified identity) are display handles, not workspace
-     * identifiers -- for migrated accounts `nickname` is an opaque value
-     * Bitbucket's repository API doesn't recognize as a workspace, silently
-     * returning zero repositories rather than an error. The account's own
-     * UUID doesn't double as its workspace's UUID either -- confirmed live,
-     * the two are unrelated. The workspace is instead resolved via
-     * `/user/workspaces`, the endpoint Atlassian's migration guidance names
-     * as the user-scoped replacement for the cross-workspace `/workspaces`
-     * listing CHANGE-2770 removed.
+     * $installationId and $repositoryId are unused (Bitbucket has neither
+     * installations nor numeric repository ids): the owner is the token
+     * account's workspace, resolved via /user/workspaces because `/user`'s
+     * username/nickname are display handles, not workspace identifiers.
      */
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
@@ -1190,13 +1180,9 @@ class Bitbucket extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode < 400) {
-            $body = $response['body'] ?? [];
-            $values = is_array($body) ? ($body['values'] ?? []) : [];
-            $first = $values[0] ?? [];
-            // Some Bitbucket user-scoped list endpoints wrap the resource
-            // under its own key (e.g. the older /permissions/workspaces
-            // did); accept either shape rather than assume this one is flat.
-            $slug = $first['slug'] ?? ($first['workspace']['slug'] ?? '');
+            $responseBody = $response['body'] ?? [];
+            $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
+            $slug = $values[0]['slug'] ?? '';
             if (!empty($slug)) {
                 return (string) $slug;
             }
@@ -1209,8 +1195,7 @@ class Bitbucket extends Git
 
     /**
      * $bitbucketUrl with the access token embedded as HTTP Basic userinfo
-     * (https://x-token-auth:{token}@bitbucket.org), the scheme both
-     * getRepositoryPresignedUrl() and generateCloneCommand() authenticate with.
+     * (https://x-token-auth:{token}@bitbucket.org).
      */
     private function authenticatedBitbucketUrl(): string
     {
@@ -1224,14 +1209,9 @@ class Bitbucket extends Git
     /**
      * @link https://support.atlassian.com/bitbucket-cloud/kb/how-to-download-repositories-using-the-api/
      *
-     * Bitbucket serves this from the browser host rather than the API host,
-     * and answers it directly instead of redirecting to a signed URL, so --
-     * unlike GitHub, which returns the redirect target -- the credential has
-     * to travel in the URL, as it does for GitLab and Gitea.
-     *
-     * It travels as HTTP Basic userinfo rather than the query parameter those
-     * two use: Bitbucket's documented form for this endpoint is basic auth,
-     * and its `?access_token=` query parameter was removed in CHANGE-3052.
+     * Bitbucket answers this directly instead of redirecting to a signed URL,
+     * so the access token is embedded as HTTP Basic userinfo -- the returned
+     * URL carries the credential and must be treated as a secret.
      */
     public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
     {
@@ -1323,8 +1303,7 @@ class Bitbucket extends Git
 
         switch ($event) {
             case 'repo:push':
-                $push = is_array($payloadArray['push'] ?? null) ? $payloadArray['push'] : [];
-                $changes = is_array($push['changes'] ?? null) ? $push['changes'] : [];
+                $changes = $payloadArray['push']['changes'] ?? [];
 
                 $events = [];
                 foreach ($changes as $change) {
@@ -1357,25 +1336,9 @@ class Bitbucket extends Git
      */
     private function isBranchChange(array $change): bool
     {
-        $new = is_array($change['new'] ?? null) ? $change['new'] : [];
-        $old = is_array($change['old'] ?? null) ? $change['old'] : [];
-
-        $type = $new['type'] ?? ($old['type'] ?? 'branch');
+        $type = $change['new']['type'] ?? ($change['old']['type'] ?? 'branch');
 
         return \in_array($type, ['branch', 'named_branch'], true);
-    }
-
-    /**
-     * Identifier of the repository a webhook payload describes. Bitbucket's
-     * repository UUID isn't routable on its own, so this reports the
-     * "workspace/slug" pair getRepositoryName() resolves, matching the `id`
-     * createRepository() and getRepository() report.
-     *
-     * @param array<mixed> $repository
-     */
-    private function getEventRepositoryId(array $repository): string
-    {
-        return strval($repository['full_name'] ?? '');
     }
 
     /**
@@ -1384,17 +1347,10 @@ class Bitbucket extends Git
      */
     private function getEventRepositoryOwner(array $repository): array
     {
-        $url = (string) ($repository['links']['html']['href'] ?? '');
-
-        $workspace = is_array($repository['workspace'] ?? null) ? $repository['workspace'] : [];
-        $owner = (string) ($workspace['slug'] ?? '');
-
-        $fullName = (string) ($repository['full_name'] ?? '');
-        if (empty($owner) && strpos($fullName, '/') !== false) {
-            $owner = explode('/', $fullName)[0];
-        }
-
-        return ['owner' => $owner, 'url' => $url];
+        return [
+            'owner' => $this->workspaceSlugOf($repository),
+            'url' => (string) ($repository['links']['html']['href'] ?? ''),
+        ];
     }
 
     /**
@@ -1429,7 +1385,7 @@ class Bitbucket extends Git
             'branchDeleted' => ($change['closed'] ?? false) === true,
             'branch' => $branch,
             'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
-            'repositoryId' => $this->getEventRepositoryId($repository),
+            'repositoryId' => (string) ($repository['full_name'] ?? ''),
             'repositoryName' => $repository['name'] ?? '',
             'repositoryUrl' => $repositoryUrl,
             'installationId' => '', // Bitbucket has no installations
@@ -1479,7 +1435,7 @@ class Bitbucket extends Git
         return [
             'branch' => $branch,
             'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
-            'repositoryId' => $this->getEventRepositoryId($repository),
+            'repositoryId' => (string) ($repository['full_name'] ?? ''),
             'repositoryName' => $repository['name'] ?? '',
             'repositoryUrl' => $repositoryUrl,
             'installationId' => '',

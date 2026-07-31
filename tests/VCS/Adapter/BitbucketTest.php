@@ -10,10 +10,7 @@ use Utopia\VCS\Adapter\Git\Bitbucket;
 
 class BitbucketTest extends Base
 {
-    /**
-     * Bitbucket has no repository ids, so events report the "workspace/slug"
-     * pair its API routes on.
-     */
+    // Bitbucket routes by "workspace/slug" rather than a numeric id
     protected const EVENT_REPOSITORY_ID = self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
 
     private const REPOSITORY_URL = 'https://bitbucket.org/' . self::EVENT_REPOSITORY_ID;
@@ -72,11 +69,6 @@ class BitbucketTest extends Base
             refreshToken: ''
         );
 
-        $endpoint = System::getEnv('TESTS_BITBUCKET_ENDPOINT') ?? '';
-        if (!empty($endpoint)) {
-            $adapter->setEndpoint($endpoint);
-        }
-
         if (empty(static::$owner)) {
             // Fall back to the token's own workspace when none is configured
             static::$owner = System::getEnv('TESTS_BITBUCKET_WORKSPACE') ?: $adapter->getOwnerName('');
@@ -86,9 +78,6 @@ class BitbucketTest extends Base
     }
 
     /**
-     * Bitbucket has no repository ids; createRepository() reports the
-     * "workspace/slug" pair its API routes on instead.
-     *
      * @param array<string, mixed> $repository
      */
     protected function repositoryIdOf(array $repository): string

@@ -1011,10 +1011,48 @@ class Bitbucket extends Git
 
         $uuid = $response['body']['uuid'] ?? null;
         if ($uuid === null || $uuid === '') {
-            throw new Exception('Webhook created but response did not include a uuid');
+            // The hook is already live on Bitbucket even without a uuid in this
+            // response, so find it by url instead of leaving it running with no
+            // way to delete it.
+            $uuid = $this->findWebhookUuid($owner, $repositoryName, $url);
+        }
+
+        if (empty($uuid)) {
+            throw new Exception('Webhook created but its uuid could not be resolved');
         }
 
         return (string) $uuid;
+    }
+
+    /**
+     * Finds the uuid of a repository's webhook by the url it delivers to.
+     */
+    private function findWebhookUuid(string $owner, string $repositoryName, string $url): ?string
+    {
+        $page = 1;
+        do {
+            $apiUrl = "/repositories/{$owner}/{$repositoryName}/hooks?pagelen=" . self::PAGE_SIZE . "&page={$page}";
+
+            $response = $this->call(self::METHOD_GET, $apiUrl, ['Authorization' => 'Bearer ' . $this->accessToken]);
+
+            $responseHeaders = $response['headers'] ?? [];
+            if (($responseHeaders['status-code'] ?? 0) >= 400) {
+                return null;
+            }
+
+            $responseBody = $response['body'] ?? [];
+            $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
+
+            foreach ($values as $hook) {
+                if (is_array($hook) && ($hook['url'] ?? null) === $url) {
+                    return (string) ($hook['uuid'] ?? '') ?: null;
+                }
+            }
+
+            $page++;
+        } while (!empty($responseBody['next']));
+
+        return null;
     }
 
     /**

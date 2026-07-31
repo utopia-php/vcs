@@ -1009,9 +1009,12 @@ class Bitbucket extends Git
             throw new Exception("Failed to create webhook: HTTP {$statusCode} - " . json_encode($response['body'] ?? []), $statusCode);
         }
 
-        $responseBody = $response['body'] ?? [];
+        $uuid = $response['body']['uuid'] ?? null;
+        if ($uuid === null || $uuid === '') {
+            throw new Exception('Webhook created but response did not include a uuid');
+        }
 
-        return $responseBody['uuid'] ?? '';
+        return (string) $uuid;
     }
 
     /**
@@ -1185,17 +1188,20 @@ class Bitbucket extends Git
     /**
      * @link https://support.atlassian.com/bitbucket-cloud/kb/how-to-download-repositories-using-the-api/
      *
-     * Unlike GitHub/GitLab, this archive download lives on the browser host
-     * (bitbucket.org/{owner}/{repo}/get/{ref}.{ext}), not the API host, and
-     * only supports zip/gz/bz2 -- there's no distinct "tarball" extension.
-     * Auth is embedded the same way generateCloneCommand() embeds it for git
-     * clones, since this URL is handed off for a plain download rather than
-     * called with a bearer header.
+     * Bitbucket serves this from the browser host rather than the API host,
+     * and answers it directly instead of redirecting to a signed URL, so --
+     * unlike GitHub, which returns the redirect target -- the credential has
+     * to travel in the URL, as it does for GitLab and Gitea.
+     *
+     * It travels as HTTP Basic userinfo rather than the query parameter those
+     * two use: Bitbucket's documented form for this endpoint is basic auth,
+     * and its `?access_token=` query parameter was removed in CHANGE-3052.
+     * `x-token-auth` is the same scheme generateCloneCommand() below relies on.
      */
     public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
     {
         $extension = match ($format) {
-            'tarball' => 'gz',
+            'tarball' => 'tar.gz',
             'zipball' => 'zip',
             default => throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'."),
         };
@@ -1205,9 +1211,13 @@ class Bitbucket extends Git
             $baseUrl = str_replace('://', '://x-token-auth:' . urlencode($this->accessToken) . '@', $this->bitbucketUrl);
         }
 
-        $refSegment = !empty($ref) ? $ref : 'HEAD';
+        // Bitbucket resolves HEAD to the repository's default branch
+        $ref = empty($ref) ? 'HEAD' : $ref;
 
-        return "{$baseUrl}/{$owner}/{$repositoryName}/get/" . rawurlencode($refSegment) . ".{$extension}";
+        // Encode the ref but keep slashes so nested branch names (e.g. feature/foo) still resolve
+        $encodedRef = \str_replace('%2F', '/', \rawurlencode($ref));
+
+        return "{$baseUrl}/{$owner}/{$repositoryName}/get/{$encodedRef}.{$extension}";
     }
 
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string

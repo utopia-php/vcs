@@ -31,7 +31,6 @@ class BitbucketTest extends Base
     protected static string $pullRequestEventName = 'pullrequest:created';
 
     protected static bool $supportsInstallationRepository = false;
-    protected static bool $supportsPresignedUrls = false;
     protected static bool $supportsCheckRuns = false;
     protected static bool $supportsRepositoryLanguages = false;
     protected static bool $reportsAffectedFilesInPushEvent = false;
@@ -348,6 +347,7 @@ class BitbucketTest extends Base
 
         $events = $adapter->getEvents(static::$pushEventName, $payload);
 
+        // The tag between them is left out
         $this->assertCount(2, $events);
         $this->assertSame(['main', 'feature'], array_column($events, 'branch'));
         $this->assertSame(['aaa111', 'ccc333'], array_column($events, 'commitHash'));
@@ -355,19 +355,14 @@ class BitbucketTest extends Base
 
         // getEvent() reports the first of them
         $this->assertSame($events[0], $adapter->getEvent(static::$pushEventName, $payload));
-    }
 
-    /**
-     * A tag-only push has no branch to report at all.
-     */
-    public function testGetEventTagPushIsNotReportedAsBranch(): void
-    {
-        $payload = (string) json_encode([
+        // Leaving a push with nothing but tags no branch to report at all
+        $tagsOnly = (string) json_encode([
             'repository' => $this->eventRepository(),
             'push' => ['changes' => [['new' => ['type' => 'tag', 'name' => 'v1.0.0', 'target' => ['hash' => 'aaa111']]]]],
         ]);
 
-        $this->assertSame([], $this->vcsAdapter->getEvent(static::$pushEventName, $payload));
+        $this->assertSame([], $adapter->getEvent(static::$pushEventName, $tagsOnly));
     }
 
     public function testGetEventPullRequestActionMapping(): void

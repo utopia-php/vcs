@@ -1025,28 +1025,28 @@ class Bitbucket extends Git
         $uuid = $response['body']['uuid'] ?? null;
         if ($uuid === null || $uuid === '') {
             // The hook is already live on Bitbucket even without a uuid in this
-            // response, so find it by url instead of leaving it running with no
-            // way to delete it.
-            $uuid = $this->findWebhookUuid($owner, $repositoryName, $url);
+            // response. Recovering it by listing and matching on url is only
+            // safe when exactly one hook has that url -- guessing between
+            // several would risk the caller later deleting an unrelated hook
+            // while the real one it just created stays orphaned.
+            $uuid = $this->findSingleWebhookByUrl($owner, $repositoryName, $url);
         }
 
         if (empty($uuid)) {
-            throw new Exception('Webhook created but its uuid could not be resolved');
+            throw new Exception("Webhook created but its uuid could not be safely resolved; check {$owner}/{$repositoryName}'s webhooks at {$url} manually");
         }
 
         return (string) $uuid;
     }
 
     /**
-     * Finds the uuid of a repository's webhook by the url it delivers to. An
-     * older webhook can already share the url, so among every match this
-     * returns the one with the most recent created_at, the one this call just
-     * created.
+     * Uuid of the one repository webhook delivering to this url, or null if
+     * there is none or more than one -- callers can't tell which of several
+     * matches is theirs, so this refuses to guess.
      */
-    private function findWebhookUuid(string $owner, string $repositoryName, string $url): ?string
+    private function findSingleWebhookByUrl(string $owner, string $repositoryName, string $url): ?string
     {
-        $newestUuid = null;
-        $newestCreatedAt = '';
+        $matches = [];
 
         $page = 1;
         do {
@@ -1056,28 +1056,22 @@ class Bitbucket extends Git
 
             $responseHeaders = $response['headers'] ?? [];
             if (($responseHeaders['status-code'] ?? 0) >= 400) {
-                return $newestUuid;
+                break;
             }
 
             $responseBody = $response['body'] ?? [];
             $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
 
             foreach ($values as $hook) {
-                if (!is_array($hook) || ($hook['url'] ?? null) !== $url) {
-                    continue;
-                }
-
-                $createdAt = (string) ($hook['created_at'] ?? '');
-                if ($newestUuid === null || $createdAt > $newestCreatedAt) {
-                    $newestUuid = (string) ($hook['uuid'] ?? '') ?: null;
-                    $newestCreatedAt = $createdAt;
+                if (is_array($hook) && ($hook['url'] ?? null) === $url) {
+                    $matches[] = (string) ($hook['uuid'] ?? '');
                 }
             }
 
             $page++;
         } while (!empty($responseBody['next']));
 
-        return $newestUuid;
+        return count($matches) === 1 ? $matches[0] : null;
     }
 
     /**

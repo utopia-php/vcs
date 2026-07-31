@@ -597,9 +597,6 @@ class Gitea extends Git
         return (int) ($response['body']['id'] ?? 0);
     }
 
-    /**
-     * Delete a webhook from a repository.
-     */
     public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool
     {
         $url = "/repos/{$owner}/{$repositoryName}/hooks/{$webhookId}";

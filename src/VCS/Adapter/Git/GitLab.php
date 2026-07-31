@@ -597,9 +597,6 @@ class GitLab extends Git
         return $responseBody['id'] ?? 0;
     }
 
-    /**
-     * Delete a webhook from a repository.
-     */
     public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool
     {
         $ownerPath = $this->getOwnerPath($owner);

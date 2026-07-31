@@ -125,6 +125,16 @@ abstract class Base extends TestCase
 
     protected static bool $supportsWebhookDelivery = true;
 
+    /**
+     * Whether creating a webhook through the API is possible at all,
+     * independent of whether delivery can reach the test catcher. A GitHub
+     * App installation token can't manage classic per-repo webhooks (403
+     * "Resource not accessible by integration"), a different limitation from
+     * Bitbucket's -- Bitbucket creates one fine, it just can't deliver to a
+     * local address.
+     */
+    protected static bool $supportsWebhookCreation = true;
+
     protected static bool $resolvesOwnerFromRepositoryId = true;
 
     protected static bool $rejectsInvalidRepositoryNames = true;
@@ -1717,12 +1727,14 @@ abstract class Base extends TestCase
     /**
      * Covers createWebhook()/deleteWebhook() through the API alone, for an
      * adapter whose webhooks testWebhookPushEvent() can't reach to also cover
-     * deletion there. Skipped otherwise so this doesn't create a second
-     * webhook alongside the one that test already creates and deletes.
+     * deletion there. Skipped when that test already covers it, and skipped
+     * separately when the adapter can't create a webhook through the API at
+     * all -- a different limitation from not being able to deliver one.
      */
     public function testCreateAndDeleteWebhookWithoutDelivery(): void
     {
         $this->skipUnlessSupported(!static::$supportsWebhookDelivery, 'duplicating the webhook deletion testWebhookPushEvent() already covers');
+        $this->skipUnlessSupported(static::$supportsWebhookCreation, 'creating a webhook through the API');
 
         $repositoryName = 'test-create-delete-webhook-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);

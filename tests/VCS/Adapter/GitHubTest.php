@@ -23,6 +23,12 @@ class GitHubTest extends Base
     protected static bool $supportsUserLookup = false;
     protected static bool $computesLanguagesAsynchronously = true;
     protected static bool $supportsWebhookDelivery = false;
+
+    // A GitHub App installation token gets 403 "Resource not accessible by
+    // integration" from the classic per-repo webhook endpoint this library
+    // uses; only an OAuth token or PAT can manage it.
+    protected static bool $supportsWebhookCreation = false;
+
     protected static bool $resolvesOwnerFromRepositoryId = false;
     protected static bool $rejectsInvalidRepositoryNames = false;
 

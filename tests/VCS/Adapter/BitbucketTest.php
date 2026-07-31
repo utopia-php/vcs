@@ -185,43 +185,13 @@ class BitbucketTest extends Base
 
     /**
      * Bitbucket rejects a build status with no url, so the adapter points one
-     * that was written without a url at the commit it describes.
+     * written without a url at the commit it describes.
+     *
+     * @param array<string, mixed> $status
      */
-    public function testUpdateCommitStatusDefaultsUrlToCommit(): void
+    protected function assertCommitStatusUrl(array $status, string $commitUrl): void
     {
-        $repositoryName = 'test-update-commit-status-url-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Test');
-            $commitHash = $this->getLatestCommitEventually($repositoryName)['commitHash'];
-
-            $this->vcsAdapter->updateCommitStatus(
-                $repositoryName,
-                $commitHash,
-                static::$owner,
-                'pending',
-                'Build started',
-                '',
-                'ci/test'
-            );
-
-            $written = null;
-            foreach ($this->vcsAdapter->getCommitStatuses(static::$owner, $repositoryName, $commitHash) as $status) {
-                if ($status['context'] === 'ci/test') {
-                    $written = $status;
-                }
-            }
-
-            $this->assertNotNull($written, 'No status reported under the context it was written with');
-            $this->assertSame('pending', $written['state']);
-            $this->assertSame(
-                $this->vcsAdapter->getCommitUrl(static::$owner, $repositoryName, $commitHash),
-                $written['target_url']
-            );
-        } finally {
-            $this->discardRepositories($repositoryName);
-        }
+        $this->assertSame($commitUrl, $status['target_url']);
     }
 
     /**
@@ -258,10 +228,7 @@ class BitbucketTest extends Base
             ],
         ]);
 
-        /** @var Bitbucket $adapter */
-        $adapter = $this->vcsAdapter;
-
-        $events = $adapter->getEvents(static::$pushEventName, $payload);
+        $events = $this->vcsAdapter->getEvents(static::$pushEventName, $payload);
 
         // The tag between them is left out
         $this->assertCount(2, $events);
@@ -270,15 +237,15 @@ class BitbucketTest extends Base
         $this->assertTrue($events[1]['branchCreated']);
 
         // getEvent() reports the first of them
-        $this->assertSame($events[0], $adapter->getEvent(static::$pushEventName, $payload));
+        $this->assertSame($events[0], $this->vcsAdapter->getEvent(static::$pushEventName, $payload));
 
-        // Leaving a push with nothing but tags no branch to report at all
+        // A push carrying nothing but tags has no branch to report
         $tagsOnly = (string) json_encode([
             'repository' => $this->eventRepository(),
             'push' => ['changes' => [['new' => ['type' => 'tag', 'name' => 'v1.0.0', 'target' => ['hash' => 'aaa111']]]]],
         ]);
 
-        $this->assertSame([], $adapter->getEvent(static::$pushEventName, $tagsOnly));
+        $this->assertSame([], $this->vcsAdapter->getEvent(static::$pushEventName, $tagsOnly));
     }
 
     public function testGetEventPullRequestActionMapping(): void
@@ -296,5 +263,4 @@ class BitbucketTest extends Base
             $this->assertSame($action, $result['action'], "event '{$event}' should map to '{$action}'");
         }
     }
-
 }

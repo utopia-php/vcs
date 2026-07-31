@@ -237,7 +237,11 @@ abstract class Adapter
      */
     public function getEvents(string $event, string $payload): array
     {
-        return [$this->getEvent($event, $payload)];
+        $parsed = $this->getEvent($event, $payload);
+
+        // An event the adapter doesn't report describes nothing, so report
+        // nothing rather than one empty event
+        return $parsed === [] ? [] : [$parsed];
     }
 
     /**

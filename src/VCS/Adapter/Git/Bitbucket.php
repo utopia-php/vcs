@@ -156,16 +156,6 @@ class Bitbucket extends Git
     }
 
     /**
-     * Encode a repository path for use in a URL while keeping its separators.
-     */
-    private function encodeRepositoryPath(string $path): string
-    {
-        $segments = array_map('rawurlencode', explode('/', $path));
-
-        return implode('/', $segments);
-    }
-
-    /**
      * Name of the repository's main branch, or '' when it has none yet (an
      * empty repository names its main branch only once the root commit lands).
      */
@@ -174,24 +164,6 @@ class Bitbucket extends Git
         $mainbranch = $this->getRepository($owner, $repositoryName)['mainbranch'] ?? [];
 
         return (string) ($mainbranch['name'] ?? '');
-    }
-
-    /**
-     * Bitbucket's source endpoints always want an explicit ref, so fall back to
-     * the repository's main branch when the caller didn't name one.
-     */
-    private function resolveRef(string $owner, string $repositoryName, string $ref): string
-    {
-        if (!empty($ref)) {
-            return $ref;
-        }
-
-        $name = $this->mainBranchName($owner, $repositoryName);
-        if (empty($name)) {
-            throw new Exception("Unable to resolve the main branch of {$owner}/{$repositoryName}.");
-        }
-
-        return $name;
     }
 
     /**
@@ -298,7 +270,9 @@ class Bitbucket extends Git
 
         [$workspace, $slug] = explode('/', $repositoryId, 2);
 
-        return (string) ($this->getRepository($workspace, $slug)['name'] ?? '');
+        // `slug` is the segment the API routes on; `name` is a display name
+        // that can differ from it, as GitLab's `path` does from its `name`
+        return (string) ($this->getRepository($workspace, $slug)['slug'] ?? $slug);
     }
 
     public function hasAccessToAllRepositories(): bool
@@ -382,15 +356,24 @@ class Bitbucket extends Git
     }
 
     /**
-     * URL of a path in the repository's source tree at a ref, resolving the
-     * ref to the main branch when empty. Throws when that resolution fails.
+     * URL of a path in the repository's source tree. Bitbucket's source
+     * endpoints always want an explicit ref, so an empty one falls back to the
+     * main branch; throws when the repository has none yet.
      */
     private function sourceUrl(string $owner, string $repositoryName, string $path, string $ref): string
     {
-        $ref = $this->resolveRef($owner, $repositoryName, $ref);
-        $path = $this->normalizeRepositoryPath($path);
+        if (empty($ref)) {
+            $ref = $this->mainBranchName($owner, $repositoryName);
 
-        return "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $this->encodeRepositoryPath($path);
+            if (empty($ref)) {
+                throw new Exception("Unable to resolve the main branch of {$owner}/{$repositoryName}.");
+            }
+        }
+
+        // Encode each path segment but keep the separators between them
+        $path = implode('/', array_map('rawurlencode', explode('/', $this->normalizeRepositoryPath($path))));
+
+        return "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $path;
     }
 
     /**
@@ -482,13 +465,12 @@ class Bitbucket extends Git
         $content = $contentResponse['body'] ?? '';
         $content = is_string($content) ? $content : '';
 
-        $commit = $meta['commit'] ?? [];
-
         return [
-            // Bitbucket exposes no blob id, so report the commit the file was
-            // last changed in — the closest stable identifier it gives us.
-            'sha' => is_array($commit) ? ($commit['hash'] ?? '') : '',
-            'size' => $meta['size'] ?? \strlen($content),
+            // Bitbucket exposes no blob id, so compute the one git stores --
+            // the repository is git backed, so this is the same value the
+            // other adapters read straight off their responses.
+            'sha' => \hash('sha1', 'blob ' . \strlen($content) . "\0" . $content),
+            'size' => \strlen($content),
             'content' => $content,
         ];
     }
@@ -513,7 +495,9 @@ class Bitbucket extends Git
     public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file', string $branch = ''): array
     {
         if (empty($branch)) {
-            $branch = $this->resolveDefaultBranch($owner, $repositoryName);
+            // Bitbucket names an empty repository's branch after whatever the
+            // first commit asks for, so default to 'main'
+            $branch = $this->mainBranchName($owner, $repositoryName) ?: 'main';
         }
 
         $url = "/repositories/{$owner}/{$repositoryName}/src";
@@ -555,16 +539,6 @@ class Bitbucket extends Git
             'branch' => $branch,
             'commitHash' => $commitHash,
         ];
-    }
-
-    /**
-     * Name of the branch a commit lands on when the caller didn't pick one.
-     * Bitbucket names an empty repository's branch after whatever the first
-     * commit asks for, so default to 'main'.
-     */
-    private function resolveDefaultBranch(string $owner, string $repositoryName): string
-    {
-        return $this->mainBranchName($owner, $repositoryName) ?: 'main';
     }
 
     public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
@@ -1342,18 +1316,6 @@ class Bitbucket extends Git
     }
 
     /**
-     * @param array<mixed> $repository
-     * @return array{owner: string, url: string}
-     */
-    private function getEventRepositoryOwner(array $repository): array
-    {
-        return [
-            'owner' => $this->workspaceSlugOf($repository),
-            'url' => (string) ($repository['links']['html']['href'] ?? ''),
-        ];
-    }
-
-    /**
      * @param array<mixed> $change
      * @param array<mixed> $repository
      * @param array<mixed> $actor
@@ -1362,7 +1324,8 @@ class Bitbucket extends Git
     private function parsePushChange(array $change, array $repository, array $actor): array
     {
         $actorLinks = is_array($actor['links'] ?? null) ? $actor['links'] : [];
-        ['owner' => $owner, 'url' => $repositoryUrl] = $this->getEventRepositoryOwner($repository);
+        $owner = $this->workspaceSlugOf($repository);
+        $repositoryUrl = (string) ($repository['links']['html']['href'] ?? '');
 
         $new = is_array($change['new'] ?? null) ? $change['new'] : [];
         $old = is_array($change['old'] ?? null) ? $change['old'] : [];
@@ -1414,7 +1377,8 @@ class Bitbucket extends Git
     private function parsePullRequestEvent(string $event, array $payloadArray, array $repository, array $actor): array
     {
         $actorLinks = is_array($actor['links'] ?? null) ? $actor['links'] : [];
-        ['owner' => $owner, 'url' => $repositoryUrl] = $this->getEventRepositoryOwner($repository);
+        $owner = $this->workspaceSlugOf($repository);
+        $repositoryUrl = (string) ($repository['links']['html']['href'] ?? '');
 
         $pullRequest = is_array($payloadArray['pullrequest'] ?? null) ? $payloadArray['pullrequest'] : [];
         $source = is_array($pullRequest['source'] ?? null) ? $pullRequest['source'] : [];

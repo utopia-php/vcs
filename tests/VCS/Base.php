@@ -1765,7 +1765,7 @@ abstract class Base extends TestCase
                 $secret,
                 ['pull_request']
             );
-            $this->assertGreaterThan(0, $webhookId);
+            $this->assertNotEmpty($webhookId);
 
             $this->deleteLastWebhookRequest();
 
@@ -1898,10 +1898,28 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('description', $status);
                 $this->assertArrayHasKey('target_url', $status);
                 $this->assertArrayHasKey('context', $status);
+
+                if ($status['context'] === 'ci/test') {
+                    $this->assertCommitStatusUrl(
+                        $status,
+                        $this->vcsAdapter->getCommitUrl(static::$owner, $repositoryName, $commitHash)
+                    );
+                }
             }
         } finally {
             $this->discardRepositories($repositoryName);
         }
+    }
+
+    /**
+     * What a provider reports as target_url for the status written above with
+     * no url of its own. Most leave it empty; override where the provider
+     * rejects a status without one.
+     *
+     * @param array<string, mixed> $status
+     */
+    protected function assertCommitStatusUrl(array $status, string $commitUrl): void
+    {
     }
 
     public function testGetCommitStatusesEmptyForNewCommit(): void

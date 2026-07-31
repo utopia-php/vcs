@@ -39,18 +39,13 @@ class BitbucketTest extends Base
     // reports the account the token belongs to
     protected static bool $resolvesOwnerFromRepositoryId = false;
 
-    // Repositories group into workspaces, which the shared namespace shape
-    // (personal vs group) doesn't fit -- Bitbucket has no personal-vs-team
-    // distinction to report, so this is left unsupported like GitHub and Gitea
+    // Workspaces have no personal-vs-team distinction to report as 'kind'
     protected static bool $supportsNamespaceListing = false;
 
-    // Accounts are looked up by uuid or Atlassian account id; only some
-    // resolve by the handle Base::testGetUser() would look up
+    // Accounts are looked up by uuid, not by handle
     protected static bool $supportsUserLookup = false;
 
-    // Bitbucket Cloud only delivers webhooks to publicly reachable urls, so it
-    // cannot reach the test catcher; testCreateAndDeleteWebhook in Base covers
-    // webhook creation and deletion through the API instead
+    // Bitbucket Cloud can't reach a local test catcher
     protected static bool $supportsWebhookDelivery = false;
 
     protected function signWebhookPayload(string $payload, string $secret): string

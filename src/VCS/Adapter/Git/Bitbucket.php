@@ -1091,9 +1091,7 @@ class Bitbucket extends Git
     }
 
     /**
-     * Account the access token belongs to. Internal to this adapter -- used
-     * only by getOwnerName() below, the same shape Gitea's
-     * getAuthenticatedUserLogin() takes for the equivalent lookup.
+     * Account the access token belongs to.
      *
      * @return array<mixed>
      */

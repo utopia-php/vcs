@@ -125,14 +125,8 @@ abstract class Base extends TestCase
 
     protected static bool $supportsWebhookDelivery = true;
 
-    /**
-     * Whether creating a webhook through the API is possible at all,
-     * independent of whether delivery can reach the test catcher. A GitHub
-     * App installation token can't manage classic per-repo webhooks (403
-     * "Resource not accessible by integration"), a different limitation from
-     * Bitbucket's -- Bitbucket creates one fine, it just can't deliver to a
-     * local address.
-     */
+    // Whether creating a webhook through the API works at all, separate from
+    // whether delivery can reach the test catcher.
     protected static bool $supportsWebhookCreation = true;
 
     protected static bool $resolvesOwnerFromRepositoryId = true;
@@ -1726,10 +1720,7 @@ abstract class Base extends TestCase
 
     /**
      * Covers createWebhook()/deleteWebhook() through the API alone, for an
-     * adapter whose webhooks testWebhookPushEvent() can't reach to also cover
-     * deletion there. Skipped when that test already covers it, and skipped
-     * separately when the adapter can't create a webhook through the API at
-     * all -- a different limitation from not being able to deliver one.
+     * adapter testWebhookPushEvent() skips.
      */
     public function testCreateAndDeleteWebhookWithoutDelivery(): void
     {

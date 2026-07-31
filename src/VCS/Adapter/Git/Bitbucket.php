@@ -688,6 +688,23 @@ class Bitbucket extends Git
     }
 
     /**
+     * Bitbucket only names an unlinked author in a raw "Name <email>" string;
+     * an author linked to an account is named by the account instead.
+     *
+     * @param array<mixed> $author
+     */
+    private function authorNameOf(array $author): string
+    {
+        $user = is_array($author['user'] ?? null) ? $author['user'] : [];
+        $name = $user['display_name'] ?? '';
+        if (!empty($name)) {
+            return (string) $name;
+        }
+
+        return \trim(\preg_replace('/<[^>]*>/', '', (string) ($author['raw'] ?? '')) ?? '');
+    }
+
+    /**
      * Normalize a Bitbucket commit into the shape every adapter reports.
      *
      * @param array<mixed> $commit
@@ -701,11 +718,7 @@ class Bitbucket extends Git
         $user = is_array($user) ? $user : [];
         $userLinks = is_array($user['links'] ?? null) ? $user['links'] : [];
 
-        // Unlinked authors are only described by a raw "Name <email>" string.
-        $name = $user['display_name'] ?? '';
-        if (empty($name)) {
-            $name = \trim(\preg_replace('/<[^>]*>/', '', (string) ($author['raw'] ?? '')) ?? '');
-        }
+        $name = $this->authorNameOf($author);
 
         return [
             'commitAuthor' => empty($name) ? 'Unknown' : $name,
@@ -1025,10 +1038,16 @@ class Bitbucket extends Git
     }
 
     /**
-     * Finds the uuid of a repository's webhook by the url it delivers to.
+     * Finds the uuid of a repository's webhook by the url it delivers to. An
+     * older webhook can already share the url, so among every match this
+     * returns the one with the most recent created_at, the one this call just
+     * created.
      */
     private function findWebhookUuid(string $owner, string $repositoryName, string $url): ?string
     {
+        $newestUuid = null;
+        $newestCreatedAt = '';
+
         $page = 1;
         do {
             $apiUrl = "/repositories/{$owner}/{$repositoryName}/hooks?pagelen=" . self::PAGE_SIZE . "&page={$page}";
@@ -1037,22 +1056,28 @@ class Bitbucket extends Git
 
             $responseHeaders = $response['headers'] ?? [];
             if (($responseHeaders['status-code'] ?? 0) >= 400) {
-                return null;
+                return $newestUuid;
             }
 
             $responseBody = $response['body'] ?? [];
             $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
 
             foreach ($values as $hook) {
-                if (is_array($hook) && ($hook['url'] ?? null) === $url) {
-                    return (string) ($hook['uuid'] ?? '') ?: null;
+                if (!is_array($hook) || ($hook['url'] ?? null) !== $url) {
+                    continue;
+                }
+
+                $createdAt = (string) ($hook['created_at'] ?? '');
+                if ($newestUuid === null || $createdAt > $newestCreatedAt) {
+                    $newestUuid = (string) ($hook['uuid'] ?? '') ?: null;
+                    $newestCreatedAt = $createdAt;
                 }
             }
 
             $page++;
         } while (!empty($responseBody['next']));
 
-        return null;
+        return $newestUuid;
     }
 
     /**
@@ -1189,6 +1214,20 @@ class Bitbucket extends Git
     }
 
     /**
+     * $bitbucketUrl with the access token embedded as HTTP Basic userinfo
+     * (https://x-token-auth:{token}@bitbucket.org), the scheme both
+     * getRepositoryPresignedUrl() and generateCloneCommand() authenticate with.
+     */
+    private function authenticatedBitbucketUrl(): string
+    {
+        if (empty($this->accessToken)) {
+            return $this->bitbucketUrl;
+        }
+
+        return str_replace('://', '://x-token-auth:' . urlencode($this->accessToken) . '@', $this->bitbucketUrl);
+    }
+
+    /**
      * @link https://support.atlassian.com/bitbucket-cloud/kb/how-to-download-repositories-using-the-api/
      *
      * Bitbucket serves this from the browser host rather than the API host,
@@ -1199,7 +1238,6 @@ class Bitbucket extends Git
      * It travels as HTTP Basic userinfo rather than the query parameter those
      * two use: Bitbucket's documented form for this endpoint is basic auth,
      * and its `?access_token=` query parameter was removed in CHANGE-3052.
-     * `x-token-auth` is the same scheme generateCloneCommand() below relies on.
      */
     public function getRepositoryPresignedUrl(string $owner, string $repositoryName, string $ref = '', string $format = 'tarball'): string
     {
@@ -1209,10 +1247,7 @@ class Bitbucket extends Git
             default => throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'."),
         };
 
-        $baseUrl = $this->bitbucketUrl;
-        if (!empty($this->accessToken)) {
-            $baseUrl = str_replace('://', '://x-token-auth:' . urlencode($this->accessToken) . '@', $this->bitbucketUrl);
-        }
+        $baseUrl = $this->authenticatedBitbucketUrl();
 
         // Bitbucket resolves HEAD to the repository's default branch
         $ref = empty($ref) ? 'HEAD' : $ref;
@@ -1229,13 +1264,7 @@ class Bitbucket extends Git
             $rootDirectory = '*';
         }
 
-        // Bitbucket clone URL format: https://x-token-auth:{token}@host/owner/repo.git
-        $baseUrl = $this->bitbucketUrl;
-        if (!empty($this->accessToken)) {
-            $baseUrl = str_replace('://', '://x-token-auth:' . urlencode($this->accessToken) . '@', $this->bitbucketUrl);
-        }
-
-        $cloneUrl = escapeshellarg("{$baseUrl}/{$owner}/{$repositoryName}.git");
+        $cloneUrl = escapeshellarg("{$this->authenticatedBitbucketUrl()}/{$owner}/{$repositoryName}.git");
         $directory = escapeshellarg($directory);
         $rootDirectory = escapeshellarg($rootDirectory);
 
@@ -1394,10 +1423,7 @@ class Bitbucket extends Git
         $author = is_array($target['author'] ?? null) ? $target['author'] : [];
         $raw = (string) ($author['raw'] ?? '');
 
-        $authorName = $author['user']['display_name'] ?? '';
-        if (empty($authorName)) {
-            $authorName = \trim(\preg_replace('/<[^>]*>/', '', $raw) ?? '');
-        }
+        $authorName = $this->authorNameOf($author);
 
         $authorEmail = '';
         if (\preg_match('/<([^>]*)>/', $raw, $matches) === 1) {

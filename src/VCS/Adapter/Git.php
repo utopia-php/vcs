@@ -86,6 +86,14 @@ abstract class Git extends Adapter
      */
     abstract public function createWebhook(string $owner, string $repositoryName, string $url, string $secret, array $events = ['push', 'pull_request']): int|string;
 
+    /**
+     * Delete a webhook from a repository.
+     *
+     * @param string $owner Owner of the repository
+     * @param string $repositoryName Name of the repository
+     * @param int|string $webhookId Webhook ID as returned by createWebhook()
+     */
+    abstract public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool;
 
     /**
      * Create a tag in a repository

@@ -1697,7 +1697,7 @@ abstract class Base extends TestCase
                 $secret,
                 ['push']
             );
-            $this->assertGreaterThan(0, $webhookId);
+            $this->assertNotEmpty($webhookId);
 
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Webhook Test', 'Initial commit');
 
@@ -1707,6 +1707,33 @@ abstract class Base extends TestCase
             $this->assertSame($repositoryName, $event['repositoryName']);
             $this->assertSame($this->ownerPath(), $event['owner']);
             $this->assertNotEmpty($event['commitHash']);
+        } finally {
+            $this->discardRepositories($repositoryName);
+        }
+    }
+
+    /**
+     * Exercises createWebhook()/deleteWebhook() through the API alone, unlike
+     * testWebhookPushEvent() above, which also needs delivery to reach the
+     * test catcher. This covers every adapter regardless of whether its
+     * webhooks are reachable from the test environment.
+     */
+    public function testCreateAndDeleteWebhook(): void
+    {
+        $repositoryName = 'test-create-delete-webhook-' . \uniqid();
+        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $webhookId = $this->vcsAdapter->createWebhook(
+                static::$owner,
+                $repositoryName,
+                'https://example.com/webhook',
+                'secret-token',
+                ['push', 'pull_request']
+            );
+            $this->assertNotEmpty($webhookId);
+
+            $this->assertTrue($this->vcsAdapter->deleteWebhook(static::$owner, $repositoryName, $webhookId));
         } finally {
             $this->discardRepositories($repositoryName);
         }

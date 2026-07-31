@@ -1020,9 +1020,9 @@ class Bitbucket extends Git
     /**
      * Delete a webhook from a repository.
      */
-    public function deleteWebhook(string $owner, string $repositoryName, string $webhookUuid): bool
+    public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool
     {
-        $url = "/repositories/{$owner}/{$repositoryName}/hooks/" . rawurlencode($webhookUuid);
+        $url = "/repositories/{$owner}/{$repositoryName}/hooks/" . rawurlencode((string) $webhookId);
 
         $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
@@ -1091,11 +1091,13 @@ class Bitbucket extends Git
     }
 
     /**
-     * Account the access token belongs to.
+     * Account the access token belongs to. Internal to this adapter -- used
+     * only by getOwnerName() below, the same shape Gitea's
+     * getAuthenticatedUserLogin() takes for the equivalent lookup.
      *
      * @return array<mixed>
      */
-    public function getAuthenticatedUser(): array
+    protected function getAuthenticatedUser(): array
     {
         $response = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
 
@@ -1108,41 +1110,6 @@ class Bitbucket extends Git
         $body = $response['body'] ?? [];
 
         return is_array($body) ? $body : [];
-    }
-
-    /**
-     * Workspaces the access token can act on.
-     *
-     * @return array{items: array<array{id: string, name: string, slug: string}>, total: int}
-     */
-    public function listWorkspaces(int $page, int $per_page): array
-    {
-        $url = "/workspaces?page={$page}&pagelen={$per_page}";
-
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
-
-        $responseHeaders = $response['headers'] ?? [];
-        $statusCode = $responseHeaders['status-code'] ?? 0;
-        if ($statusCode >= 400) {
-            throw new Exception("Failed to list workspaces: HTTP {$statusCode}", $statusCode);
-        }
-
-        $responseBody = $response['body'] ?? [];
-        $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
-
-        $workspaces = [];
-        foreach ($values as $workspace) {
-            $workspaces[] = [
-                'id' => (string) ($workspace['uuid'] ?? ''),
-                'name' => $workspace['name'] ?? ($workspace['slug'] ?? ''),
-                'slug' => $workspace['slug'] ?? '',
-            ];
-        }
-
-        return [
-            'items' => $workspaces,
-            'total' => (int) ($responseBody['size'] ?? \count($workspaces)),
-        ];
     }
 
     /**

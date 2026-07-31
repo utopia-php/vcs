@@ -39,16 +39,18 @@ class BitbucketTest extends Base
     // reports the account the token belongs to
     protected static bool $resolvesOwnerFromRepositoryId = false;
 
-    // Repositories group into workspaces rather than namespaces, covered by
-    // testListWorkspaces below
+    // Repositories group into workspaces, which the shared namespace shape
+    // (personal vs group) doesn't fit -- Bitbucket has no personal-vs-team
+    // distinction to report, so this is left unsupported like GitHub and Gitea
     protected static bool $supportsNamespaceListing = false;
 
-    // Accounts are looked up by uuid rather than by handle, covered by
-    // testGetUserByUuid below
+    // Accounts are looked up by uuid or Atlassian account id; only some
+    // resolve by the handle Base::testGetUser() would look up
     protected static bool $supportsUserLookup = false;
 
     // Bitbucket Cloud only delivers webhooks to publicly reachable urls, so it
-    // cannot reach the test catcher; testCreateWebhook covers the API side
+    // cannot reach the test catcher; testCreateAndDeleteWebhook in Base covers
+    // webhook creation and deletion through the API instead
     protected static bool $supportsWebhookDelivery = false;
 
     protected function signWebhookPayload(string $payload, string $secret): string
@@ -198,49 +200,6 @@ class BitbucketTest extends Base
     }
 
     /**
-     * Bitbucket looks accounts up by uuid, and reports the handle as `nickname`
-     * for every account but the authenticated one. $supportsUserLookup is false
-     * so Base::testGetUser() and testGetUserWithInvalidUsername() skip
-     * themselves rather than run against a handle Bitbucket doesn't accept.
-     */
-    public function testGetUserByUuid(): void
-    {
-        /** @var Bitbucket $adapter */
-        $adapter = $this->vcsAdapter;
-
-        $me = $adapter->getAuthenticatedUser();
-        $this->assertNotEmpty($me['uuid'] ?? '');
-
-        $result = $adapter->getUser($me['uuid']);
-
-        $this->assertIsArray($result);
-        $this->assertSame($me['uuid'], $result['id']);
-        $this->assertSame($me['username'] ?? ($me['nickname'] ?? ''), $result['username']);
-    }
-
-    /**
-     * Workspaces are Bitbucket's grouping of repositories, in place of the
-     * namespaces the other providers list.
-     */
-    public function testListWorkspaces(): void
-    {
-        /** @var Bitbucket $adapter */
-        $adapter = $this->vcsAdapter;
-
-        $result = $adapter->listWorkspaces(1, 20);
-
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('items', $result);
-        $this->assertArrayHasKey('total', $result);
-        $this->assertNotEmpty($result['items']);
-
-        foreach ($result['items'] as $workspace) {
-            $this->assertArrayHasKey('slug', $workspace);
-            $this->assertNotEmpty($workspace['slug']);
-        }
-    }
-
-    /**
      * Bitbucket rejects a build status with no url, so the adapter points one
      * that was written without a url at the commit it describes.
      */
@@ -276,35 +235,6 @@ class BitbucketTest extends Base
                 $this->vcsAdapter->getCommitUrl(static::$owner, $repositoryName, $commitHash),
                 $written['target_url']
             );
-        } finally {
-            $this->discardRepositories($repositoryName);
-        }
-    }
-
-    /**
-     * Bitbucket identifies a webhook by uuid rather than by a numeric id.
-     */
-    public function testCreateWebhook(): void
-    {
-        $repositoryName = 'test-create-webhook-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            /** @var Bitbucket $adapter */
-            $adapter = $this->vcsAdapter;
-
-            $uuid = $adapter->createWebhook(
-                static::$owner,
-                $repositoryName,
-                'https://example.com/webhook',
-                'secret-token',
-                ['push', 'pull_request']
-            );
-
-            $this->assertIsString($uuid);
-            $this->assertNotEmpty($uuid);
-
-            $this->assertTrue($adapter->deleteWebhook(static::$owner, $repositoryName, $uuid));
         } finally {
             $this->discardRepositories($repositoryName);
         }

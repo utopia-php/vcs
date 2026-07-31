@@ -1708,9 +1708,6 @@ abstract class Base extends TestCase
             $this->assertSame($this->ownerPath(), $event['owner']);
             $this->assertNotEmpty($event['commitHash']);
 
-            // Reuses the webhook above rather than creating a second one, so
-            // this doesn't add another create-webhook call for every adapter
-            // that already covers creation here.
             $this->assertTrue($this->vcsAdapter->deleteWebhook(static::$owner, $repositoryName, $webhookId));
         } finally {
             $this->discardRepositories($repositoryName);
@@ -1725,9 +1722,7 @@ abstract class Base extends TestCase
      */
     public function testCreateAndDeleteWebhookWithoutDelivery(): void
     {
-        if (static::$supportsWebhookDelivery) {
-            $this->markTestSkipped('covered by testWebhookPushEvent()');
-        }
+        $this->skipUnlessSupported(!static::$supportsWebhookDelivery, 'duplicating the webhook deletion testWebhookPushEvent() already covers');
 
         $repositoryName = 'test-create-delete-webhook-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);

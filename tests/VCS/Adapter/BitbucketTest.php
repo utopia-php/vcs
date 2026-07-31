@@ -44,7 +44,7 @@ class BitbucketTest extends Base
     protected static bool $supportsNamespaceListing = false;
 
     // Accounts are looked up by uuid rather than by handle, covered by
-    // testGetUser below
+    // testGetUserByUuid below
     protected static bool $supportsUserLookup = false;
 
     // Bitbucket Cloud only delivers webhooks to publicly reachable urls, so it
@@ -199,9 +199,11 @@ class BitbucketTest extends Base
 
     /**
      * Bitbucket looks accounts up by uuid, and reports the handle as `nickname`
-     * for every account but the authenticated one.
+     * for every account but the authenticated one. $supportsUserLookup is false
+     * so Base::testGetUser() and testGetUserWithInvalidUsername() skip
+     * themselves rather than run against a handle Bitbucket doesn't accept.
      */
-    public function testGetUser(): void
+    public function testGetUserByUuid(): void
     {
         /** @var Bitbucket $adapter */
         $adapter = $this->vcsAdapter;

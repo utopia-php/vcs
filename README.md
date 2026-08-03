@@ -69,11 +69,8 @@ VCS Adapters:
 | Adapter | Status |
 |---------|---------|
 | GitHub | ✅ |
-| GitLab | ✅ |
-| Gitea | ✅ |
-| Forgejo | ✅ |
-| Gogs | ✅ |
-| Bitbucket | ✅ |
+| GitLab |  |
+| Bitbucket |  |
 | Azure DevOps |  |
 
 `✅  - supported, 🛠  - work in progress`

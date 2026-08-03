@@ -184,17 +184,6 @@ class BitbucketTest extends Base
     }
 
     /**
-     * Bitbucket rejects a build status with no url, so the adapter points one
-     * written without a url at the commit it describes.
-     *
-     * @param array<string, mixed> $status
-     */
-    protected function assertCommitStatusUrl(array $status, string $commitUrl): void
-    {
-        $this->assertSame($commitUrl, $status['target_url']);
-    }
-
-    /**
      * Bitbucket only names the author in a raw "Name <email>" string; a commit
      * linked to an account is named by the account instead.
      */

@@ -160,21 +160,6 @@ class GitHub extends Git
         return (int) $id;
     }
 
-    public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool
-    {
-        $url = "/repos/{$owner}/{$repositoryName}/hooks/{$webhookId}";
-
-        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "Bearer $this->accessToken"]);
-
-        $responseHeaders = $response['headers'] ?? [];
-        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
-        if ($responseHeadersStatusCode >= 400) {
-            throw new Exception("Failed to delete webhook: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
-        }
-
-        return true;
-    }
-
     /**
      * Create a file in a repository
      *

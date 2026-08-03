@@ -1004,66 +1004,10 @@ class Bitbucket extends Git
 
         $uuid = $response['body']['uuid'] ?? null;
         if ($uuid === null || $uuid === '') {
-            // The hook is live even without a uuid in the response; recover it
-            // from the hook list rather than leaving it undeletable.
-            $uuid = $this->findSingleWebhookByUrl($owner, $repositoryName, $url);
-        }
-
-        if (empty($uuid)) {
-            throw new Exception("Webhook created but its uuid could not be safely resolved; check {$owner}/{$repositoryName}'s webhooks at {$url} manually");
+            throw new Exception('Webhook created but response did not include a uuid');
         }
 
         return (string) $uuid;
-    }
-
-    /**
-     * Uuid of the one repository webhook delivering to this url, or null if
-     * there is none or more than one -- callers can't tell which of several
-     * matches is theirs, so this refuses to guess.
-     */
-    private function findSingleWebhookByUrl(string $owner, string $repositoryName, string $url): ?string
-    {
-        $matches = [];
-
-        $page = 1;
-        do {
-            $apiUrl = "/repositories/{$owner}/{$repositoryName}/hooks?pagelen=" . self::PAGE_SIZE . "&page={$page}";
-
-            $response = $this->call(self::METHOD_GET, $apiUrl, ['Authorization' => 'Bearer ' . $this->accessToken]);
-
-            $responseHeaders = $response['headers'] ?? [];
-            if (($responseHeaders['status-code'] ?? 0) >= 400) {
-                break;
-            }
-
-            $responseBody = $response['body'] ?? [];
-            $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
-
-            foreach ($values as $hook) {
-                if (is_array($hook) && ($hook['url'] ?? null) === $url) {
-                    $matches[] = (string) ($hook['uuid'] ?? '');
-                }
-            }
-
-            $page++;
-        } while (!empty($responseBody['next']));
-
-        return count($matches) === 1 ? $matches[0] : null;
-    }
-
-    public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool
-    {
-        $url = "/repositories/{$owner}/{$repositoryName}/hooks/" . rawurlencode((string) $webhookId);
-
-        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
-
-        $responseHeaders = $response['headers'] ?? [];
-        $statusCode = $responseHeaders['status-code'] ?? 0;
-        if ($statusCode >= 400) {
-            throw new Exception("Failed to delete webhook: HTTP {$statusCode}", $statusCode);
-        }
-
-        return true;
     }
 
     /**

@@ -597,21 +597,6 @@ class Gitea extends Git
         return (int) ($response['body']['id'] ?? 0);
     }
 
-    public function deleteWebhook(string $owner, string $repositoryName, int|string $webhookId): bool
-    {
-        $url = "/repos/{$owner}/{$repositoryName}/hooks/{$webhookId}";
-
-        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => "token $this->accessToken"]);
-
-        $responseHeaders = $response['headers'] ?? [];
-        $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
-        if ($responseHeadersStatusCode >= 400) {
-            throw new Exception("Failed to delete webhook: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
-        }
-
-        return true;
-    }
-
     public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string
     {
         $url = "/repos/{$owner}/{$repositoryName}/issues/{$pullRequestNumber}/comments";

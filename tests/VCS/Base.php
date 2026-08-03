@@ -125,10 +125,6 @@ abstract class Base extends TestCase
 
     protected static bool $supportsWebhookDelivery = true;
 
-    // Whether creating a webhook through the API works at all, separate from
-    // whether delivery can reach the test catcher.
-    protected static bool $supportsWebhookCreation = true;
-
     protected static bool $resolvesOwnerFromRepositoryId = true;
 
     protected static bool $rejectsInvalidRepositoryNames = true;
@@ -1690,7 +1686,7 @@ abstract class Base extends TestCase
                 $secret,
                 ['push']
             );
-            $this->assertNotEmpty($webhookId);
+            $this->assertGreaterThan(0, $webhookId);
 
             $this->vcsAdapter->createFile(static::$owner, $repositoryName, 'README.md', '# Webhook Test', 'Initial commit');
 
@@ -1700,39 +1696,6 @@ abstract class Base extends TestCase
             $this->assertSame($repositoryName, $event['repositoryName']);
             $this->assertSame($this->ownerPath(), $event['owner']);
             $this->assertNotEmpty($event['commitHash']);
-
-            $this->assertTrue($this->vcsAdapter->deleteWebhook(static::$owner, $repositoryName, $webhookId));
-        } finally {
-            $this->discardRepositories($repositoryName);
-        }
-    }
-
-    /**
-     * Covers createWebhook()/deleteWebhook() through the API alone, for an
-     * adapter testWebhookPushEvent() skips.
-     */
-    public function testCreateAndDeleteWebhookWithoutDelivery(): void
-    {
-        if (static::$supportsWebhookDelivery) {
-            $this->markTestSkipped('webhook deletion is already covered by testWebhookPushEvent()');
-        }
-
-        $this->skipUnlessSupported(static::$supportsWebhookCreation, 'creating a webhook through the API');
-
-        $repositoryName = 'test-create-delete-webhook-' . \uniqid();
-        $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
-
-        try {
-            $webhookId = $this->vcsAdapter->createWebhook(
-                static::$owner,
-                $repositoryName,
-                'https://example.com/webhook',
-                'secret-token',
-                ['push', 'pull_request']
-            );
-            $this->assertNotEmpty($webhookId);
-
-            $this->assertTrue($this->vcsAdapter->deleteWebhook(static::$owner, $repositoryName, $webhookId));
         } finally {
             $this->discardRepositories($repositoryName);
         }
@@ -1765,7 +1728,7 @@ abstract class Base extends TestCase
                 $secret,
                 ['pull_request']
             );
-            $this->assertNotEmpty($webhookId);
+            $this->assertGreaterThan(0, $webhookId);
 
             $this->deleteLastWebhookRequest();
 
@@ -1898,28 +1861,10 @@ abstract class Base extends TestCase
                 $this->assertArrayHasKey('description', $status);
                 $this->assertArrayHasKey('target_url', $status);
                 $this->assertArrayHasKey('context', $status);
-
-                if ($status['context'] === 'ci/test') {
-                    $this->assertCommitStatusUrl(
-                        $status,
-                        $this->vcsAdapter->getCommitUrl(static::$owner, $repositoryName, $commitHash)
-                    );
-                }
             }
         } finally {
             $this->discardRepositories($repositoryName);
         }
-    }
-
-    /**
-     * What a provider reports as target_url for the status written above with
-     * no url of its own. Most leave it empty; override where the provider
-     * rejects a status without one.
-     *
-     * @param array<string, mixed> $status
-     */
-    protected function assertCommitStatusUrl(array $status, string $commitUrl): void
-    {
     }
 
     public function testGetCommitStatusesEmptyForNewCommit(): void

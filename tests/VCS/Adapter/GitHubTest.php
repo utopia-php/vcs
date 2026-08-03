@@ -23,10 +23,6 @@ class GitHubTest extends Base
     protected static bool $supportsUserLookup = false;
     protected static bool $computesLanguagesAsynchronously = true;
     protected static bool $supportsWebhookDelivery = false;
-
-    // A GitHub App token gets 403 on the classic per-repo webhook endpoint
-    protected static bool $supportsWebhookCreation = false;
-
     protected static bool $resolvesOwnerFromRepositoryId = false;
     protected static bool $rejectsInvalidRepositoryNames = false;
 

@@ -21,6 +21,20 @@ jobs:
     - name: Check out the repo
       uses: actions/checkout@v4
 
+    - name: Check Bitbucket credential shape
+      if: matrix.adapter == 'bitbucket'
+      env:
+        TOKEN: ${{ secrets.TESTS_BITBUCKET_ACCESS_TOKEN }}
+      run: |
+        # Reports which auth scheme the adapter will pick, never the value
+        if [ -z "$TOKEN" ]; then
+          echo "TESTS_BITBUCKET_ACCESS_TOKEN is not set"
+        elif printf '%s' "$TOKEN" | grep -q ':'; then
+          echo "credential is email:token -> Basic (${#TOKEN} chars)"
+        else
+          echo "credential is a bare token -> Bearer (${#TOKEN} chars)"
+        fi
+
     - name: Start Test Stack
       env:
           TESTS_GITHUB_PRIVATE_KEY: ${{ secrets.TESTS_GITHUB_PRIVATE_KEY }}

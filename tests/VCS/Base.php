@@ -2349,12 +2349,12 @@ abstract class Base extends TestCase
 
         $this->assertSame(static::$defaultBranch, $result['branch']);
         $this->assertSame(static::EVENT_REPOSITORY_ID, $result['repositoryId']);
-        $this->assertSame(static::EVENT_REPOSITORY_NAME, $result['repositoryName']);
-        $this->assertSame(static::EVENT_OWNER, $result['owner']);
-        $this->assertSame(static::EVENT_COMMIT_HASH, $result['commitHash']);
-        $this->assertSame(static::EVENT_COMMIT_MESSAGE, $result['headCommitMessage']);
-        $this->assertSame(static::EVENT_AUTHOR_NAME, $result['headCommitAuthorName']);
-        $this->assertSame(static::EVENT_AUTHOR_EMAIL, $result['headCommitAuthorEmail']);
+        $this->assertSame(self::EVENT_REPOSITORY_NAME, $result['repositoryName']);
+        $this->assertSame(self::EVENT_OWNER, $result['owner']);
+        $this->assertSame(self::EVENT_COMMIT_HASH, $result['commitHash']);
+        $this->assertSame(self::EVENT_COMMIT_MESSAGE, $result['headCommitMessage']);
+        $this->assertSame(self::EVENT_AUTHOR_NAME, $result['headCommitAuthorName']);
+        $this->assertSame(self::EVENT_AUTHOR_EMAIL, $result['headCommitAuthorEmail']);
         $this->assertNotEmpty($result['headCommitUrl']);
         $this->assertNotEmpty($result['repositoryUrl']);
         $this->assertNotEmpty($result['branchUrl']);
@@ -2393,12 +2393,12 @@ abstract class Base extends TestCase
         $result = $this->vcsAdapter->getEvent(static::$pullRequestEventName, $this->pullRequestPayload());
 
         $this->assertSame('opened', $result['action']);
-        $this->assertSame(static::EVENT_HEAD_BRANCH, $result['branch']);
-        $this->assertSame(static::EVENT_PULL_REQUEST_NUMBER, $result['pullRequestNumber']);
+        $this->assertSame(self::EVENT_HEAD_BRANCH, $result['branch']);
+        $this->assertSame(self::EVENT_PULL_REQUEST_NUMBER, $result['pullRequestNumber']);
         $this->assertSame(static::EVENT_REPOSITORY_ID, $result['repositoryId']);
-        $this->assertSame(static::EVENT_REPOSITORY_NAME, $result['repositoryName']);
-        $this->assertSame(static::EVENT_OWNER, $result['owner']);
-        $this->assertSame(static::EVENT_COMMIT_HASH, $result['commitHash']);
+        $this->assertSame(self::EVENT_REPOSITORY_NAME, $result['repositoryName']);
+        $this->assertSame(self::EVENT_OWNER, $result['owner']);
+        $this->assertSame(self::EVENT_COMMIT_HASH, $result['commitHash']);
         $this->assertFalse($result['external']);
     }
 

@@ -102,7 +102,7 @@ The `github` adapter does not require any local services — only the GitHub sec
 
 The `bitbucket` adapter runs against Bitbucket Cloud, which has no self-hostable image, so it needs credentials instead of a local service:
 
-- `TESTS_BITBUCKET_ACCESS_TOKEN` — an OAuth 2.0 or workspace access token with read and write access to repositories, pull requests and webhooks
+- `TESTS_BITBUCKET_ACCESS_TOKEN` — a credential with read and write access to repositories, pull requests and webhooks: either a bearer token (OAuth 2.0, workspace or repository) or an Atlassian account API token given as `email:token`
 - `TESTS_BITBUCKET_WORKSPACE` — workspace the test repositories are created in; defaults to the token owner's own workspace
 
 The workspace needs at least one project, since Bitbucket assigns every new repository to one. Without these variables the suite is skipped, the same way the `github` one is.

@@ -132,9 +132,10 @@ class Bitbucket extends Git
     }
 
     /**
-     * Bitbucket has no app installation flow; it authenticates with an OAuth 2.0
-     * access token (or a workspace/repository access token), passed as
-     * $accessToken. $installationId, $privateKey and $appId are unused.
+     * Bitbucket has no app installation flow; it authenticates with the
+     * credential passed as $accessToken, which is either a bearer token (OAuth
+     * 2.0, workspace or repository) or an Atlassian account API token given as
+     * "email:token". $installationId, $privateKey and $appId are unused.
      */
     public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
@@ -212,7 +213,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}";
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], [
             'scm' => 'git',
             'name' => $repositoryName,
             'is_private' => $private,
@@ -237,7 +238,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}";
 
-        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_DELETE, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -252,7 +253,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -300,7 +301,7 @@ class Bitbucket extends Git
             $url .= '&q=' . urlencode("name~\"{$escaped}\"");
         }
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -400,7 +401,7 @@ class Bitbucket extends Git
         do {
             $url = $base . '?pagelen=' . self::PAGE_SIZE . "&page={$page}" . $suffix;
 
-            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -438,7 +439,7 @@ class Bitbucket extends Git
         // which a 404 can legitimately have, so that has to be caught here
         // too rather than left to propagate as an uncaught fatal.
         try {
-            $metaResponse = $this->call(self::METHOD_GET, $url . '?format=meta', ['Authorization' => 'Bearer ' . $this->accessToken]);
+            $metaResponse = $this->call(self::METHOD_GET, $url . '?format=meta', ['Authorization' => $this->authorizationHeader()]);
         } catch (Exception $e) {
             throw new FileNotFound();
         }
@@ -456,7 +457,7 @@ class Bitbucket extends Git
         // Bitbucket serves file contents raw, typed after the file extension, so
         // don't let the response be decoded as JSON.
         try {
-            $contentResponse = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [], false);
+            $contentResponse = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()], [], false);
         } catch (Exception $e) {
             throw new FileNotFound();
         }
@@ -523,7 +524,7 @@ class Bitbucket extends Git
             self::METHOD_POST,
             $url,
             [
-                'Authorization' => 'Bearer ' . $this->accessToken,
+                'Authorization' => $this->authorizationHeader(),
                 'content-type' => 'application/x-www-form-urlencoded',
             ],
             $payload
@@ -553,7 +554,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}/refs/branches";
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], [
             'name' => $newBranchName,
             'target' => ['hash' => $oldBranchName],
         ]);
@@ -588,7 +589,7 @@ class Bitbucket extends Git
         do {
             $url = "/repositories/{$owner}/{$repositoryName}/refs/{$type}?pagelen=" . self::PAGE_SIZE . "&page={$page}";
 
-            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -629,7 +630,7 @@ class Bitbucket extends Git
             $payload['message'] = $message;
         }
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -644,7 +645,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}/commit/" . rawurlencode($commitHash);
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -661,7 +662,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}/commits/" . rawurlencode($branch) . '?pagelen=1';
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -743,7 +744,7 @@ class Bitbucket extends Git
             $payload['description'] = $description;
         }
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -756,7 +757,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}/commit/" . rawurlencode($commitHash) . '/statuses?pagelen=' . self::PAGE_SIZE;
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -797,7 +798,7 @@ class Bitbucket extends Git
             $payload['description'] = $body;
         }
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -819,7 +820,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}/pullrequests/{$pullRequestNumber}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -837,7 +838,7 @@ class Bitbucket extends Git
         $query = urlencode("source.branch.name=\"{$branch}\"");
         $url = "/repositories/{$owner}/{$repositoryName}/pullrequests?state=OPEN&q={$query}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -888,7 +889,7 @@ class Bitbucket extends Git
         do {
             $url = "/repositories/{$owner}/{$repositoryName}/pullrequests/{$pullRequestNumber}/diffstat?pagelen=" . self::PAGE_SIZE . "&page={$page}";
 
-            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+            $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -925,7 +926,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}/pullrequests/{$pullRequestNumber}/comments";
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], [
             'content' => ['raw' => $comment],
         ]);
 
@@ -954,7 +955,7 @@ class Bitbucket extends Git
         [$pullRequestNumber, $id] = $parts;
         $url = "/repositories/{$owner}/{$repositoryName}/pullrequests/{$pullRequestNumber}/comments/{$id}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         return $response['body']['content']['raw'] ?? '';
     }
@@ -969,7 +970,7 @@ class Bitbucket extends Git
         [$pullRequestNumber, $id] = $parts;
         $url = "/repositories/{$owner}/{$repositoryName}/pullrequests/{$pullRequestNumber}/comments/{$id}";
 
-        $response = $this->call(self::METHOD_PUT, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
+        $response = $this->call(self::METHOD_PUT, $url, ['Authorization' => $this->authorizationHeader()], [
             'content' => ['raw' => $comment],
         ]);
 
@@ -1002,7 +1003,7 @@ class Bitbucket extends Git
             $payload['secret'] = $secret;
         }
 
-        $response = $this->call(self::METHOD_POST, $apiUrl, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
+        $response = $this->call(self::METHOD_POST, $apiUrl, ['Authorization' => $this->authorizationHeader()], $payload);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -1052,7 +1053,7 @@ class Bitbucket extends Git
         // accounts still resolve by name.
         $url = '/users/' . rawurlencode($username);
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -1080,7 +1081,7 @@ class Bitbucket extends Git
      */
     protected function getAuthenticatedUser(): array
     {
-        $response = $this->call(self::METHOD_GET, '/user', ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, '/user', ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -1101,7 +1102,7 @@ class Bitbucket extends Git
      */
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
-        $response = $this->call(self::METHOD_GET, '/user/workspaces', ['Authorization' => 'Bearer ' . $this->accessToken]);
+        $response = $this->call(self::METHOD_GET, '/user/workspaces', ['Authorization' => $this->authorizationHeader()]);
 
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -1120,8 +1121,26 @@ class Bitbucket extends Git
     }
 
     /**
-     * $bitbucketUrl with the access token embedded as HTTP Basic userinfo
-     * (https://x-token-auth:{token}@bitbucket.org).
+     * Authorization header for the credential this adapter was given.
+     *
+     * An Atlassian account API token authenticates as "email:token" over HTTP
+     * Basic; an OAuth 2.0 or workspace token is a Bearer credential. The colon
+     * an email:token pair always carries, and a token alone never does, tells
+     * the two apart.
+     */
+    private function authorizationHeader(): string
+    {
+        if (\strpos($this->accessToken, ':') !== false) {
+            return 'Basic ' . \base64_encode($this->accessToken);
+        }
+
+        return 'Bearer ' . $this->accessToken;
+    }
+
+    /**
+     * $bitbucketUrl with the credential embedded as HTTP Basic userinfo, which
+     * an email:token pair already is; a bare token needs the x-token-auth
+     * username Bitbucket pairs it with.
      */
     private function authenticatedBitbucketUrl(): string
     {
@@ -1129,7 +1148,11 @@ class Bitbucket extends Git
             return $this->bitbucketUrl;
         }
 
-        return str_replace('://', '://x-token-auth:' . urlencode($this->accessToken) . '@', $this->bitbucketUrl);
+        $userinfo = \strpos($this->accessToken, ':') !== false
+            ? \implode(':', \array_map('urlencode', \explode(':', $this->accessToken, 2)))
+            : 'x-token-auth:' . \urlencode($this->accessToken);
+
+        return str_replace('://', '://' . $userinfo . '@', $this->bitbucketUrl);
     }
 
     /**

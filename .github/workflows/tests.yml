@@ -21,43 +21,12 @@ jobs:
     - name: Check out the repo
       uses: actions/checkout@v4
 
-    - name: Mint Bitbucket access token
-      if: matrix.adapter == 'bitbucket'
-      env:
-        CLIENT_ID: ${{ secrets.TESTS_BITBUCKET_CLIENT_ID }}
-        CLIENT_SECRET: ${{ secrets.TESTS_BITBUCKET_CLIENT_SECRET }}
-      run: |
-        # Minted per run rather than stored: an OAuth consumer is free, and the
-        # token it hands back lasts two hours, so nothing long-lived is kept.
-        # With no consumer configured the suite skips, as it does unconfigured.
-        if [ -z "$CLIENT_ID" ]; then
-          echo "No Bitbucket OAuth consumer configured; the suite will skip."
-          exit 0
-        fi
-
-        response=$(curl -s -w '\n%{http_code}' -X POST -u "$CLIENT_ID:$CLIENT_SECRET" \
-          https://bitbucket.org/site/oauth2/access_token \
-          -d grant_type=client_credentials)
-        status=$(printf '%s' "$response" | tail -n1)
-        body=$(printf '%s' "$response" | sed '$d')
-
-        token=$(printf '%s' "$body" | jq -r '.access_token // empty' 2>/dev/null)
-
-        if [ -z "$token" ]; then
-          # Report what Bitbucket said; the body carries no token to leak here
-          reason=$(printf '%s' "$body" | jq -r '.error_description // .error // empty' 2>/dev/null)
-          echo "::error::Bitbucket refused the token request (HTTP $status): ${reason:-no error body}"
-          exit 1
-        fi
-
-        echo "::add-mask::$token"
-        echo "TESTS_BITBUCKET_ACCESS_TOKEN=$token" >> "$GITHUB_ENV"
-
     - name: Start Test Stack
       env:
           TESTS_GITHUB_PRIVATE_KEY: ${{ secrets.TESTS_GITHUB_PRIVATE_KEY }}
           TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
           TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
+          TESTS_BITBUCKET_ACCESS_TOKEN: ${{ secrets.TESTS_BITBUCKET_ACCESS_TOKEN }}
           TESTS_BITBUCKET_WORKSPACE: ${{ secrets.TESTS_BITBUCKET_WORKSPACE }}
       run: |
         docker compose --profile ${{ matrix.adapter }} up -d --wait --wait-timeout 900

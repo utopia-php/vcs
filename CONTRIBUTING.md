@@ -107,23 +107,6 @@ The `bitbucket` adapter runs against Bitbucket Cloud, which has no self-hostable
 
 The workspace needs at least one project, since Bitbucket assigns every new repository to one. Without these variables the suite is skipped, the same way the `github` one is.
 
-The adapter sends the token as a Bearer credential, so an Atlassian account
-API token (the `ATATT…` kind, which authenticates as `email:token` over HTTP
-Basic) will not work — every call answers 401. Create a private OAuth consumer
-under `bitbucket.org/<workspace>/workspace/settings/api`, scoped for `account`,
-`repository`, `repository:admin`, `pullrequest`, `pullrequest:write` and
-`webhook`, then mint a token from it:
-
-```bash
-export TESTS_BITBUCKET_ACCESS_TOKEN=$(curl -sf -X POST -u "$CLIENT_ID:$CLIENT_SECRET" \
-  https://bitbucket.org/site/oauth2/access_token -d grant_type=client_credentials \
-  | jq -r .access_token)
-```
-
-The token lasts two hours and can be re-minted on demand, so nothing long-lived
-needs storing. CI does the same thing from `TESTS_BITBUCKET_CLIENT_ID` and
-`TESTS_BITBUCKET_CLIENT_SECRET` before it starts the stack.
-
 ## Adding A New Adapter
 
 You can follow our [Adding new VCS Adapter](docs/add-new-vcs-adapter.md) tutorial to add a new VCS adapter like GitLab, Bitbucket etc. in this library.

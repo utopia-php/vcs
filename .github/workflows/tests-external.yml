@@ -25,12 +25,37 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
+    - name: Mint Bitbucket access token
+      if: matrix.adapter == 'bitbucket'
+      env:
+        CLIENT_ID: ${{ secrets.TESTS_BITBUCKET_CLIENT_ID }}
+        CLIENT_SECRET: ${{ secrets.TESTS_BITBUCKET_CLIENT_SECRET }}
+      run: |
+        # Minted per run rather than stored: an OAuth consumer is free, and the
+        # token it hands back lasts two hours, so nothing long-lived is kept.
+        # With no consumer configured the suite skips, as it does unconfigured.
+        if [ -z "$CLIENT_ID" ]; then
+          echo "No Bitbucket OAuth consumer configured; the suite will skip."
+          exit 0
+        fi
+
+        token=$(curl -sf -X POST -u "$CLIENT_ID:$CLIENT_SECRET" \
+          https://bitbucket.org/site/oauth2/access_token \
+          -d grant_type=client_credentials | jq -r '.access_token // empty')
+
+        if [ -z "$token" ]; then
+          echo "::error::Could not mint a Bitbucket token from the configured OAuth consumer"
+          exit 1
+        fi
+
+        echo "::add-mask::$token"
+        echo "TESTS_BITBUCKET_ACCESS_TOKEN=$token" >> "$GITHUB_ENV"
+
     - name: Start Test Stack
       env:
           TESTS_GITHUB_PRIVATE_KEY: ${{ secrets.TESTS_GITHUB_PRIVATE_KEY }}
           TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
           TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
-          TESTS_BITBUCKET_ACCESS_TOKEN: ${{ secrets.TESTS_BITBUCKET_ACCESS_TOKEN }}
           TESTS_BITBUCKET_WORKSPACE: ${{ secrets.TESTS_BITBUCKET_WORKSPACE }}
       run: |
         docker compose --profile ${{ matrix.adapter }} up -d --wait --wait-timeout 900

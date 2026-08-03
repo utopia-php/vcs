@@ -35,12 +35,18 @@ jobs:
           exit 0
         fi
 
-        token=$(curl -sf -X POST -u "$CLIENT_ID:$CLIENT_SECRET" \
+        response=$(curl -s -w '\n%{http_code}' -X POST -u "$CLIENT_ID:$CLIENT_SECRET" \
           https://bitbucket.org/site/oauth2/access_token \
-          -d grant_type=client_credentials | jq -r '.access_token // empty')
+          -d grant_type=client_credentials)
+        status=$(printf '%s' "$response" | tail -n1)
+        body=$(printf '%s' "$response" | sed '$d')
+
+        token=$(printf '%s' "$body" | jq -r '.access_token // empty' 2>/dev/null)
 
         if [ -z "$token" ]; then
-          echo "::error::Could not mint a Bitbucket token from the configured OAuth consumer"
+          # Report what Bitbucket said; the body carries no token to leak here
+          reason=$(printf '%s' "$body" | jq -r '.error_description // .error // empty' 2>/dev/null)
+          echo "::error::Bitbucket refused the token request (HTTP $status): ${reason:-no error body}"
           exit 1
         fi
 

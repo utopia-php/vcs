@@ -499,9 +499,7 @@ class Bitbucket extends Git
     public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file', string $branch = ''): array
     {
         if (empty($branch)) {
-            // Bitbucket names an empty repository's branch after whatever the
-            // first commit asks for, so default to 'main'
-            $branch = $this->mainBranchName($owner, $repositoryName) ?: 'main';
+            $branch = $this->mainBranchName($owner, $repositoryName);
         }
 
         $url = "/repositories/{$owner}/{$repositoryName}/src";
@@ -511,9 +509,15 @@ class Bitbucket extends Git
         // treats every path as absolute from the repository root either way.
         $payload = [
             'message' => $message,
-            'branch' => $branch,
             '/' . $this->normalizeRepositoryPath($filepath) => $content,
         ];
+
+        // An empty repository has no branch to commit onto yet, and naming one
+        // Bitbucket doesn't have is refused; omitting it lets Bitbucket create
+        // its own default, which the caller reads back off the repository.
+        if (!empty($branch)) {
+            $payload['branch'] = $branch;
+        }
 
         $response = $this->call(
             self::METHOD_POST,

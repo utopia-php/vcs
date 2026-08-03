@@ -21,7 +21,8 @@ class BitbucketTest extends Base
 
     protected static string $accessToken = '';
     protected static string $owner = '';
-    protected static string $defaultBranch = 'main';
+    // Bitbucket names an empty repository's first branch 'master'
+    protected static string $defaultBranch = 'master';
     protected static string $eventHeader = 'x-event-key';
     protected static string $signatureHeader = 'x-hub-signature';
     protected static string $pushEventName = 'repo:push';

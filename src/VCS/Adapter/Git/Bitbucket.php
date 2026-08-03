@@ -221,7 +221,11 @@ class Bitbucket extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", $statusCode);
+            $error = $response['body']['error']['message'] ?? '';
+            throw new Exception(
+                "Creating repository {$repositoryName} failed with status code {$statusCode}" . ($error !== '' ? ": {$error}" : ''),
+                $statusCode
+            );
         }
 
         $responseBody = $response['body'] ?? [];

@@ -1109,7 +1109,10 @@ class Bitbucket extends Git
         if ($statusCode < 400) {
             $responseBody = $response['body'] ?? [];
             $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
-            $slug = $values[0]['slug'] ?? '';
+
+            // Each entry is a workspace_access object that carries the
+            // workspace under its own key rather than at the top level
+            $slug = $values[0]['workspace']['slug'] ?? '';
             if (!empty($slug)) {
                 return (string) $slug;
             }

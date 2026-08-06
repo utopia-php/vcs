@@ -397,16 +397,22 @@ class Bitbucket extends Git
         }
 
         $items = [];
-        $page = 1;
-        do {
-            $url = $base . '?pagelen=' . self::PAGE_SIZE . "&page={$page}" . $suffix;
+        $url = $base . '?pagelen=' . self::PAGE_SIZE . $suffix;
 
+        while ($url !== '') {
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
+
+            // A ref or path that isn't there is an empty listing rather than a
+            // failure; anything else is reported instead of being read as one.
+            if ($statusCode === 404) {
+                return $items;
+            }
+
             if ($statusCode >= 400) {
-                return $page === 1 ? [] : $items;
+                throw new Exception("Listing {$owner}/{$repositoryName} failed with status code {$statusCode}", $statusCode);
             }
 
             $responseBody = $response['body'] ?? [];
@@ -420,8 +426,12 @@ class Bitbucket extends Git
             }
 
             $items = array_merge($items, $values);
-            $page++;
-        } while (!empty($responseBody['next']));
+
+            // Source listings page by handing back the url of the next page,
+            // which this endpoint expects to be followed as given.
+            $next = (string) ($responseBody['next'] ?? '');
+            $url = \str_starts_with($next, $this->endpoint) ? \substr($next, \strlen($this->endpoint)) : '';
+        }
 
         return $items;
     }

@@ -25,58 +25,12 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
-    - name: Check Bitbucket credential shape
-      if: matrix.adapter == 'bitbucket'
-      env:
-        TOKEN: ${{ secrets.TESTS_BITBUCKET_ACCESS_TOKEN }}
-      run: |
-        # Reports which auth scheme the adapter will pick, never the value
-        if [ -z "$TOKEN" ]; then
-          echo "TESTS_BITBUCKET_ACCESS_TOKEN is not set"
-        elif printf '%s' "$TOKEN" | grep -q ':'; then
-          echo "credential is email:token -> Basic (${#TOKEN} chars)"
-        else
-          echo "credential is a bare token -> Bearer (${#TOKEN} chars)"
-        fi
-
-    - name: Mint Bitbucket access token
-      if: matrix.adapter == 'bitbucket'
-      env:
-        CLIENT_ID: ${{ secrets.TESTS_BITBUCKET_CLIENT_ID }}
-        CLIENT_SECRET: ${{ secrets.TESTS_BITBUCKET_CLIENT_SECRET }}
-        STATIC_TOKEN: ${{ secrets.TESTS_BITBUCKET_ACCESS_TOKEN }}
-      run: |
-        # Prefer a short-lived token minted from an OAuth consumer; fall back to
-        # a stored credential, and to nothing, in which case the suite skips.
-        token="$STATIC_TOKEN"
-
-        if [ -n "$CLIENT_ID" ]; then
-          response=$(curl -s -w '\n%{http_code}' -X POST -u "$CLIENT_ID:$CLIENT_SECRET" \
-            https://bitbucket.org/site/oauth2/access_token \
-            -d grant_type=client_credentials)
-          body=$(printf '%s' "$response" | sed '$d')
-          minted=$(printf '%s' "$body" | jq -r '.access_token // empty' 2>/dev/null)
-
-          if [ -n "$minted" ]; then
-            token="$minted"
-          else
-            echo "::warning::Could not mint from the OAuth consumer; using the stored credential"
-          fi
-        fi
-
-        if [ -z "$token" ]; then
-          echo "No Bitbucket credential configured; the suite will skip."
-          exit 0
-        fi
-
-        echo "::add-mask::$token"
-        echo "TESTS_BITBUCKET_ACCESS_TOKEN=$token" >> "$GITHUB_ENV"
-
     - name: Start Test Stack
       env:
           TESTS_GITHUB_PRIVATE_KEY: ${{ secrets.TESTS_GITHUB_PRIVATE_KEY }}
           TESTS_GITHUB_APP_IDENTIFIER: ${{ secrets.TESTS_GITHUB_APP_IDENTIFIER }}
           TESTS_GITHUB_INSTALLATION_ID: ${{ secrets.TESTS_GITHUB_INSTALLATION_ID }}
+          TESTS_BITBUCKET_ACCESS_TOKEN: ${{ secrets.TESTS_BITBUCKET_ACCESS_TOKEN }}
           TESTS_BITBUCKET_WORKSPACE: ${{ secrets.TESTS_BITBUCKET_WORKSPACE }}
       run: |
         docker compose --profile ${{ matrix.adapter }} up -d --wait --wait-timeout 900

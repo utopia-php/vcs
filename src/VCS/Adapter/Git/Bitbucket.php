@@ -157,6 +157,16 @@ class Bitbucket extends Git
     }
 
     /**
+     * Encode a ref for use in a URL path, keeping its slashes: Bitbucket
+     * matches a nested branch name like feature/foo against the path as
+     * written, and does not recognise it once the slash is percent-encoded.
+     */
+    private function encodeRef(string $ref): string
+    {
+        return \str_replace('%2F', '/', \rawurlencode($ref));
+    }
+
+    /**
      * Name of the repository's main branch, or '' when it has none yet (an
      * empty repository names its main branch only once the root commit lands).
      */
@@ -378,7 +388,7 @@ class Bitbucket extends Git
         // Encode each path segment but keep the separators between them
         $path = implode('/', array_map('rawurlencode', explode('/', $this->normalizeRepositoryPath($path))));
 
-        return "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $path;
+        return "/repositories/{$owner}/{$repositoryName}/src/" . $this->encodeRef($ref) . '/' . $path;
     }
 
     /**
@@ -670,7 +680,7 @@ class Bitbucket extends Git
 
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
-        $url = "/repositories/{$owner}/{$repositoryName}/commits/" . rawurlencode($branch) . '?pagelen=1';
+        $url = "/repositories/{$owner}/{$repositoryName}/commits/" . $this->encodeRef($branch) . '?pagelen=1';
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
 
@@ -1188,8 +1198,7 @@ class Bitbucket extends Git
         // Bitbucket resolves HEAD to the repository's default branch
         $ref = empty($ref) ? 'HEAD' : $ref;
 
-        // Encode the ref but keep slashes so nested branch names (e.g. feature/foo) still resolve
-        $encodedRef = \str_replace('%2F', '/', \rawurlencode($ref));
+        $encodedRef = $this->encodeRef($ref);
 
         return "{$baseUrl}/{$owner}/{$repositoryName}/get/{$encodedRef}.{$extension}";
     }

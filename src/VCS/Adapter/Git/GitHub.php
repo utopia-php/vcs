@@ -1098,18 +1098,8 @@ class GitHub extends Git
             throw new Exception("Failed to create check run: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $this->parseCheckRun($response['body'] ?? []);
-    }
-
-    /**
-     * @param array<mixed> $checkRun
-     * @return array<mixed>
-     */
-    private function parseCheckRun(array $checkRun): array
-    {
-        if (isset($checkRun['id'])) {
-            $checkRun['id'] = (string) $checkRun['id'];
-        }
+        $checkRun = $response['body'] ?? [];
+        $checkRun['id'] = (string) ($checkRun['id'] ?? '');
 
         return $checkRun;
     }
@@ -1130,7 +1120,10 @@ class GitHub extends Git
             throw new Exception("Failed to get check run $checkRunId: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $this->parseCheckRun($response['body'] ?? []);
+        $checkRun = $response['body'] ?? [];
+        $checkRun['id'] = (string) ($checkRun['id'] ?? '');
+
+        return $checkRun;
     }
 
     /**
@@ -1207,7 +1200,10 @@ class GitHub extends Git
             throw new Exception("Failed to update check run $checkRunId: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $this->parseCheckRun($response['body'] ?? []);
+        $checkRun = $response['body'] ?? [];
+        $checkRun['id'] = (string) ($checkRun['id'] ?? '');
+
+        return $checkRun;
     }
 
     /**

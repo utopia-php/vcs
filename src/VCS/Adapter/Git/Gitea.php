@@ -1119,7 +1119,7 @@ class Gitea extends Git
      * @param string $payload The webhook payload received from Gitea
      * @return array<mixed> Parsed payload as an array
      */
-    public function getEvent(string $event, string $payload): array
+    public function getEvents(string $event, string $payload): array
     {
         $payload = json_decode($payload, true);
 
@@ -1166,7 +1166,7 @@ class Gitea extends Git
                     }
                 }
 
-                return [
+                return [[
                     'branchCreated' => $branchCreated,
                     'branchDeleted' => $branchDeleted,
                     'branch' => $branch,
@@ -1187,7 +1187,7 @@ class Gitea extends Git
                     'pullRequestNumber' => '',
                     'action' => '',
                     'affectedFiles' => \array_keys($affectedFiles),
-                ];
+                ]];
 
             case 'pull_request':
                 $payloadRepository = $payload['repository'] ?? [];
@@ -1217,7 +1217,7 @@ class Gitea extends Git
                 $baseRepoFullName = $payloadRepository['full_name'] ?? '';
                 $external = !empty($headRepoFullName) && !empty($baseRepoFullName) && $headRepoFullName !== $baseRepoFullName;
 
-                return [
+                return [[
                     'branch' => $branch,
                     'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,
@@ -1232,7 +1232,7 @@ class Gitea extends Git
                     'external' => $external,
                     'pullRequestNumber' => $pullRequestNumber,
                     'action' => $action,
-                ];
+                ]];
         }
 
         return [];

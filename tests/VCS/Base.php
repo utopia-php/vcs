@@ -1556,7 +1556,7 @@ abstract class Base extends TestCase
             'Webhook signature did not validate'
         );
 
-        return $this->vcsAdapter->getEvent($eventName, $payload);
+        return $this->vcsAdapter->getEvents($eventName, $payload)[0] ?? [];
     }
 
     public function testValidateWebhookEvent(): void
@@ -2312,10 +2312,10 @@ abstract class Base extends TestCase
 
     public function testGetEventPush(): void
     {
-        $result = $this->vcsAdapter->getEvent(
+        $result = $this->vcsAdapter->getEvents(
             static::$pushEventName,
             $this->pushPayload(static::$defaultBranch, ['file1.txt'], ['file2.txt'], ['file3.txt'])
-        );
+        )[0];
 
         $this->assertSame(static::$defaultBranch, $result['branch']);
         $this->assertSame(self::EVENT_REPOSITORY_ID, $result['repositoryId']);
@@ -2335,10 +2335,10 @@ abstract class Base extends TestCase
 
     public function testGetEventPushDetectsBranchCreated(): void
     {
-        $result = $this->vcsAdapter->getEvent(
+        $result = $this->vcsAdapter->getEvents(
             static::$pushEventName,
             $this->pushPayload(static::$defaultBranch, created: true)
-        );
+        )[0];
 
         $this->assertTrue($result['branchCreated']);
         $this->assertFalse($result['branchDeleted']);
@@ -2346,10 +2346,10 @@ abstract class Base extends TestCase
 
     public function testGetEventPushDetectsBranchDeleted(): void
     {
-        $result = $this->vcsAdapter->getEvent(
+        $result = $this->vcsAdapter->getEvents(
             static::$pushEventName,
             $this->pushPayload(static::$defaultBranch, deleted: true)
-        );
+        )[0];
 
         $this->assertFalse($result['branchCreated']);
         $this->assertTrue($result['branchDeleted']);
@@ -2357,7 +2357,7 @@ abstract class Base extends TestCase
 
     public function testGetEventPullRequest(): void
     {
-        $result = $this->vcsAdapter->getEvent(static::$pullRequestEventName, $this->pullRequestPayload());
+        $result = $this->vcsAdapter->getEvents(static::$pullRequestEventName, $this->pullRequestPayload())[0];
 
         $this->assertSame('opened', $result['action']);
         $this->assertSame(self::EVENT_HEAD_BRANCH, $result['branch']);
@@ -2371,7 +2371,7 @@ abstract class Base extends TestCase
 
     public function testGetEventPullRequestDetectsExternal(): void
     {
-        $result = $this->vcsAdapter->getEvent(static::$pullRequestEventName, $this->pullRequestPayload(external: true));
+        $result = $this->vcsAdapter->getEvents(static::$pullRequestEventName, $this->pullRequestPayload(external: true))[0];
 
         $this->assertTrue($result['external']);
     }
@@ -2379,7 +2379,7 @@ abstract class Base extends TestCase
     public function testGetEventInvalidPayload(): void
     {
         $this->expectException(Exception::class);
-        $this->vcsAdapter->getEvent('push', 'invalid json');
+        $this->vcsAdapter->getEvents('push', 'invalid json');
     }
 
     public function testGetEventUnsupportedEvent(): void
@@ -2390,7 +2390,7 @@ abstract class Base extends TestCase
             $this->fail('Failed to encode JSON payload');
         }
 
-        $result = $this->vcsAdapter->getEvent('unsupported_event', $payload);
+        $result = $this->vcsAdapter->getEvents('unsupported_event', $payload);
 
         $this->assertIsArray($result);
         $this->assertEmpty($result);

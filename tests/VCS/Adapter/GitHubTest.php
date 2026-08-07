@@ -145,7 +145,7 @@ class GitHubTest extends Base
             $this->fail('Failed to encode JSON payload');
         }
 
-        $result = $this->vcsAdapter->getEvent('installation', $payload);
+        $result = $this->vcsAdapter->getEvents('installation', $payload)[0];
 
         $this->assertSame('deleted', $result['action']);
         $this->assertSame('1234', $result['installationId']);

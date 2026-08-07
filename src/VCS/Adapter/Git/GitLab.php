@@ -1042,7 +1042,7 @@ class GitLab extends Git
         'merge' => 'closed',
     ];
 
-    public function getEvent(string $event, string $payload): array
+    public function getEvents(string $event, string $payload): array
     {
         $payloadArray = json_decode($payload, true);
         if ($payloadArray === null || !is_array($payloadArray)) {
@@ -1082,7 +1082,7 @@ class GitLab extends Git
 
                 $allZeroSha = str_repeat('0', 40);
 
-                return [
+                return [[
                     'branchCreated' => ($payloadArray['before'] ?? '') === $allZeroSha,
                     'branchDeleted' => ($payloadArray['after'] ?? '') === $allZeroSha,
                     'branch' => $branch,
@@ -1103,7 +1103,7 @@ class GitLab extends Git
                     'pullRequestNumber' => '',
                     'action' => '',
                     'affectedFiles' => \array_keys($affectedFiles),
-                ];
+                ]];
 
             case 'Merge Request Hook':
                 $project = $payloadArray['project'] ?? [];
@@ -1121,7 +1121,7 @@ class GitLab extends Git
                 $external = isset($mr['source_project_id'], $mr['target_project_id'])
                     && $mr['source_project_id'] !== $mr['target_project_id'];
 
-                return [
+                return [[
                     'branch' => $branch,
                     'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,
@@ -1136,7 +1136,7 @@ class GitLab extends Git
                     'external' => $external,
                     'pullRequestNumber' => $mr['iid'] ?? '',
                     'action' => $action,
-                ];
+                ]];
 
             default:
                 return [];

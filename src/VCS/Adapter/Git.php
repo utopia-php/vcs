@@ -99,6 +99,12 @@ abstract class Git extends Adapter
      */
     abstract public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array;
 
+    /** Whether the archive url reaches a private repository on its own. */
+    public function supportsAuthenticatedArchiveUrl(): bool
+    {
+        return true;
+    }
+
     /**
      * Get a short-lived URL to download the repository archive.
      *

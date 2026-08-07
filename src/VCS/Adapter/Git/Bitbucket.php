@@ -1414,6 +1414,15 @@ class Bitbucket extends Git
     }
 
     /**
+     * The archive host answers a token in the url with a redirect to a login
+     * page. The git endpoint accepts the same token.
+     */
+    public function supportsAuthenticatedArchiveUrl(): bool
+    {
+        return false;
+    }
+
+    /**
      * @link https://support.atlassian.com/bitbucket-cloud/kb/how-to-download-repositories-using-the-api/
      *
      * Bitbucket answers this directly instead of redirecting to a signed URL,

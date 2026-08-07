@@ -159,7 +159,10 @@ class GitLabTest extends Base
             $this->fail('Failed to encode JSON payload');
         }
 
-        $result = $this->vcsAdapter->getEvents('Push Hook', $payload)[0];
+        $events = $this->vcsAdapter->getEvents('Push Hook', $payload);
+        $this->assertIsArray($events);
+        $this->assertCount(1, $events);
+        $result = $events[0];
 
         $this->assertIsArray($result);
         $this->assertSame('def456', $result['commitHash']);
@@ -181,7 +184,10 @@ class GitLabTest extends Base
                 $this->fail('Failed to encode JSON payload');
             }
 
-            $result = $this->vcsAdapter->getEvents('Merge Request Hook', $payload)[0];
+            $events = $this->vcsAdapter->getEvents('Merge Request Hook', $payload);
+            $this->assertIsArray($events);
+            $this->assertCount(1, $events);
+            $result = $events[0];
             $this->assertSame($mapped, $result['action'], "native action '{$native}' should map to '{$mapped}'");
         }
     }

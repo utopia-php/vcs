@@ -12,6 +12,10 @@ use Utopia\VCS\Exception\RepositoryNotFound;
 
 abstract class Base extends TestCase
 {
+    /**
+     * Facts the webhook payload builders below carry, asserted back out of the
+     * normalized event. Bitbucket overrides the repository id, having none.
+     */
     protected const EVENT_REPOSITORY_ID = '123';
 
     protected const EVENT_REPOSITORY_NAME = 'test-repo';
@@ -128,6 +132,12 @@ abstract class Base extends TestCase
     protected static bool $supportsCheckRuns = true;
 
     protected static bool $supportsNamespaceListing = true;
+
+    /**
+     * Whether a push event names the files it touched. Bitbucket's payload
+     * carries no file lists at all.
+     */
+    protected static bool $reportsAffectedFilesInPushEvent = true;
 
     /**
      * Whether the provider computes language stats out of band. GitHub does,
@@ -533,12 +543,7 @@ abstract class Base extends TestCase
         $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
-            $this->assertIsArray($created);
-            $this->assertArrayHasKey('id', $created);
-            $this->assertIsNumeric($created['id']);
-            $repositoryId = (string) $created['id'];
-
-            $result = $this->vcsAdapter->getRepositoryName($repositoryId);
+            $result = $this->vcsAdapter->getRepositoryName((string) $created['id']);
 
             $this->assertIsString($result);
             $this->assertSame($repositoryName, $result);
@@ -1115,14 +1120,13 @@ abstract class Base extends TestCase
         $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
-            $this->assertIsArray($created);
-            $this->assertArrayHasKey('id', $created);
-            $this->assertIsNumeric($created['id']);
-            $repositoryId = (int) $created['id'];
-
-            // GitHub resolves the owner from the installation, the others from the
-            // repository, so pass both and let each use what it reads
-            $this->assertSame($this->ownerPath(), $this->vcsAdapter->getOwnerName(static::$installationId, $repositoryId));
+            // GitHub resolves the owner from the installation and Bitbucket from
+            // the account its token belongs to, the others from the repository, so
+            // pass both and let each use what it reads
+            $this->assertSame(
+                $this->ownerPath(),
+                $this->vcsAdapter->getOwnerName(static::$installationId, (int) $created['id'])
+            );
         } finally {
             $this->discardRepositories($repositoryName);
         }
@@ -1635,7 +1639,17 @@ abstract class Base extends TestCase
 
     public function testGetOwnerNameWithInvalidRepositoryId(): void
     {
-        $this->skipUnlessSupported(static::$resolvesOwnerFromRepositoryId, 'resolving an owner from a repository id');
+        if (!static::$resolvesOwnerFromRepositoryId) {
+            // GitHub reads the owner off the installation and Bitbucket off the
+            // account its token belongs to, so an id that resolves to nothing
+            // does not change the answer
+            $this->assertSame(
+                $this->ownerPath(),
+                $this->vcsAdapter->getOwnerName(static::$installationId, 999999999)
+            );
+
+            return;
+        }
 
         $this->expectException(static::$repositoryNotFoundException);
         $this->vcsAdapter->getOwnerName('', 999999999);
@@ -1678,6 +1692,7 @@ abstract class Base extends TestCase
 
     public function testWebhookPullRequestEvent(): void
     {
+        $this->skipUnlessSupported(static::$supportsWebhookDelivery, 'webhook delivery to the test catcher');
         $this->skipUnlessSupported(static::$supportsPullRequestCreation, 'creating pull requests');
 
         $repositoryName = 'test-webhook-pr-' . \uniqid();
@@ -1880,7 +1895,7 @@ abstract class Base extends TestCase
             );
 
             $this->assertArrayHasKey('id', $checkRun);
-            $this->assertIsInt($checkRun['id']);
+            $this->assertIsString($checkRun['id']);
             $this->assertEquals('ci/build', $checkRun['name']);
             $this->assertEquals('in_progress', $checkRun['status']);
             $this->assertNull($checkRun['conclusion']);
@@ -1923,7 +1938,7 @@ abstract class Base extends TestCase
 
         try {
             $this->expectException(\Exception::class);
-            $this->vcsAdapter->getCheckRun(static::$owner, $repositoryName, 999999999);
+            $this->vcsAdapter->getCheckRun(static::$owner, $repositoryName, '999999999');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -2035,7 +2050,7 @@ abstract class Base extends TestCase
             );
 
             $this->assertArrayHasKey('id', $checkRun);
-            $this->assertIsInt($checkRun['id']);
+            $this->assertIsString($checkRun['id']);
             $this->assertEquals('ci/build', $checkRun['name']);
             $this->assertEquals('completed', $checkRun['status']);
             $this->assertEquals('success', $checkRun['conclusion']);
@@ -2099,7 +2114,7 @@ abstract class Base extends TestCase
         $this->vcsAdapter->updateCheckRun(
             owner: static::$owner,
             repositoryName: 'non-existing-repository-' . \uniqid(),
-            checkRunId: 999999999,
+            checkRunId: '999999999',
             conclusion: 'success',
         );
     }
@@ -2115,7 +2130,7 @@ abstract class Base extends TestCase
             $this->vcsAdapter->updateCheckRun(
                 owner: static::$owner,
                 repositoryName: $repositoryName,
-                checkRunId: 999999999,
+                checkRunId: '999999999',
                 conclusion: 'success',
             );
         } finally {
@@ -2325,7 +2340,7 @@ abstract class Base extends TestCase
         $result = $events[0];
 
         $this->assertSame(static::$defaultBranch, $result['branch']);
-        $this->assertSame(self::EVENT_REPOSITORY_ID, $result['repositoryId']);
+        $this->assertSame(static::EVENT_REPOSITORY_ID, $result['repositoryId']);
         $this->assertSame(self::EVENT_REPOSITORY_NAME, $result['repositoryName']);
         $this->assertSame(self::EVENT_OWNER, $result['owner']);
         $this->assertSame(self::EVENT_COMMIT_HASH, $result['commitHash']);
@@ -2337,7 +2352,10 @@ abstract class Base extends TestCase
         $this->assertNotEmpty($result['branchUrl']);
         $this->assertFalse($result['branchCreated']);
         $this->assertFalse($result['branchDeleted']);
-        $this->assertEqualsCanonicalizing(['file1.txt', 'file2.txt', 'file3.txt'], $result['affectedFiles']);
+        $this->assertEqualsCanonicalizing(
+            static::$reportsAffectedFilesInPushEvent ? ['file1.txt', 'file2.txt', 'file3.txt'] : [],
+            $result['affectedFiles']
+        );
     }
 
     public function testGetEventPushDetectsBranchCreated(): void
@@ -2378,7 +2396,7 @@ abstract class Base extends TestCase
         $this->assertSame('opened', $result['action']);
         $this->assertSame(self::EVENT_HEAD_BRANCH, $result['branch']);
         $this->assertSame(self::EVENT_PULL_REQUEST_NUMBER, $result['pullRequestNumber']);
-        $this->assertSame(self::EVENT_REPOSITORY_ID, $result['repositoryId']);
+        $this->assertSame(static::EVENT_REPOSITORY_ID, $result['repositoryId']);
         $this->assertSame(self::EVENT_REPOSITORY_NAME, $result['repositoryName']);
         $this->assertSame(self::EVENT_OWNER, $result['owner']);
         $this->assertSame(self::EVENT_COMMIT_HASH, $result['commitHash']);

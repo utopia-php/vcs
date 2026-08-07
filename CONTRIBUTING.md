@@ -88,7 +88,7 @@ sleep 15
 docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml --testsuite <adapter>
 ```
 
-Where `<adapter>` is one of: `gitea`, `forgejo`, `github`, `gitlab`, `gogs`.
+Where `<adapter>` is one of: `gitea`, `forgejo`, `github`, `gitlab`, `gogs`, `bitbucket`.
 
 For example, to run Gitea tests:
 
@@ -99,6 +99,13 @@ docker compose exec -T tests vendor/bin/phpunit --configuration phpunit.xml --te
 ```
 
 The `github` adapter does not require any local services — only the GitHub secrets (`TESTS_GITHUB_PRIVATE_KEY`, `TESTS_GITHUB_APP_IDENTIFIER`, `TESTS_GITHUB_INSTALLATION_ID`) as environment variables.
+
+The `bitbucket` adapter runs against Bitbucket Cloud, which has no self-hostable image, so it needs credentials instead of a local service:
+
+- `TESTS_BITBUCKET_ACCESS_TOKEN` — a credential with read and write access to repositories, pull requests and webhooks: either a bearer token (OAuth 2.0, workspace or repository) or an Atlassian account API token given as `email:token`
+- `TESTS_BITBUCKET_WORKSPACE` — workspace the test repositories are created in; defaults to the token owner's own workspace
+
+The workspace needs at least one project, since Bitbucket assigns every new repository to one. Without these variables the suite is skipped, the same way the `github` one is.
 
 ## Adding A New Adapter
 

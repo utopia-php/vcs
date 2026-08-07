@@ -1098,7 +1098,10 @@ class GitHub extends Git
             throw new Exception("Failed to create check run: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $response['body'] ?? [];
+        $checkRun = $response['body'] ?? [];
+        $checkRun['id'] = (string) ($checkRun['id'] ?? '');
+
+        return $checkRun;
     }
 
     /**
@@ -1106,7 +1109,7 @@ class GitHub extends Git
      *
      * @return array<mixed>
      */
-    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    public function getCheckRun(string $owner, string $repositoryName, string $checkRunId): array
     {
         $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
 
@@ -1117,7 +1120,10 @@ class GitHub extends Git
             throw new Exception("Failed to get check run $checkRunId: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $response['body'] ?? [];
+        $checkRun = $response['body'] ?? [];
+        $checkRun['id'] = (string) ($checkRun['id'] ?? '');
+
+        return $checkRun;
     }
 
     /**
@@ -1132,7 +1138,7 @@ class GitHub extends Git
     public function updateCheckRun(
         string $owner,
         string $repositoryName,
-        int $checkRunId,
+        string $checkRunId,
         string $name = '',
         string $status = '',
         string $conclusion = '',
@@ -1194,7 +1200,10 @@ class GitHub extends Git
             throw new Exception("Failed to update check run $checkRunId: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $response['body'] ?? [];
+        $checkRun = $response['body'] ?? [];
+        $checkRun['id'] = (string) ($checkRun['id'] ?? '');
+
+        return $checkRun;
     }
 
     /**

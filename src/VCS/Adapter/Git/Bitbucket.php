@@ -39,10 +39,8 @@ class Bitbucket extends Git
     ];
 
     /**
-     * Verdicts a check run can end on, over the four states a build status can
-     * hold. Bitbucket draws no distinction between the ways a check can fail
-     * or be called off, so several verdicts share a state and a check run read
-     * back reports its state's verdict rather than the one it was written with.
+     * Bitbucket holds four states where a check run has seven verdicts, so a
+     * run read back reports its state's verdict, not the one it was written with.
      */
     private const CHECK_RUN_CONCLUSION_MAP = [
         'success' => 'SUCCESSFUL',
@@ -55,9 +53,6 @@ class Bitbucket extends Git
     ];
 
     /**
-     * Reverse of CHECK_RUN_CONCLUSION_MAP. A run still going has no verdict to
-     * report, which is the null the other adapters report for it too.
-     *
      * @var array<string, array{status: string, conclusion: string|null}>
      */
     private const CHECK_RUN_STATE_MAP = [
@@ -186,14 +181,9 @@ class Bitbucket extends Git
     }
 
     /**
-     * Commit hash the ref points at, or the ref unchanged when it holds no
-     * slash.
-     *
-     * Bitbucket reads the ref as a single path segment, so a nested branch
-     * name like feature/foo is taken as the ref `feature` and the path `foo`.
-     * Percent-encoding the slash doesn't separate them either -- the endpoint
-     * matches the ref against the path as written -- so a nested name only
-     * survives the trip as the hash it points at.
+     * Bitbucket reads the ref as one path segment, so a nested name like
+     * feature/foo is taken as the ref `feature` and the path `foo` -- encoding
+     * the slash doesn't separate them. Only the hash it points at survives.
      */
     private function resolveRef(string $owner, string $repositoryName, string $ref): string
     {
@@ -201,8 +191,6 @@ class Bitbucket extends Git
             return $ref;
         }
 
-        // The branch endpoint reads its name off the rest of the path, so this
-        // is the one place a slash in a ref is unambiguous
         $response = $this->call(
             self::METHOD_GET,
             "/repositories/{$owner}/{$repositoryName}/refs/branches/{$ref}",
@@ -212,8 +200,6 @@ class Bitbucket extends Git
         $branch = $response['body'] ?? [];
         $hash = \is_array($branch) ? ($branch['target']['hash'] ?? '') : '';
 
-        // A ref that resolves to nothing is left as it came in, so the caller
-        // reports it missing the same way it reports any other unknown ref
         return empty($hash) ? $ref : (string) $hash;
     }
 
@@ -879,17 +865,14 @@ class Bitbucket extends Git
     ): array {
         [$status, $conclusion, $completedAt] = $this->settleCheckRun($status, $conclusion, $completedAt);
 
-        // A build status is identified by its key and overwritten when another
-        // is posted under a key it already holds, so each run takes a key of
-        // its own -- two runs of one name on a commit stay two statuses.
+        // Each run takes a key of its own, so two runs of one name on a commit
+        // stay two statuses rather than one overwriting the other.
         $key = 'check-run-' . \bin2hex(\random_bytes(8));
 
         $written = $this->writeBuildStatus($owner, $repositoryName, $headSha, [
             'key' => $key,
             'name' => $name,
             'state' => $this->checkRunState($status, $conclusion),
-            // A status without a url is refused, so point at the commit itself
-            // when the caller has nowhere better to send a reader
             'url' => empty($detailsUrl) ? $this->getCommitUrl($owner, $repositoryName, $headSha) : $detailsUrl,
             'description' => $summary,
         ]);
@@ -942,9 +925,8 @@ class Bitbucket extends Git
         [$commitHash, $key] = $this->splitCheckRunId($checkRunId);
         [$status, $conclusion, $completedAt] = $this->settleCheckRun($status, $conclusion, $completedAt);
 
-        // Posting a key Bitbucket already holds rewrites every field it carries
-        // rather than the named ones, so what the caller left out is read off
-        // the run as it stands and written back unchanged.
+        // A repost rewrites every field, not the named ones, so what the caller
+        // left out is read off the run and written back unchanged.
         $current = $this->getCheckRun($owner, $repositoryName, $checkRunId);
 
         $written = $this->writeBuildStatus($owner, $repositoryName, $commitHash, [
@@ -964,10 +946,6 @@ class Bitbucket extends Git
     }
 
     /**
-     * A verdict settles a run: it completes it, and dates it when the caller
-     * didn't. Completing one without a verdict says nothing about how it went,
-     * which the other adapters refuse too.
-     *
      * @return array{0: string, 1: string, 2: string}
      */
     private function settleCheckRun(string $status, string $conclusion, string $completedAt): array
@@ -997,8 +975,8 @@ class Bitbucket extends Git
     }
 
     /**
-     * A check run is addressed by its id alone, but a build status lives under
-     * a commit, so the id carries the commit it belongs to alongside its key.
+     * A run is addressed by its id alone, but a status lives under a commit,
+     * so the id carries that commit alongside the key.
      *
      * @return array{0: string, 1: string}
      */

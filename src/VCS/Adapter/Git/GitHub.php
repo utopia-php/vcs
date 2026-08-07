@@ -1102,9 +1102,6 @@ class GitHub extends Git
     }
 
     /**
-     * Check runs are addressed by an id the provider chooses the shape of, so
-     * report GitHub's number as the string the contract names it with.
-     *
      * @param array<mixed> $checkRun
      * @return array<mixed>
      */

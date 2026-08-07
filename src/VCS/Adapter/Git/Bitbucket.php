@@ -315,7 +315,10 @@ class Bitbucket extends Git
 
     public function getRepositoryName(string $repositoryId): string
     {
-        // $repositoryId is the "workspace/slug" id normalizeRepository() mints
+        // $repositoryId is the "workspace/slug" id normalizeRepository() mints.
+        // It travels as one path segment, so its slash arrives encoded.
+        $repositoryId = \rawurldecode($repositoryId);
+
         if (strpos($repositoryId, '/') === false) {
             throw new RepositoryNotFound("Repository {$repositoryId} not found");
         }

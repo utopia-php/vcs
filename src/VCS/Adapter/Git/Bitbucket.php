@@ -39,6 +39,35 @@ class Bitbucket extends Git
     ];
 
     /**
+     * Verdicts a check run can end on, over the four states a build status can
+     * hold. Bitbucket draws no distinction between the ways a check can fail
+     * or be called off, so several verdicts share a state and a check run read
+     * back reports its state's verdict rather than the one it was written with.
+     */
+    private const CHECK_RUN_CONCLUSION_MAP = [
+        'success' => 'SUCCESSFUL',
+        'failure' => 'FAILED',
+        'timed_out' => 'FAILED',
+        'action_required' => 'FAILED',
+        'cancelled' => 'STOPPED',
+        'neutral' => 'STOPPED',
+        'skipped' => 'STOPPED',
+    ];
+
+    /**
+     * Reverse of CHECK_RUN_CONCLUSION_MAP. A run still going has no verdict to
+     * report, which is the null the other adapters report for it too.
+     *
+     * @var array<string, array{status: string, conclusion: string|null}>
+     */
+    private const CHECK_RUN_STATE_MAP = [
+        'INPROGRESS' => ['status' => 'in_progress', 'conclusion' => null],
+        'SUCCESSFUL' => ['status' => 'completed', 'conclusion' => 'success'],
+        'FAILED' => ['status' => 'completed', 'conclusion' => 'failure'],
+        'STOPPED' => ['status' => 'completed', 'conclusion' => 'cancelled'],
+    ];
+
+    /**
      * Reverse of COMMIT_STATE_MAP, so getCommitStatuses() reports states in the
      * same vocabulary updateCommitStatus() accepts.
      */
@@ -828,6 +857,205 @@ class Bitbucket extends Git
         }
 
         return $statuses;
+    }
+
+    public function createCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $headSha,
+        string $name,
+        string $status = 'queued',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        [$status, $conclusion, $completedAt] = $this->settleCheckRun($status, $conclusion, $completedAt);
+
+        // A build status is identified by its key and overwritten when another
+        // is posted under a key it already holds, so each run takes a key of
+        // its own -- two runs of one name on a commit stay two statuses.
+        $key = 'check-run-' . \bin2hex(\random_bytes(8));
+
+        $written = $this->writeBuildStatus($owner, $repositoryName, $headSha, [
+            'key' => $key,
+            'name' => $name,
+            'state' => $this->checkRunState($status, $conclusion),
+            // A status without a url is refused, so point at the commit itself
+            // when the caller has nowhere better to send a reader
+            'url' => empty($detailsUrl) ? $this->getCommitUrl($owner, $repositoryName, $headSha) : $detailsUrl,
+            'description' => $summary,
+        ]);
+
+        return $this->parseCheckRun($written, $owner, $repositoryName, $headSha, [
+            'status' => $status,
+            'conclusion' => $conclusion === '' ? null : $conclusion,
+            'output' => ['title' => $title, 'summary' => $summary, 'text' => $text],
+            'started_at' => empty($startedAt) ? ($written['created_on'] ?? null) : $startedAt,
+            'completed_at' => empty($completedAt) ? null : $completedAt,
+        ]);
+    }
+
+    public function getCheckRun(string $owner, string $repositoryName, string $checkRunId): array
+    {
+        [$commitHash, $key] = $this->splitCheckRunId($checkRunId);
+
+        $url = "/repositories/{$owner}/{$repositoryName}/commit/" . rawurlencode($commitHash) . '/statuses/build/' . rawurlencode($key);
+
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()]);
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to get check run {$checkRunId}: HTTP {$statusCode}", $statusCode);
+        }
+
+        $body = $response['body'] ?? [];
+
+        return $this->parseCheckRun(\is_array($body) ? $body : [], $owner, $repositoryName, $commitHash);
+    }
+
+    public function updateCheckRun(
+        string $owner,
+        string $repositoryName,
+        string $checkRunId,
+        string $name = '',
+        string $status = '',
+        string $conclusion = '',
+        string $title = '',
+        string $summary = '',
+        string $text = '',
+        array $annotations = [],
+        array $images = [],
+        array $actions = [],
+        string $detailsUrl = '',
+        string $externalId = '',
+        string $startedAt = '',
+        string $completedAt = '',
+    ): array {
+        [$commitHash, $key] = $this->splitCheckRunId($checkRunId);
+        [$status, $conclusion, $completedAt] = $this->settleCheckRun($status, $conclusion, $completedAt);
+
+        // Posting a key Bitbucket already holds rewrites every field it carries
+        // rather than the named ones, so what the caller left out is read off
+        // the run as it stands and written back unchanged.
+        $current = $this->getCheckRun($owner, $repositoryName, $checkRunId);
+
+        $written = $this->writeBuildStatus($owner, $repositoryName, $commitHash, [
+            'key' => $key,
+            'name' => empty($name) ? $current['name'] : $name,
+            'state' => $this->checkRunState($status, $conclusion),
+            'url' => empty($detailsUrl) ? $current['html_url'] : $detailsUrl,
+            'description' => empty($summary) ? ($current['output']['summary'] ?? '') : $summary,
+        ]);
+
+        return $this->parseCheckRun($written, $owner, $repositoryName, $commitHash, [
+            'status' => empty($status) ? $current['status'] : $status,
+            'conclusion' => $conclusion === '' ? $current['conclusion'] : $conclusion,
+            'output' => ['title' => $title, 'summary' => $summary, 'text' => $text],
+            'completed_at' => empty($completedAt) ? $current['completed_at'] : $completedAt,
+        ]);
+    }
+
+    /**
+     * A verdict settles a run: it completes it, and dates it when the caller
+     * didn't. Completing one without a verdict says nothing about how it went,
+     * which the other adapters refuse too.
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function settleCheckRun(string $status, string $conclusion, string $completedAt): array
+    {
+        if ($status === 'completed' && empty($conclusion)) {
+            throw new Exception("conclusion is required when status is 'completed'");
+        }
+
+        if (!empty($conclusion)) {
+            $status = 'completed';
+
+            if (empty($completedAt)) {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
+            }
+        }
+
+        return [$status, $conclusion, $completedAt];
+    }
+
+    private function checkRunState(string $status, string $conclusion): string
+    {
+        if (empty($conclusion)) {
+            return 'INPROGRESS';
+        }
+
+        return self::CHECK_RUN_CONCLUSION_MAP[$conclusion] ?? 'FAILED';
+    }
+
+    /**
+     * A check run is addressed by its id alone, but a build status lives under
+     * a commit, so the id carries the commit it belongs to alongside its key.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function splitCheckRunId(string $checkRunId): array
+    {
+        $parts = \explode(':', $checkRunId, 2);
+
+        if (\count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
+            throw new Exception("Check run {$checkRunId} was not found", 404);
+        }
+
+        return $parts;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function writeBuildStatus(string $owner, string $repositoryName, string $commitHash, array $payload): array
+    {
+        $url = "/repositories/{$owner}/{$repositoryName}/commit/" . rawurlencode($commitHash) . '/statuses/build';
+
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], \array_filter($payload, fn ($value) => $value !== ''));
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to write check run: HTTP {$statusCode}", $statusCode);
+        }
+
+        $body = $response['body'] ?? [];
+
+        return \is_array($body) ? $body : [];
+    }
+
+    /**
+     * @param array<string, mixed> $status
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
+    private function parseCheckRun(array $status, string $owner, string $repositoryName, string $commitHash, array $overrides = []): array
+    {
+        $state = (string) ($status['state'] ?? '');
+        $settled = self::CHECK_RUN_STATE_MAP[$state] ?? ['status' => 'completed', 'conclusion' => null];
+        $commitUrl = $this->getCommitUrl($owner, $repositoryName, $commitHash);
+
+        return \array_merge([
+            'id' => $commitHash . ':' . (string) ($status['key'] ?? ''),
+            'name' => (string) ($status['name'] ?? ''),
+            'status' => $settled['status'],
+            'conclusion' => $settled['conclusion'],
+            'head_sha' => $commitHash,
+            'url' => (string) ($status['links']['self']['href'] ?? $commitUrl),
+            'html_url' => (string) ($status['url'] ?? $commitUrl),
+            'started_at' => (string) ($status['created_on'] ?? ''),
+            'completed_at' => $settled['conclusion'] === null ? null : (string) ($status['updated_on'] ?? ''),
+            'output' => ['title' => '', 'summary' => (string) ($status['description'] ?? ''), 'text' => ''],
+        ], $overrides);
     }
 
     public function createPullRequest(string $owner, string $repositoryName, string $title, string $head, string $base, string $body = ''): array

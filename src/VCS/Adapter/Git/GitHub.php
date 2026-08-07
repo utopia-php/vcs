@@ -1098,7 +1098,23 @@ class GitHub extends Git
             throw new Exception("Failed to create check run: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $response['body'] ?? [];
+        return $this->parseCheckRun($response['body'] ?? []);
+    }
+
+    /**
+     * Check runs are addressed by an id the provider chooses the shape of, so
+     * report GitHub's number as the string the contract names it with.
+     *
+     * @param array<mixed> $checkRun
+     * @return array<mixed>
+     */
+    private function parseCheckRun(array $checkRun): array
+    {
+        if (isset($checkRun['id'])) {
+            $checkRun['id'] = (string) $checkRun['id'];
+        }
+
+        return $checkRun;
     }
 
     /**
@@ -1106,7 +1122,7 @@ class GitHub extends Git
      *
      * @return array<mixed>
      */
-    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    public function getCheckRun(string $owner, string $repositoryName, string $checkRunId): array
     {
         $url = "/repos/$owner/$repositoryName/check-runs/$checkRunId";
 
@@ -1117,7 +1133,7 @@ class GitHub extends Git
             throw new Exception("Failed to get check run $checkRunId: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $response['body'] ?? [];
+        return $this->parseCheckRun($response['body'] ?? []);
     }
 
     /**
@@ -1132,7 +1148,7 @@ class GitHub extends Git
     public function updateCheckRun(
         string $owner,
         string $repositoryName,
-        int $checkRunId,
+        string $checkRunId,
         string $name = '',
         string $status = '',
         string $conclusion = '',
@@ -1194,7 +1210,7 @@ class GitHub extends Git
             throw new Exception("Failed to update check run $checkRunId: HTTP $responseHeadersStatusCode", $responseHeadersStatusCode);
         }
 
-        return $response['body'] ?? [];
+        return $this->parseCheckRun($response['body'] ?? []);
     }
 
     /**

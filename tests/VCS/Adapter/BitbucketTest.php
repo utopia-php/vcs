@@ -29,7 +29,6 @@ class BitbucketTest extends Base
     protected static string $pullRequestEventName = 'pullrequest:created';
 
     protected static bool $supportsInstallationRepository = false;
-    protected static bool $supportsCheckRuns = false;
     protected static bool $supportsRepositoryLanguages = false;
     protected static bool $reportsAffectedFilesInPushEvent = false;
 

@@ -152,7 +152,7 @@ abstract class Git extends Adapter
      *
      * @return array<mixed>
      */
-    public function getCheckRun(string $owner, string $repositoryName, int $checkRunId): array
+    public function getCheckRun(string $owner, string $repositoryName, string $checkRunId): array
     {
         throw new Exception('getCheckRun() is not supported by ' . $this->getName());
     }
@@ -168,7 +168,7 @@ abstract class Git extends Adapter
     public function updateCheckRun(
         string $owner,
         string $repositoryName,
-        int $checkRunId,
+        string $checkRunId,
         string $name = '',
         string $status = '',
         string $conclusion = '',

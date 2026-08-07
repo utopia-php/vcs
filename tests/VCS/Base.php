@@ -1906,7 +1906,7 @@ abstract class Base extends TestCase
             );
 
             $this->assertArrayHasKey('id', $checkRun);
-            $this->assertIsInt($checkRun['id']);
+            $this->assertIsString($checkRun['id']);
             $this->assertEquals('ci/build', $checkRun['name']);
             $this->assertEquals('in_progress', $checkRun['status']);
             $this->assertNull($checkRun['conclusion']);
@@ -1949,7 +1949,7 @@ abstract class Base extends TestCase
 
         try {
             $this->expectException(\Exception::class);
-            $this->vcsAdapter->getCheckRun(static::$owner, $repositoryName, 999999999);
+            $this->vcsAdapter->getCheckRun(static::$owner, $repositoryName, '999999999');
         } finally {
             $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
         }
@@ -2061,7 +2061,7 @@ abstract class Base extends TestCase
             );
 
             $this->assertArrayHasKey('id', $checkRun);
-            $this->assertIsInt($checkRun['id']);
+            $this->assertIsString($checkRun['id']);
             $this->assertEquals('ci/build', $checkRun['name']);
             $this->assertEquals('completed', $checkRun['status']);
             $this->assertEquals('success', $checkRun['conclusion']);
@@ -2125,7 +2125,7 @@ abstract class Base extends TestCase
         $this->vcsAdapter->updateCheckRun(
             owner: static::$owner,
             repositoryName: 'non-existing-repository-' . \uniqid(),
-            checkRunId: 999999999,
+            checkRunId: '999999999',
             conclusion: 'success',
         );
     }
@@ -2141,7 +2141,7 @@ abstract class Base extends TestCase
             $this->vcsAdapter->updateCheckRun(
                 owner: static::$owner,
                 repositoryName: $repositoryName,
-                checkRunId: 999999999,
+                checkRunId: '999999999',
                 conclusion: 'success',
             );
         } finally {

@@ -78,18 +78,6 @@ class BitbucketTest extends Base
     }
 
     /**
-     * @param array<string, mixed> $repository
-     */
-    protected function repositoryIdOf(array $repository): string
-    {
-        $this->assertArrayHasKey('id', $repository);
-        $this->assertIsString($repository['id']);
-        $this->assertStringContainsString('/', $repository['id']);
-
-        return $repository['id'];
-    }
-
-    /**
      * Bitbucket reports a repository's owner as the workspace holding it.
      *
      * @param array<string, mixed> $repository

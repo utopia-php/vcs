@@ -285,21 +285,6 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Id the provider routes a repository by, as createRepository() reports it.
-     * Numeric for every provider but Bitbucket, which has no repository ids and
-     * routes by "workspace/slug" instead.
-     *
-     * @param array<string, mixed> $repository
-     */
-    protected function repositoryIdOf(array $repository): string
-    {
-        $this->assertArrayHasKey('id', $repository);
-        $this->assertIsNumeric($repository['id']);
-
-        return (string) $repository['id'];
-    }
-
-    /**
      * Number of a pull request, as every provider but GitLab reports it.
      *
      * @param array<string, mixed> $pullRequest
@@ -558,7 +543,7 @@ abstract class Base extends TestCase
         $created = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
         try {
-            $result = $this->vcsAdapter->getRepositoryName($this->repositoryIdOf($created));
+            $result = $this->vcsAdapter->getRepositoryName((string) $created['id']);
 
             $this->assertIsString($result);
             $this->assertSame($repositoryName, $result);
@@ -1140,7 +1125,7 @@ abstract class Base extends TestCase
             // pass both and let each use what it reads
             $this->assertSame(
                 $this->ownerPath(),
-                $this->vcsAdapter->getOwnerName(static::$installationId, (int) $this->repositoryIdOf($created))
+                $this->vcsAdapter->getOwnerName(static::$installationId, (int) $created['id'])
             );
         } finally {
             $this->discardRepositories($repositoryName);

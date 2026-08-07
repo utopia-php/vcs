@@ -1414,10 +1414,8 @@ class Bitbucket extends Git
     }
 
     /**
-     * Bitbucket's archive host takes no credential from the url: a token
-     * offered as basic userinfo is answered with a redirect to a login page,
-     * so what comes back is a login rather than an archive. Its git endpoint
-     * accepts the same token, which is what a caller falls back to.
+     * The archive host answers a token in the url with a redirect to a login
+     * page. The git endpoint accepts the same token.
      */
     public function supportsAuthenticatedArchiveUrl(): bool
     {

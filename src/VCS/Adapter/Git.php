@@ -99,11 +99,7 @@ abstract class Git extends Adapter
      */
     abstract public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array;
 
-    /**
-     * Whether the archive url this adapter hands out carries its own
-     * credential, so a caller that can only fetch a url still reaches a
-     * private repository through it.
-     */
+    /** Whether the archive url reaches a private repository on its own. */
     public function supportsAuthenticatedArchiveUrl(): bool
     {
         return true;

@@ -1414,6 +1414,17 @@ class Bitbucket extends Git
     }
 
     /**
+     * Bitbucket's archive host takes no credential from the url: a token
+     * offered as basic userinfo is answered with a redirect to a login page,
+     * so what comes back is a login rather than an archive. Its git endpoint
+     * accepts the same token, which is what a caller falls back to.
+     */
+    public function supportsAuthenticatedArchiveUrl(): bool
+    {
+        return false;
+    }
+
+    /**
      * @link https://support.atlassian.com/bitbucket-cloud/kb/how-to-download-repositories-using-the-api/
      *
      * Bitbucket answers this directly instead of redirecting to a signed URL,

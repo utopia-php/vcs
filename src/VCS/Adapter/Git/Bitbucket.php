@@ -1415,11 +1415,13 @@ class Bitbucket extends Git
 
     /**
      * The archive host answers a token in the url with a redirect to a login
-     * page. The git endpoint accepts the same token.
+     * page, so the credential travels as a header instead.
+     *
+     * @return array<string, string>
      */
-    public function supportsAuthenticatedArchiveUrl(): bool
+    public function getRepositoryPresignedUrlHeaders(): array
     {
-        return false;
+        return ['Authorization' => $this->authorizationHeader()];
     }
 
     /**
@@ -1437,14 +1439,12 @@ class Bitbucket extends Git
             default => throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'."),
         };
 
-        $baseUrl = $this->authenticatedBitbucketUrl();
-
         // Bitbucket resolves HEAD to the repository's default branch
         $ref = empty($ref) ? 'HEAD' : $ref;
 
         $encodedRef = rawurlencode($this->resolveRef($owner, $repositoryName, $ref));
 
-        return "{$baseUrl}/{$owner}/{$repositoryName}/get/{$encodedRef}.{$extension}";
+        return "{$this->bitbucketUrl}/{$owner}/{$repositoryName}/get/{$encodedRef}.{$extension}";
     }
 
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string

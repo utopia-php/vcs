@@ -181,7 +181,10 @@ class BitbucketTest extends Base
         $this->assertIsArray($payload);
         $payload['push']['changes'][0]['new']['target']['author']['user'] = ['display_name' => 'Linked User'];
 
-        $result = $this->vcsAdapter->getEvent(static::$pushEventName, (string) json_encode($payload));
+        $events = $this->vcsAdapter->getEvents(static::$pushEventName, (string) json_encode($payload));
+        $this->assertIsArray($events);
+        $this->assertCount(1, $events);
+        $result = $events[0];
 
         $this->assertSame('Linked User', $result['headCommitAuthorName']);
         $this->assertSame(static::EVENT_AUTHOR_EMAIL, $result['headCommitAuthorEmail']);
@@ -213,16 +216,13 @@ class BitbucketTest extends Base
         $this->assertSame(['aaa111', 'ccc333'], array_column($events, 'commitHash'));
         $this->assertTrue($events[1]['branchCreated']);
 
-        // getEvent() reports the first of them
-        $this->assertSame($events[0], $this->vcsAdapter->getEvent(static::$pushEventName, $payload));
-
         // A push carrying nothing but tags has no branch to report
         $tagsOnly = (string) json_encode([
             'repository' => $this->eventRepository(),
             'push' => ['changes' => [['new' => ['type' => 'tag', 'name' => 'v1.0.0', 'target' => ['hash' => 'aaa111']]]]],
         ]);
 
-        $this->assertSame([], $this->vcsAdapter->getEvent(static::$pushEventName, $tagsOnly));
+        $this->assertSame([], $this->vcsAdapter->getEvents(static::$pushEventName, $tagsOnly));
     }
 
     public function testGetEventPullRequestActionMapping(): void
@@ -235,7 +235,10 @@ class BitbucketTest extends Base
         ];
 
         foreach ($mapping as $event => $action) {
-            $result = $this->vcsAdapter->getEvent($event, $this->pullRequestPayload());
+            $events = $this->vcsAdapter->getEvents($event, $this->pullRequestPayload());
+            $this->assertIsArray($events);
+            $this->assertCount(1, $events);
+            $result = $events[0];
 
             $this->assertSame($action, $result['action'], "event '{$event}' should map to '{$action}'");
         }

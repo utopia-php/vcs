@@ -1481,19 +1481,9 @@ class Bitbucket extends Git
     }
 
     /**
-     * Reports the first event a payload describes, per the shared contract. A
-     * Bitbucket push can touch several refs in one delivery, so a caller that
-     * must not miss one reads getEvents() below instead.
-     */
-    public function getEvent(string $event, string $payload): array
-    {
-        return $this->getEvents($event, $payload)[0] ?? [];
-    }
-
-    /**
      * Bitbucket batches every ref a push touched into a single delivery, so one
-     * payload can describe several branches, of which getEvent() only reports
-     * the first. This reports all of them, in the order the payload lists them.
+     * payload can describe several branches. They are reported in the order
+     * the payload lists them.
      *
      * @return array<array<mixed>>
      */

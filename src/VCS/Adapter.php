@@ -228,26 +228,6 @@ abstract class Adapter
     abstract public function getEvents(string $event, string $payload): array;
 
     /**
-     * Parses a webhook payload into every event it describes.
-     *
-     * Default wraps getEvent(), the one event every provider's payload can
-     * describe. Override for a provider whose payload can batch several (e.g.
-     * Bitbucket, which reports every ref a push touched in one delivery).
-     *
-     * @param string $event Type of event: push, pull_request etc
-     * @param string $payload The webhook payload received from Git provider
-     * @return array<array<mixed>> Parsed payloads as json objects
-     */
-    public function getEvents(string $event, string $payload): array
-    {
-        $parsed = $this->getEvent($event, $payload);
-
-        // An event the adapter doesn't report describes nothing, so report
-        // nothing rather than one empty event
-        return $parsed === [] ? [] : [$parsed];
-    }
-
-    /**
      * HTTP header name carrying the webhook event type (e.g. 'x-github-event').
      */
     abstract public function getEventHeaderName(): string;

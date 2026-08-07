@@ -1304,9 +1304,9 @@ class GitHub extends Git
      *
      * @param  string  $event Type of event: push, pull_request etc
      * @param  string  $payload The webhook payload received from GitHub
-     * @return array<mixed> Parsed payload as a json object
+     * @return array<array<mixed>> Parsed payloads as json objects
      */
-    public function getEvent(string $event, string $payload): array
+    public function getEvents(string $event, string $payload): array
     {
         $payload = json_decode($payload, true);
 
@@ -1357,7 +1357,7 @@ class GitHub extends Git
                     }
                 }
 
-                return [
+                return [[
                     'branchCreated' => $branchCreated,
                     'branchDeleted' => $branchDeleted,
                     'branch' => $branch,
@@ -1378,7 +1378,7 @@ class GitHub extends Git
                     'pullRequestNumber' => '',
                     'action' => '',
                     'affectedFiles' => \array_keys($affectedFiles),
-                ];
+                ]];
             case 'pull_request':
                 $payloadRepository = $payload['repository'] ?? [];
                 $payloadRepositoryOwner = $payloadRepository['owner'] ?? [];
@@ -1406,7 +1406,7 @@ class GitHub extends Git
                 $baseLogin = $payloadPullRequestBaseUser['login'] ?? '';
                 $external = $headLogin !== $baseLogin;
 
-                return [
+                return [[
                     'branch' => $branch,
                     'branchUrl' => $branchUrl,
                     'repositoryId' => $repositoryId,
@@ -1421,7 +1421,7 @@ class GitHub extends Git
                     'external' => $external,
                     'pullRequestNumber' => $pullRequestNumber,
                     'action' => $action,
-                ];
+                ]];
             case 'installation':
             case 'installation_repositories':
                 $payloadInstallation = $payload['installation'] ?? [];
@@ -1430,11 +1430,11 @@ class GitHub extends Git
                 $action = $payload['action'] ?? '';
                 $userName = $payloadInstallationAccount['login'] ?? '';
 
-                return [
+                return [[
                     'action' => $action,
                     'installationId' => $installationId,
                     'userName' => $userName,
-                ];
+                ]];
         }
 
         return [];

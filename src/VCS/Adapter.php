@@ -216,13 +216,16 @@ abstract class Adapter
     }
 
     /**
-     * Parses webhook event payload
+     * Parses a webhook delivery into the events it describes.
+     *
+     * A delivery usually describes one event, but some providers batch
+     * several into one -- Bitbucket reports every ref a push touched.
      *
      * @param string $event Type of event: push, pull_request etc
      * @param string $payload The webhook payload received from Git provider
-     * @return array<mixed> Parsed payload as a json object
+     * @return array<array<mixed>> Parsed payloads as json objects
      */
-    abstract public function getEvent(string $event, string $payload): array;
+    abstract public function getEvents(string $event, string $payload): array;
 
     /**
      * Parses a webhook payload into every event it describes.

@@ -256,7 +256,7 @@ class Bitbucket extends Git
         return $repository;
     }
 
-    public function createRepository(string $owner, string $repositoryName, bool $private): array
+    public function createRepository(string $owner, string $repositoryName, bool $private, string $project = ''): array
     {
         $url = "/repositories/{$owner}/{$repositoryName}";
         $payload = [
@@ -265,16 +265,18 @@ class Bitbucket extends Git
             'is_private' => $private,
         ];
 
+        if ($project !== '') {
+            $payload['project'] = ['key' => $project];
+        }
+
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         $error = $response['body']['error']['message'] ?? '';
 
-        // A repository belongs to a project. Bitbucket names one itself where
-        // the workspace has a default, and refuses the repository where it
-        // doesn't, so the workspace is asked for a project and the create
-        // repeated with it.
-        if ($statusCode >= 400 && \stripos($error, 'project') !== false) {
+        // A repository belongs to a project. Where the caller named none and
+        // the workspace has no default to fall back on, one is chosen for it.
+        if ($project === '' && $statusCode >= 400 && \stripos($error, 'project') !== false) {
             $projects = $this->call(
                 self::METHOD_GET,
                 "/workspaces/{$owner}/projects?pagelen=1",

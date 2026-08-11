@@ -131,9 +131,10 @@ abstract class Adapter
     /**
      * Create new repository
      *
+     * @param string $project Project the repository belongs to, where the provider groups them
      * @return array<mixed> Details of new repository
      */
-    abstract public function createRepository(string $owner, string $repositoryName, bool $private): array;
+    abstract public function createRepository(string $owner, string $repositoryName, bool $private, string $project = ''): array;
 
     /**
      * Delete repository

@@ -91,7 +91,7 @@ class Gitea extends Git
      *
      * @return array<mixed> Details of new repository
      */
-    public function createRepository(string $owner, string $repositoryName, bool $private): array
+    public function createRepository(string $owner, string $repositoryName, bool $private, string $project = ''): array
     {
         $url = "/orgs/{$owner}/repos";
 

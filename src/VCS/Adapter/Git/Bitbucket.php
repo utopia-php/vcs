@@ -271,29 +271,10 @@ class Bitbucket extends Git
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
 
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        $error = $response['body']['error']['message'] ?? '';
-
-        // A repository belongs to a project. Where the caller named none and
-        // the workspace has no default to fall back on, one is chosen for it.
-        if ($project === '' && $statusCode >= 400 && \stripos($error, 'project') !== false) {
-            $projects = $this->call(
-                self::METHOD_GET,
-                "/workspaces/{$owner}/projects?pagelen=1",
-                ['Authorization' => $this->authorizationHeader()]
-            );
-            $projectsBody = $projects['body'] ?? [];
-            $key = \is_array($projectsBody) ? (string) ($projectsBody['values'][0]['key'] ?? '') : '';
-
-            if ($key !== '') {
-                $payload['project'] = ['key' => $key];
-                $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
-                $statusCode = $response['headers']['status-code'] ?? 0;
-                $error = $response['body']['error']['message'] ?? '';
-            }
-        }
-
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
+            $error = $response['body']['error']['message'] ?? '';
             throw new Exception(
                 "Creating repository {$repositoryName} failed with status code {$statusCode}" . ($error !== '' ? ": {$error}" : ''),
                 $statusCode

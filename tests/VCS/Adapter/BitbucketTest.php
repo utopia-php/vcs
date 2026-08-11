@@ -46,6 +46,12 @@ class BitbucketTest extends Base
     // Bitbucket Cloud can't reach a local test catcher
     protected static bool $supportsWebhookDelivery = false;
 
+    private static string $projectKey = '';
+
+    // Projects are Bitbucket's alone, so they are reached off the adapter
+    // itself rather than through the shared contract
+    private Bitbucket $bitbucket;
+
     protected function signWebhookPayload(string $payload, string $secret): string
     {
         return 'sha256=' . hash_hmac('sha256', $payload, $secret);
@@ -76,6 +82,7 @@ class BitbucketTest extends Base
         }
 
         $this->vcsAdapter = $adapter;
+        $this->bitbucket = $adapter;
     }
 
     /**
@@ -173,14 +180,71 @@ class BitbucketTest extends Base
     }
 
     /**
-     * Bitbucket only names the author in a raw "Name <email>" string; a commit
-     * linked to an account is named by the account instead.
+     * @param array<mixed> $repository
      */
+    private function projectKeyOf(array $repository): string
+    {
+        $this->assertArrayHasKey('project', $repository);
+        $this->assertIsArray($repository['project']);
+        $this->assertArrayHasKey('key', $repository['project']);
+        $this->assertIsString($repository['project']['key']);
+
+        return $repository['project']['key'];
+    }
+
+    /**
+     * Nothing configures a project key, so it is read back off a repository the
+     * workspace filed under its own default.
+     */
+    private function defaultProjectKey(): string
+    {
+        if (self::$projectKey === '') {
+            $repositoryName = 'test-default-project-' . \uniqid();
+            $repository = $this->bitbucket->createRepository(static::$owner, $repositoryName, false);
+
+            try {
+                self::$projectKey = $this->projectKeyOf($repository);
+            } finally {
+                $this->discardRepositories($repositoryName);
+            }
+        }
+
+        return self::$projectKey;
+    }
+
+    public function testCreateRepositoryWithoutProject(): void
+    {
+        $repositoryName = 'test-create-repository-no-project-' . \uniqid();
+        $repository = $this->bitbucket->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $this->assertSame($repositoryName, $repository['name']);
+            self::$projectKey = $this->projectKeyOf($repository);
+        } finally {
+            $this->discardRepositories($repositoryName);
+        }
+    }
+
+    public function testCreateRepositoryInProject(): void
+    {
+        $projectKey = $this->defaultProjectKey();
+
+        $repositoryName = 'test-create-repository-project-' . \uniqid();
+        $repository = $this->bitbucket->createRepository(static::$owner, $repositoryName, false, $projectKey);
+
+        try {
+            $this->assertSame($repositoryName, $repository['name']);
+            $this->assertSame($projectKey, $this->projectKeyOf($repository));
+        } finally {
+            $this->discardRepositories($repositoryName);
+        }
+    }
+
     public function testCreateRepositoryInAnUnknownProjectFails(): void
     {
         $this->expectException(Exception::class);
 
-        $this->vcsAdapter->createRepository(
+        $this->bitbucket->createRepository(
             static::$owner,
             'test-create-repository-unknown-project-' . \uniqid(),
             false,

@@ -282,7 +282,8 @@ class Bitbucket extends Git
                 "/workspaces/{$owner}/projects?pagelen=1",
                 ['Authorization' => $this->authorizationHeader()]
             );
-            $key = (string) ($projects['body']['values'][0]['key'] ?? '');
+            $projectsBody = $projects['body'] ?? [];
+            $key = \is_array($projectsBody) ? (string) ($projectsBody['values'][0]['key'] ?? '') : '';
 
             if ($key !== '') {
                 $payload['project'] = ['key' => $key];

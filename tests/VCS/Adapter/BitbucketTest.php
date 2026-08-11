@@ -177,19 +177,6 @@ class BitbucketTest extends Base
         ];
     }
 
-    /**
-     * @param array<mixed> $repository
-     */
-    private function projectKeyOf(array $repository): string
-    {
-        $this->assertArrayHasKey('project', $repository);
-        $this->assertIsArray($repository['project']);
-        $this->assertArrayHasKey('key', $repository['project']);
-        $this->assertIsString($repository['project']['key']);
-
-        return $repository['project']['key'];
-    }
-
     public function testCreateRepositoryProject(): void
     {
         // Naming no project files the repository under the workspace default,
@@ -199,7 +186,11 @@ class BitbucketTest extends Base
 
         try {
             $this->assertSame($withoutProject, $repository['name']);
-            $projectKey = $this->projectKeyOf($repository);
+            $this->assertArrayHasKey('project', $repository);
+            $this->assertIsArray($repository['project']);
+            $this->assertArrayHasKey('key', $repository['project']);
+            $this->assertIsString($repository['project']['key']);
+            $projectKey = $repository['project']['key'];
         } finally {
             $this->discardRepositories($withoutProject);
         }
@@ -209,7 +200,10 @@ class BitbucketTest extends Base
 
         try {
             $this->assertSame($inProject, $repository['name']);
-            $this->assertSame($projectKey, $this->projectKeyOf($repository));
+            $this->assertArrayHasKey('project', $repository);
+            $this->assertIsArray($repository['project']);
+            $this->assertArrayHasKey('key', $repository['project']);
+            $this->assertSame($projectKey, $repository['project']['key']);
         } finally {
             $this->discardRepositories($inProject);
         }

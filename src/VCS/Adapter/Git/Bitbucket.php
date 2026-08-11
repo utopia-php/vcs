@@ -256,6 +256,12 @@ class Bitbucket extends Git
         return $repository;
     }
 
+    /**
+     * Bitbucket alone groups repositories under a project, so the argument
+     * stays optional and off the shared three-argument contract.
+     *
+     * @return array<mixed> Details of new repository
+     */
     public function createRepository(string $owner, string $repositoryName, bool $private, string $project = ''): array
     {
         $url = "/repositories/{$owner}/{$repositoryName}";

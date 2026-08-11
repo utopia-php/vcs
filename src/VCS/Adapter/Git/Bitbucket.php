@@ -259,17 +259,38 @@ class Bitbucket extends Git
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
         $url = "/repositories/{$owner}/{$repositoryName}";
-
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], [
+        $payload = [
             'scm' => 'git',
             'name' => $repositoryName,
             'is_private' => $private,
-        ]);
+        ];
 
-        $responseHeaders = $response['headers'] ?? [];
-        $statusCode = $responseHeaders['status-code'] ?? 0;
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        $error = $response['body']['error']['message'] ?? '';
+
+        // A repository belongs to a project. Bitbucket names one itself where
+        // the workspace has a default, and refuses the repository where it
+        // doesn't, so the workspace is asked for a project and the create
+        // repeated with it.
+        if ($statusCode >= 400 && \stripos($error, 'project') !== false) {
+            $projects = $this->call(
+                self::METHOD_GET,
+                "/workspaces/{$owner}/projects?pagelen=1",
+                ['Authorization' => $this->authorizationHeader()]
+            );
+            $key = (string) ($projects['body']['values'][0]['key'] ?? '');
+
+            if ($key !== '') {
+                $payload['project'] = ['key' => $key];
+                $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], $payload);
+                $statusCode = $response['headers']['status-code'] ?? 0;
+                $error = $response['body']['error']['message'] ?? '';
+            }
+        }
+
         if ($statusCode >= 400) {
-            $error = $response['body']['error']['message'] ?? '';
             throw new Exception(
                 "Creating repository {$repositoryName} failed with status code {$statusCode}" . ($error !== '' ? ": {$error}" : ''),
                 $statusCode

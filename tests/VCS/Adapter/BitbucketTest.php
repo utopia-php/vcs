@@ -6,6 +6,7 @@ use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
 use Utopia\Tests\Base;
+use Exception;
 use Utopia\VCS\Adapter\Git\Bitbucket;
 
 class BitbucketTest extends Base
@@ -175,6 +176,52 @@ class BitbucketTest extends Base
      * Bitbucket only names the author in a raw "Name <email>" string; a commit
      * linked to an account is named by the account instead.
      */
+    /**
+     * Bitbucket groups repositories under a project, which the other providers
+     * have no equivalent of.
+     */
+    public function testCreateRepositoryInANamedProject(): void
+    {
+        $repositoryName = 'test-create-repository-project-' . \uniqid();
+
+        // The workspace names a project where the caller doesn't, which is the
+        // one to name back at it -- reading it here keeps the test off a key
+        // only one workspace has.
+        $default = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
+
+        try {
+            $key = (string) ($default['project']['key'] ?? '');
+            $this->assertNotEmpty($key, 'Bitbucket reported no project for the new repository');
+
+            $named = 'test-create-repository-project-named-' . \uniqid();
+
+            try {
+                $result = $this->vcsAdapter->createRepository(static::$owner, $named, false, $key);
+                $this->assertSame($key, (string) ($result['project']['key'] ?? ''));
+            } finally {
+                $this->discardRepositories($named);
+            }
+        } finally {
+            $this->discardRepositories($repositoryName);
+        }
+    }
+
+    /**
+     * A project the workspace doesn't hold is refused, so the name reaches
+     * Bitbucket rather than being dropped on the way.
+     */
+    public function testCreateRepositoryInAnUnknownProjectFails(): void
+    {
+        $this->expectException(Exception::class);
+
+        $this->vcsAdapter->createRepository(
+            static::$owner,
+            'test-create-repository-unknown-project-' . \uniqid(),
+            false,
+            'NOSUCHPROJECTKEY'
+        );
+    }
+
     public function testGetEventPushWithLinkedAuthor(): void
     {
         $payload = json_decode($this->pushPayload(static::$defaultBranch), true);

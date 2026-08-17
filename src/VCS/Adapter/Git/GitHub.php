@@ -765,7 +765,17 @@ class GitHub extends Git
                 'page' => $currentPage,
             ]);
 
+            $responseHeaders = $response['headers'] ?? [];
+            $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode >= 400) {
+                throw new Exception("Failed to get pull request files: HTTP {$statusCode}", $statusCode);
+            }
+
             $files = $response['body'] ?? [];
+            if (!\is_array($files) || !\array_is_list($files)) {
+                throw new Exception('Pull request files response is not a list of files.');
+            }
+
             $allFiles = array_merge($allFiles, $files);
 
             if (\count($files) < $perPage) {

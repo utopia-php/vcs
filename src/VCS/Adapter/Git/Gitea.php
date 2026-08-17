@@ -796,6 +796,10 @@ class Gitea extends Git
             }
 
             $files = $response['body'] ?? [];
+            if (!\is_array($files) || !\array_is_list($files)) {
+                throw new Exception('Pull request files response is not a list of files.');
+            }
+
             $allFiles = array_merge($allFiles, $files);
 
             if (\count($files) < $limit) {

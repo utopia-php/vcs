@@ -6,6 +6,7 @@ use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
 use Utopia\System\System;
 use Utopia\Tests\Base;
+use Utopia\VCS\Adapter\Git;
 use Utopia\VCS\Adapter\Git\GitLab;
 
 class GitLabTest extends Base
@@ -18,6 +19,7 @@ class GitLabTest extends Base
     protected static string $signatureHeader = 'x-gitlab-token';
     protected static string $pushEventName = 'Push Hook';
     protected static string $pullRequestEventName = 'Merge Request Hook';
+    protected static int $pullRequestFilesPageSize = 100;
 
     /** @var array<string> */
     protected static array $pullRequestOpenedActions = ['opened', 'synchronize'];
@@ -34,6 +36,26 @@ class GitLabTest extends Base
     protected function signWebhookPayload(string $payload, string $secret): string
     {
         return $secret;
+    }
+
+    /**
+     * @param  array<string>  $filenames
+     * @return array<mixed>|string
+     */
+    protected function pullRequestFilesPage(array $filenames, bool $last = true): array|string
+    {
+        return \array_map(fn (string $filename) => ['new_path' => $filename], $filenames);
+    }
+
+    /**
+     * @param  array<int, array<mixed>>  $responses
+     */
+    protected function replayAdapter(array $responses): Git
+    {
+        // GitLab waits for the merge request's diff to be ready before paging.
+        \array_unshift($responses, $this->providerResponse(['patch_id_sha' => 'abc123']));
+
+        return parent::replayAdapter($responses);
     }
 
     protected function setupAdapter(): void

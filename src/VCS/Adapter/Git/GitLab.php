@@ -774,7 +774,11 @@ class GitLab extends Git
             }
 
             $files = $response['body'] ?? [];
-            if (!is_array($files) || empty($files)) {
+            if (!is_array($files) || !\array_is_list($files)) {
+                throw new Exception('Merge request files response is not a list of diffs.');
+            }
+
+            if (empty($files)) {
                 break;
             }
 

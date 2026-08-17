@@ -1154,12 +1154,12 @@ class Bitbucket extends Git
 
             $responseBody = $response['body'] ?? [];
             if (!is_array($responseBody)) {
-                break;
+                throw new Exception('Pull request files response is not an object.');
             }
 
             $values = $responseBody['values'] ?? [];
             if (!is_array($values)) {
-                break;
+                throw new Exception('Pull request files response is not a list of diffs.');
             }
 
             foreach ($values as $diff) {

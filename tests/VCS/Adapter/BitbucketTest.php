@@ -50,6 +50,32 @@ class BitbucketTest extends Base
         return 'sha256=' . hash_hmac('sha256', $payload, $secret);
     }
 
+    /**
+     * Bitbucket reports a pull request's files as a diffstat page, cursored by
+     * a 'next' link rather than counted against the page size.
+     *
+     * @param  array<string>  $filenames
+     * @return array<mixed>|string
+     */
+    protected function pullRequestFilesPage(array $filenames, bool $last = true): array|string
+    {
+        return [
+            'values' => \array_map(fn (string $filename) => ['new' => ['path' => $filename]], $filenames),
+            'next' => $last ? null : 'https://api.bitbucket.org/2.0/next',
+        ];
+    }
+
+    /**
+     * A Bitbucket page is an object, so an error payload carrying no 'values'
+     * is indistinguishable from a page listing no files.
+     *
+     * @return array<string, array<mixed>|string>
+     */
+    protected function malformedPullRequestFilesBodies(): array
+    {
+        return ['an HTML error page' => '<html>502 Bad Gateway</html>'];
+    }
+
     protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

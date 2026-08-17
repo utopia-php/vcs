@@ -30,8 +30,10 @@ class GitHubTest extends Base
     {
         return 'sha256=' . hash_hmac('sha256', $payload, $secret);
     }
+
     protected static string $eventHeader = 'x-github-event';
     protected static string $signatureHeader = 'x-hub-signature-256';
+    protected static bool $replayAdapterNeedsToken = false;
 
     protected function setupAdapter(): void
     {

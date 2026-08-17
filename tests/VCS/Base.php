@@ -4,6 +4,8 @@ namespace Utopia\Tests;
 
 use Exception;
 use PHPUnit\Framework\TestCase;
+use Utopia\Cache\Adapter\None;
+use Utopia\Cache\Cache;
 use Utopia\Fetch\Client;
 use Utopia\System\System;
 use Utopia\VCS\Adapter\Git;
@@ -113,6 +115,18 @@ abstract class Base extends TestCase
 
     protected static bool $supportsPullRequestLookup = true;
 
+    /**
+     * Files per page the adapter asks this provider for, and so the count that
+     * tells a full page apart from the last one.
+     */
+    protected static int $pullRequestFilesPageSize = 30;
+
+    /**
+     * Whether a replay adapter has to be handed a token. GitHub mints its own
+     * from an app, which cannot be done offline, and defaults it instead.
+     */
+    protected static bool $replayAdapterNeedsToken = true;
+
     protected static bool $supportsCommitStatuses = true;
 
     protected static bool $supportsCommitStatusLookup = true;
@@ -203,6 +217,33 @@ abstract class Base extends TestCase
      * opening EVENT_HEAD_BRANCH against the default branch.
      */
     abstract protected function pullRequestPayload(bool $external = false): string;
+
+    /**
+     * Build one page of a pull request's files, shaped the way this provider
+     * returns it. $last tells providers that page by cursor rather than by
+     * count that no page follows.
+     *
+     * @param  array<string>  $filenames
+     * @return array<mixed>|string
+     */
+    protected function pullRequestFilesPage(array $filenames, bool $last = true): array|string
+    {
+        return \array_map(fn (string $filename) => ['filename' => $filename, 'status' => 'added'], $filenames);
+    }
+
+    /**
+     * Bodies this provider, or something in front of it, can return with a
+     * success status where a page of files was expected.
+     *
+     * @return array<string, array<mixed>|string>
+     */
+    protected function malformedPullRequestFilesBodies(): array
+    {
+        return [
+            'an error payload' => ['message' => 'Bad credentials'],
+            'an HTML error page' => '<html>502 Bad Gateway</html>',
+        ];
+    }
 
     protected function setUp(): void
     {
@@ -1302,6 +1343,122 @@ abstract class Base extends TestCase
             $this->assertContains('feature.txt', $filenames);
         } finally {
             $this->discardRepositories($repositoryName);
+        }
+    }
+
+    /**
+     * The adapter under test, replying from $responses in order instead of
+     * calling out. Paging and provider failures are impractical to provoke on
+     * a live forge, and a failure has to surface as an exception rather than
+     * as a file list built out of an error payload: a webhook that reads an
+     * empty diff silently skips the deployments the push should have made.
+     *
+     * @param  array<int, array<mixed>>  $responses
+     */
+    protected function replayAdapter(array $responses): Git
+    {
+        $adapter = $this->getMockBuilder($this->vcsAdapter::class)
+            ->setConstructorArgs([new Cache(new None())])
+            ->onlyMethods(['call'])
+            ->getMock();
+
+        $adapter->method('call')->willReturnCallback(
+            function () use (&$responses): array {
+                return \array_shift($responses) ?? $this->providerResponse([]);
+            }
+        );
+
+        if (static::$replayAdapterNeedsToken) {
+            $adapter->initializeVariables('1', '', null, 'token', null);
+        }
+
+        return $adapter;
+    }
+
+    /**
+     * @param  array<mixed>|string  $body
+     * @return array<mixed>
+     */
+    protected function providerResponse(array|string $body, int $statusCode = 200): array
+    {
+        return [
+            'headers' => ['status-code' => $statusCode],
+            'body' => $body,
+        ];
+    }
+
+    public function testGetPullRequestFilesPaginated(): void
+    {
+        $this->skipUnlessSupported(static::$supportsPullRequestLookup, 'looking up pull requests');
+
+        $pageSize = static::$pullRequestFilesPageSize;
+        $full = \array_map(fn (int $i) => "first-{$i}.txt", \range(0, $pageSize - 1));
+        $adapter = $this->replayAdapter([
+            $this->providerResponse($this->pullRequestFilesPage($full, false)),
+            $this->providerResponse($this->pullRequestFilesPage(['last.txt'])),
+        ]);
+
+        $result = $adapter->getPullRequestFiles(static::$owner, static::EVENT_REPOSITORY_NAME, 1);
+
+        $filenames = array_column($result, 'filename');
+        $this->assertCount($pageSize + 1, $filenames);
+        $this->assertSame('last.txt', $filenames[$pageSize]);
+    }
+
+    public function testGetPullRequestFilesProviderFailure(): void
+    {
+        $this->skipUnlessSupported(static::$supportsPullRequestLookup, 'looking up pull requests');
+
+        foreach ([401, 403, 404, 500] as $statusCode) {
+            $adapter = $this->replayAdapter([
+                $this->providerResponse(['message' => 'Bad credentials'], $statusCode),
+            ]);
+
+            $thrown = null;
+
+            try {
+                $adapter->getPullRequestFiles(static::$owner, static::EVENT_REPOSITORY_NAME, 1);
+            } catch (Exception $e) {
+                $thrown = $e;
+            }
+
+            $this->assertNotNull($thrown, "HTTP {$statusCode} was not reported as a failure");
+            $this->assertSame($statusCode, $thrown->getCode());
+        }
+    }
+
+    public function testGetPullRequestFilesProviderFailureOnLaterPage(): void
+    {
+        $this->skipUnlessSupported(static::$supportsPullRequestLookup, 'looking up pull requests');
+
+        $full = \array_map(fn (int $i) => "first-{$i}.txt", \range(0, static::$pullRequestFilesPageSize - 1));
+        $adapter = $this->replayAdapter([
+            $this->providerResponse($this->pullRequestFilesPage($full, false)),
+            $this->providerResponse(['message' => 'API rate limit exceeded'], 403),
+        ]);
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionCode(403);
+
+        $adapter->getPullRequestFiles(static::$owner, static::EVENT_REPOSITORY_NAME, 1);
+    }
+
+    public function testGetPullRequestFilesMalformedBody(): void
+    {
+        $this->skipUnlessSupported(static::$supportsPullRequestLookup, 'looking up pull requests');
+
+        foreach ($this->malformedPullRequestFilesBodies() as $description => $body) {
+            $adapter = $this->replayAdapter([$this->providerResponse($body)]);
+
+            $thrown = null;
+
+            try {
+                $adapter->getPullRequestFiles(static::$owner, static::EVENT_REPOSITORY_NAME, 1);
+            } catch (Exception $e) {
+                $thrown = $e;
+            }
+
+            $this->assertNotNull($thrown, "{$description} was not reported as a failure");
         }
     }
 

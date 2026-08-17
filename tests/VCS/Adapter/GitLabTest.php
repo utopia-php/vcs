@@ -39,8 +39,6 @@ class GitLabTest extends Base
     }
 
     /**
-     * GitLab reports a merge request's files as diffs keyed by path.
-     *
      * @param  array<string>  $filenames
      * @return array<mixed>|string
      */

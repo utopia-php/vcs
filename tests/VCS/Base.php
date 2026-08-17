@@ -116,14 +116,12 @@ abstract class Base extends TestCase
     protected static bool $supportsPullRequestLookup = true;
 
     /**
-     * Files per page the adapter asks this provider for, and so the count that
-     * tells a full page apart from the last one.
+     * Files per page the adapter asks this provider for.
      */
     protected static int $pullRequestFilesPageSize = 30;
 
     /**
-     * Whether a replay adapter has to be handed a token. GitHub mints its own
-     * from an app, which cannot be done offline, and defaults it instead.
+     * GitHub mints its own token from an app, which cannot be done offline.
      */
     protected static bool $replayAdapterNeedsToken = true;
 
@@ -219,9 +217,8 @@ abstract class Base extends TestCase
     abstract protected function pullRequestPayload(bool $external = false): string;
 
     /**
-     * Build one page of a pull request's files, shaped the way this provider
-     * returns it. $last tells providers that page by cursor rather than by
-     * count that no page follows.
+     * One page of a pull request's files. $last is only read by providers that
+     * page by cursor rather than by count.
      *
      * @param  array<string>  $filenames
      * @return array<mixed>|string
@@ -232,8 +229,8 @@ abstract class Base extends TestCase
     }
 
     /**
-     * Bodies this provider, or something in front of it, can return with a
-     * success status where a page of files was expected.
+     * Bodies this provider can return with a success status where a page of
+     * files was expected.
      *
      * @return array<string, array<mixed>|string>
      */
@@ -1347,11 +1344,8 @@ abstract class Base extends TestCase
     }
 
     /**
-     * The adapter under test, replying from $responses in order instead of
-     * calling out. Paging and provider failures are impractical to provoke on
-     * a live forge, and a failure has to surface as an exception rather than
-     * as a file list built out of an error payload: a webhook that reads an
-     * empty diff silently skips the deployments the push should have made.
+     * The adapter under test, replying from $responses in order. A live forge
+     * cannot be made to page or fail on demand.
      *
      * @param  array<int, array<mixed>>  $responses
      */

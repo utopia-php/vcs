@@ -51,9 +51,6 @@ class BitbucketTest extends Base
     }
 
     /**
-     * Bitbucket reports a pull request's files as a diffstat page, cursored by
-     * a 'next' link rather than counted against the page size.
-     *
      * @param  array<string>  $filenames
      * @return array<mixed>|string
      */
@@ -66,8 +63,8 @@ class BitbucketTest extends Base
     }
 
     /**
-     * A Bitbucket page is an object, so an error payload carrying no 'values'
-     * is indistinguishable from a page listing no files.
+     * A page is an object here, so an error payload carrying no 'values' is
+     * indistinguishable from a page listing no files.
      *
      * @return array<string, array<mixed>|string>
      */

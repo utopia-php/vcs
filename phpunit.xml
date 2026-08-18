@@ -27,5 +27,8 @@
         <testsuite name="bitbucket">
             <file>./tests/VCS/Adapter/BitbucketTest.php</file>
         </testsuite>
+        <testsuite name="origin">
+            <file>./tests/VCS/Adapter/OriginTest.php</file>
+        </testsuite>
     </testsuites>
 </phpunit>

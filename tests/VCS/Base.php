@@ -134,6 +134,24 @@ abstract class Base extends TestCase
     protected static bool $supportsNamespaceListing = true;
 
     /**
+     * Whether the provider can delete a repository at all. Origin has no
+     * deletion endpoint, which also leaves test repositories behind for a
+     * manual sweep.
+     */
+    protected static bool $supportsRepositoryDeletion = true;
+
+    /**
+     * Whether repositories carry a visibility flag. Origin scopes visibility
+     * to the owning workspace instead of reporting one per repository.
+     */
+    protected static bool $reportsRepositoryVisibility = true;
+
+    /**
+     * Whether the provider can hand out an archive download URL.
+     */
+    protected static bool $supportsRepositoryArchives = true;
+
+    /**
      * Whether a push event names the files it touched. Bitbucket's payload
      * carries no file lists at all.
      */
@@ -373,6 +391,11 @@ abstract class Base extends TestCase
      */
     protected function discardRepositories(string ...$repositoryNames): void
     {
+        // A provider without a deletion API leaves nothing for teardown to do
+        if (!static::$supportsRepositoryDeletion) {
+            return;
+        }
+
         $failures = [];
 
         foreach ($repositoryNames as $repositoryName) {
@@ -446,11 +469,15 @@ abstract class Base extends TestCase
             $this->assertSame($repositoryName, $result['name']);
             $this->assertPushedAt($result);
 
-            $this->assertFalse($this->isPrivate($result), 'createRepository() reported the new repository as private');
+            if (static::$reportsRepositoryVisibility) {
+                $this->assertFalse($this->isPrivate($result), 'createRepository() reported the new repository as private');
+            }
             $this->assertSame($this->ownerPath(), $this->ownerOf($result));
 
             $fetched = $this->vcsAdapter->getRepository(static::$owner, $repositoryName);
-            $this->assertFalse($this->isPrivate($fetched), 'getRepository() reported the new repository as private');
+            if (static::$reportsRepositoryVisibility) {
+                $this->assertFalse($this->isPrivate($fetched), 'getRepository() reported the new repository as private');
+            }
             $this->assertSame($this->ownerPath(), $this->ownerOf($fetched));
         } finally {
             $this->discardRepositories($repositoryName);
@@ -459,6 +486,8 @@ abstract class Base extends TestCase
 
     public function testCreatePrivateRepository(): void
     {
+        $this->skipUnlessSupported(static::$reportsRepositoryVisibility, 'repository visibility');
+
         $repositoryName = 'test-create-private-' . \uniqid();
 
         $result = $this->vcsAdapter->createRepository(static::$owner, $repositoryName, true);
@@ -506,6 +535,8 @@ abstract class Base extends TestCase
 
     public function testDeleteRepository(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryDeletion, 'deleting repositories');
+
         $repositoryName = 'test-delete-repository-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -515,6 +546,8 @@ abstract class Base extends TestCase
 
     public function testDeleteRepositoryTwiceFails(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryDeletion, 'deleting repositories');
+
         $repositoryName = 'test-delete-repository-twice-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
         $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
@@ -529,6 +562,8 @@ abstract class Base extends TestCase
 
     public function testDeleteNonExistingRepositoryFails(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryDeletion, 'deleting repositories');
+
         try {
             $this->vcsAdapter->deleteRepository(static::$owner, 'non-existing-repo-' . \uniqid());
             $this->fail('Deleting a non existing repository should have thrown');
@@ -1583,6 +1618,8 @@ abstract class Base extends TestCase
 
     public function testGetRepositoryPresignedUrl(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryArchives, 'archive downloads');
+
         $repositoryName = 'test-presigned-url-' . \uniqid();
         $this->vcsAdapter->createRepository(static::$owner, $repositoryName, false);
 
@@ -1606,6 +1643,8 @@ abstract class Base extends TestCase
 
     public function testGetRepositoryPresignedUrlWithInvalidFormat(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryArchives, 'archive downloads');
+
         $this->expectException(Exception::class);
         $this->vcsAdapter->getRepositoryPresignedUrl(static::$owner, 'some-repo', static::$defaultBranch, 'invalid');
     }
@@ -1914,7 +1953,7 @@ abstract class Base extends TestCase
             $this->assertNotEmpty($fetched['url']);
             $this->assertNotEmpty($fetched['html_url']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testCreateCheckRunWithInvalidRepository(): void
@@ -1940,7 +1979,7 @@ abstract class Base extends TestCase
             $this->expectException(\Exception::class);
             $this->vcsAdapter->getCheckRun(static::$owner, $repositoryName, '999999999');
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testCreateTwoCheckRunsOnSameCommit(): void
@@ -1980,7 +2019,7 @@ abstract class Base extends TestCase
             $this->assertEquals('ci/build', $first['name']);
             $this->assertEquals('ci/build', $second['name']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testCreateCheckRunsWithSameNameOnDifferentCommits(): void
@@ -2023,7 +2062,7 @@ abstract class Base extends TestCase
             $this->assertEquals('ci/build', $first['name']);
             $this->assertEquals('ci/build', $second['name']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testCreateCheckRunCompleted(): void
@@ -2061,7 +2100,7 @@ abstract class Base extends TestCase
             $this->assertEquals('Build passed', $checkRun['output']['title']);
             $this->assertEquals('All checks passed successfully.', $checkRun['output']['summary']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testUpdateCheckRun(): void
@@ -2103,7 +2142,7 @@ abstract class Base extends TestCase
             $this->assertEquals('completed', $updated['status']);
             $this->assertEquals('neutral', $updated['conclusion']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testUpdateCheckRunWithInvalidRepository(): void
@@ -2134,7 +2173,7 @@ abstract class Base extends TestCase
                 conclusion: 'success',
             );
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testUpdateCheckRunWithMissingConclusion(): void
@@ -2166,7 +2205,7 @@ abstract class Base extends TestCase
                 status: 'completed',
             );
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -2224,7 +2263,7 @@ abstract class Base extends TestCase
             $this->assertEquals(array_column($empty, 'name'), array_column($dotSlash, 'name'));
             $this->assertEquals(array_column($empty, 'name'), array_column($repeatedDotSlash, 'name'));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testGetRepositoryContentRootSentinelPrefix(): void
@@ -2242,7 +2281,7 @@ abstract class Base extends TestCase
             $this->assertEquals($direct['content'], $prefixed['content']);
             $this->assertEquals($direct['content'], $repeatedPrefix['content']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testListRepositoryContentsMalformedNestedPath(): void
@@ -2261,7 +2300,7 @@ abstract class Base extends TestCase
             $this->assertEquals(array_column($clean, 'name'), array_column($embeddedDot, 'name'));
             $this->assertEquals(array_column($clean, 'name'), array_column($doubleSlash, 'name'));
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 
@@ -2314,11 +2353,12 @@ abstract class Base extends TestCase
             $this->assertNotEmpty($commit['commitAuthorAvatar']);
             $this->assertStringContainsString(static::$avatarDomain, $commit['commitAuthorAvatar']);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
     public function testGetRepositoryAfterDeleteFails(): void
     {
+        $this->skipUnlessSupported(static::$supportsRepositoryDeletion, 'deleting repositories');
         $this->skipUnlessSupported(static::$deletesRepositoriesSynchronously, 'deleting a repository straight away');
 
         $repositoryName = 'test-get-deleted-repository-' . \uniqid();

@@ -100,6 +100,16 @@ abstract class Git extends Adapter
     abstract public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array;
 
     /**
+     * Whether the provider can hand out an archive download URL at all, so a
+     * consumer can arrange its own source packaging before calling
+     * getRepositoryPresignedUrl() just to catch it throwing.
+     */
+    public function supportsRepositoryArchives(): bool
+    {
+        return true;
+    }
+
+    /**
      * Headers a caller must send with getRepositoryPresignedUrl() to reach a
      * private repository.
      *

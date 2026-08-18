@@ -1697,6 +1697,15 @@ class Origin extends Git
     }
 
     /**
+     * Origin offers no archive downloads; consumers package sources
+     * themselves, over Git HTTPS.
+     */
+    public function supportsRepositoryArchives(): bool
+    {
+        return false;
+    }
+
+    /**
      * Get latest commit of a branch
      *
      * @return array<mixed> Details of the commit

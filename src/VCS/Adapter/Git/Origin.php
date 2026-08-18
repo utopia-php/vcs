@@ -344,9 +344,32 @@ class Origin extends Git
         } while ($pageToken !== '');
 
         return [
-            'items' => \array_slice($repositories, ($page - 1) * $per_page, $per_page),
+            'items' => \array_map(
+                fn ($repository) => $this->normalizeRepository(\is_array($repository) ? $repository : []),
+                \array_slice($repositories, ($page - 1) * $per_page, $per_page)
+            ),
             'total' => \count($repositories),
         ];
+    }
+
+    /**
+     * Origin reports timestamps in camelCase; every other adapter reports
+     * pushed_at, so consumers read that name. Alias it rather than rename it,
+     * keeping the provider's own fields intact.
+     *
+     * @param array<mixed> $repository
+     * @return array<mixed>
+     */
+    protected function normalizeRepository(array $repository): array
+    {
+        if (!\array_key_exists('pushed_at', $repository)) {
+            $pushedAt = $repository['pushedAt'] ?? $repository['updatedAt'] ?? $repository['createdAt'] ?? null;
+            if ($pushedAt !== null) {
+                $repository['pushed_at'] = $pushedAt;
+            }
+        }
+
+        return $repository;
     }
 
     /**
@@ -367,7 +390,7 @@ class Origin extends Git
                 continue;
             }
 
-            $repositories[] = $repository;
+            $repositories[] = $this->normalizeRepository($repository);
         }
 
         return [
@@ -385,7 +408,7 @@ class Origin extends Git
     {
         foreach ($this->installationRepositories() as $repository) {
             if (\strtolower(\strval($repository['name'] ?? '')) === \strtolower($repositoryName)) {
-                return $repository;
+                return $this->normalizeRepository($repository);
             }
         }
 
@@ -466,7 +489,7 @@ class Origin extends Git
             throw new Exception("Failed to get repository {$repositoryName}: HTTP {$statusCode}", (int) $statusCode);
         }
 
-        return \is_array($response['body'] ?? null) ? $response['body'] : [];
+        return $this->normalizeRepository(\is_array($response['body'] ?? null) ? $response['body'] : []);
     }
 
     /**
@@ -491,7 +514,7 @@ class Origin extends Git
             throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", (int) $statusCode);
         }
 
-        return \is_array($response['body'] ?? null) ? $response['body'] : [];
+        return $this->normalizeRepository(\is_array($response['body'] ?? null) ? $response['body'] : []);
     }
 
     /**

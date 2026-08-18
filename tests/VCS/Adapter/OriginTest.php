@@ -81,20 +81,6 @@ class OriginTest extends Base
     }
 
     /**
-     * Origin reports timestamps in camelCase.
-     *
-     * @param array<string, mixed> $repository
-     */
-    protected function assertPushedAt(array $repository): void
-    {
-        $this->assertArrayHasKey('pushedAt', $repository);
-        $this->assertNotFalse(
-            \strtotime((string) $repository['pushedAt']),
-            'pushedAt is not a parseable timestamp'
-        );
-    }
-
-    /**
      * Origin signs webhooks with an Ed25519 key rather than an HMAC secret;
      * $secret carries the base64-encoded libsodium secret key.
      */

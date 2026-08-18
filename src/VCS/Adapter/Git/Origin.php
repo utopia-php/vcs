@@ -1691,7 +1691,7 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            $this->repositoryPath($owner, $repositoryName) . '/commits/' . $this->encodeRef($commitHash),
+            $this->repositoryPath($owner, $repositoryName) . '/commits/' . \rawurlencode($commitHash),
             ['Authorization' => "Bearer {$this->accessToken}"]
         );
 
@@ -2185,7 +2185,7 @@ class Origin extends Git
     public function listCommitFiles(string $owner, string $repositoryName, string $sha): array
     {
         return $this->collectPages(
-            $this->repositoryPath($owner, $repositoryName) . '/commits/' . $this->encodeRef($sha) . '/files',
+            $this->repositoryPath($owner, $repositoryName) . '/commits/' . \rawurlencode($sha) . '/files',
             'files'
         );
     }
@@ -2307,7 +2307,7 @@ class Origin extends Git
     public function listCheckRunsForCommit(string $owner, string $repositoryName, string $sha): array
     {
         $checkRuns = $this->collectPages(
-            $this->repositoryPath($owner, $repositoryName) . '/commits/' . $this->encodeRef($sha) . '/check-runs',
+            $this->repositoryPath($owner, $repositoryName) . '/commits/' . \rawurlencode($sha) . '/check-runs',
             'checkRuns'
         );
 
@@ -2669,8 +2669,9 @@ class Origin extends Git
     }
 
     /**
-     * Encodes a ref for use inside a URL path while keeping the slashes that
-     * separate its segments.
+     * Encodes a ref for the git/ref path, whose binding spans path segments,
+     * keeping the slashes that separate them. The commits endpoints instead
+     * take one fully encoded segment (a slash rides as %2F).
      */
     protected function encodeRef(string $ref): string
     {

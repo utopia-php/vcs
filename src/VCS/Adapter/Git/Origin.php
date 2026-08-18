@@ -1729,6 +1729,15 @@ class Origin extends Git
     }
 
     /**
+     * Origin renders comment markdown without proxying images, so images on
+     * a consumer's own host cannot display; comments should stay textual.
+     */
+    public function supportsCommentImages(): bool
+    {
+        return false;
+    }
+
+    /**
      * Get latest commit of a branch
      *
      * @return array<mixed> Details of the commit

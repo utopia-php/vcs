@@ -110,6 +110,18 @@ abstract class Git extends Adapter
     }
 
     /**
+     * Whether images embedded in pull request comments can render on the
+     * provider. Providers without an image proxy (the way GitHub rewrites
+     * comment images through its camo CDN) cannot display images hosted on
+     * the consumer's own host - often private or plain-HTTP - so consumers
+     * should fall back to text there.
+     */
+    public function supportsCommentImages(): bool
+    {
+        return true;
+    }
+
+    /**
      * Headers a caller must send with getRepositoryPresignedUrl() to reach a
      * private repository.
      *

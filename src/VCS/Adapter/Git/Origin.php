@@ -1128,22 +1128,93 @@ class Origin extends Git
 
     /**
      * Updates status check of each commit
+     * state can be one of: error, failure, pending, success
      *
-     * Origin models CI feedback as check runs only.
+     * Origin models CI feedback as check runs only, so this rides the check
+     * run upsert with the status context as the stable key - repeated updates
+     * for one context land on one run, which is Origin's intended model.
      */
     public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
-        throw new Exception('updateCommitStatus() is not supported by Origin. Use createCheckRun() instead.');
+        $context = !empty($context) ? $context : 'default';
+
+        $checkRun = [
+            'key' => $context,
+            'name' => $context,
+            'status' => $state === 'pending' ? 'in_progress' : 'completed',
+            // The context is the run's identity, so its attempt id can stay stable too
+            'externalId' => $context,
+            'externalUpdatedAt' => $this->rfc3339Now(),
+        ];
+
+        if ($state !== 'pending') {
+            $checkRun['conclusion'] = $state === 'success' ? 'success' : 'failure';
+            $checkRun['completedAt'] = \gmdate('Y-m-d\TH:i:s\Z');
+        }
+
+        if (!empty($description)) {
+            $checkRun['output'] = ['title' => \mb_strimwidth($description, 0, 255), 'summary' => $description];
+        }
+
+        if (!empty($target_url)) {
+            $checkRun['detailsUrl'] = $target_url;
+        }
+
+        $response = $this->call(
+            self::METHOD_POST,
+            $this->repositoryPath($owner, $repositoryName) . '/check-runs',
+            ['Authorization' => "Bearer {$this->accessToken}"],
+            [
+                'headSha' => $SHA,
+                'checkSuite' => [
+                    'key' => $context,
+                    'name' => $context,
+                    'externalId' => $context,
+                ],
+                'checkRun' => $checkRun,
+            ]
+        );
+
+        $statusCode = $response['headers']['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to update commit status: HTTP {$statusCode}", (int) $statusCode);
+        }
     }
 
     /**
      * Get commit statuses
      *
+     * Reports the commit's check runs in commit-status shape, mirroring
+     * updateCommitStatus()'s mapping.
+     *
      * @return array<mixed>
      */
     public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array
     {
-        throw new Exception('getCommitStatuses() is not supported by Origin. Use getCheckRun() instead.');
+        $statuses = [];
+        foreach ($this->listCheckRunsForCommit($owner, $repositoryName, $commitHash) as $checkRun) {
+            if (!\is_array($checkRun)) {
+                continue;
+            }
+
+            $conclusion = \strval($checkRun['conclusion'] ?? '');
+            $state = match (true) {
+                ($checkRun['status'] ?? '') !== 'completed' => 'pending',
+                \in_array($conclusion, ['success', 'neutral', 'skipped'], true) => 'success',
+                default => 'failure',
+            };
+
+            $output = \is_array($checkRun['output'] ?? null) ? $checkRun['output'] : [];
+
+            $statuses[] = [
+                'state' => $state,
+                'description' => \strval($output['title'] ?? ''),
+                'target_url' => \strval($checkRun['details_url'] ?? ''),
+                'context' => \strval($checkRun['key'] ?? $checkRun['name'] ?? ''),
+            ];
+        }
+
+        return $statuses;
     }
 
     /**
@@ -1418,6 +1489,7 @@ class Origin extends Git
             'html_url' => !empty($sha) ? $this->getCommitUrl($owner, $repositoryName, $sha) : $this->getRepositoryUrl($owner, $repositoryName),
             'started_at' => !empty($checkRun['startedAt']) ? \strval($checkRun['startedAt']) : null,
             'completed_at' => !empty($checkRun['completedAt']) ? \strval($checkRun['completedAt']) : null,
+            'details_url' => \strval($checkRun['detailsUrl'] ?? ''),
             'external_id' => \strval($checkRun['externalId'] ?? ''),
             'key' => \strval($checkRun['key'] ?? ''),
             'check_suite_id' => \strval($checkSuite['id'] ?? ''),

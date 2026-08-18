@@ -23,13 +23,11 @@ class OriginTest extends Base
     protected static string $pullRequestEventName = 'pull_request.created';
 
     // Origin's partner API has no visibility flags, archive downloads,
-    // commit statuses, language statistics, user lookup, per-repository
-    // webhooks, or namespace listing. Repository deletion rides the Cursor
-    // web app's own API.
+    // language statistics, user lookup, per-repository webhooks, or namespace
+    // listing. Repository deletion rides the Cursor web app's own API, and
+    // commit statuses ride the check run upsert.
     protected static bool $reportsRepositoryVisibility = false;
     protected static bool $supportsRepositoryArchives = false;
-    protected static bool $supportsCommitStatuses = false;
-    protected static bool $supportsCommitStatusLookup = false;
     protected static bool $supportsRepositoryLanguages = false;
     protected static bool $supportsUserLookup = false;
     protected static bool $supportsNamespaceListing = false;

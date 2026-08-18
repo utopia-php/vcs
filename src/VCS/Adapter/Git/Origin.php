@@ -294,7 +294,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get installation {$installationId}: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to get installation {$installationId}', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -335,7 +335,7 @@ class Origin extends Git
             }
 
             if ($statusCode >= 400) {
-                throw new Exception("Failed to search repositories: HTTP {$statusCode}", (int) $statusCode);
+                throw $this->requestFailed('Failed to search repositories', $response);
             }
 
             $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -451,7 +451,7 @@ class Origin extends Git
 
             $statusCode = $response['headers']['status-code'] ?? 0;
             if ($statusCode >= 400) {
-                throw new Exception("Failed to list installation repositories: HTTP {$statusCode}", (int) $statusCode);
+                throw $this->requestFailed('Failed to list installation repositories', $response);
             }
 
             $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -486,7 +486,7 @@ class Origin extends Git
             throw new RepositoryNotFound('Repository not found.');
         }
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get repository {$repositoryName}: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to get repository {$repositoryName}', $response);
         }
 
         return $this->normalizeRepository(\is_array($response['body'] ?? null) ? $response['body'] : []);
@@ -511,7 +511,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed("Creating repository {$repositoryName} failed", $response);
         }
 
         return $this->normalizeRepository(\is_array($response['body'] ?? null) ? $response['body'] : []);
@@ -545,7 +545,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Deleting repository {$repositoryName} failed with status code {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed("Deleting repository {$repositoryName} failed", $response);
         }
 
         return true;
@@ -567,7 +567,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to list pull requests: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to list pull requests', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -593,7 +593,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get pull request: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to get pull request', $response);
         }
 
         return $this->normalizePullRequest(\is_array($response['body'] ?? null) ? $response['body'] : []);
@@ -620,7 +620,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to create pull request: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to create pull request', $response);
         }
 
         return $this->normalizePullRequest(\is_array($response['body'] ?? null) ? $response['body'] : []);
@@ -680,7 +680,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to create comment: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to create comment', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -726,7 +726,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to update comment: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to update comment', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -1200,7 +1200,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to update commit status: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to update commit status', $response);
         }
     }
 
@@ -1325,7 +1325,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to create check run: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to create check run', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -1360,7 +1360,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get check run {$checkRunId}: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to get check run {$checkRunId}', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -1458,7 +1458,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to update check run {$checkRunId}: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to update check run {$checkRunId}', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -1483,7 +1483,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get check suite {$checkSuiteId}: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to get check suite {$checkSuiteId}', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -1958,7 +1958,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to update pull request: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to update pull request', $response);
         }
 
         return $this->normalizePullRequest(\is_array($response['body'] ?? null) ? $response['body'] : []);
@@ -1981,7 +1981,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to merge pull request: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to merge pull request', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2069,7 +2069,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to create pull request review: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to create pull request review', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2105,7 +2105,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to update pull request review: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to update pull request review', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2128,7 +2128,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to dismiss pull request review: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to dismiss pull request review', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2210,7 +2210,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to compare commits: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to compare commits', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2267,7 +2267,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to batch get contents: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to batch get contents', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2416,7 +2416,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to batch upsert check runs: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to batch upsert check runs', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2439,7 +2439,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get the authenticated app: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to get the authenticated app', $response);
         }
 
         return \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2470,7 +2470,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to delete installation {$installationId}: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to delete installation {$installationId}', $response);
         }
 
         return true;
@@ -2508,7 +2508,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to list webhook deliveries: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to list webhook deliveries', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2537,7 +2537,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to redeliver webhook deliveries: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to redeliver webhook deliveries', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2564,7 +2564,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to get the rate limit: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to get the rate limit', $response);
         }
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2604,7 +2604,7 @@ class Origin extends Git
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Failed to sync mirror: HTTP {$statusCode}", (int) $statusCode);
+            throw $this->requestFailed('Failed to sync mirror', $response);
         }
 
         return $statusCode === 200;
@@ -2633,7 +2633,7 @@ class Origin extends Git
 
             $statusCode = $response['headers']['status-code'] ?? 0;
             if ($statusCode >= 400) {
-                throw new Exception("Failed to list {$field}: HTTP {$statusCode}", (int) $statusCode);
+                throw $this->requestFailed('Failed to list {$field}', $response);
             }
 
             $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
@@ -2642,6 +2642,25 @@ class Origin extends Git
         } while ($pageToken !== '');
 
         return $items;
+    }
+
+    /**
+     * Builds the exception for a failed call, carrying Origin's own error
+     * message when it sent one - its Google-RPC bodies usually name the exact
+     * rule that refused the request.
+     *
+     * @param array<mixed> $response
+     */
+    protected function requestFailed(string $action, array $response): Exception
+    {
+        $statusCode = (int) ($response['headers']['status-code'] ?? 0);
+        $body = $response['body'] ?? null;
+        $message = \is_array($body) ? \strval($body['message'] ?? '') : '';
+
+        return new Exception(
+            "{$action}: HTTP {$statusCode}" . ($message !== '' ? " ({$message})" : ''),
+            $statusCode
+        );
     }
 
     protected function repositoryPath(string $owner, string $repositoryName): string

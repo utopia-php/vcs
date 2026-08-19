@@ -59,6 +59,11 @@ class GiteaTest extends Base
         $this->vcsAdapter = $adapter;
     }
 
+    protected function anonymousCloneUrl(string $repositoryName): string
+    {
+        return System::getEnv('TESTS_GITEA_URL', 'http://gitea:3000') . '/' . $this->ownerPath() . '/' . $repositoryName . '.git';
+    }
+
     protected function setupGitea(): void
     {
         $tokenFile = '/data/gitea/token.txt';

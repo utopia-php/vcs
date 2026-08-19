@@ -8,6 +8,23 @@ use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git\Origin;
 
 /**
+ * Origin whose JWKS is a local fixture, so receipt verification runs the
+ * real code path - key lookup included - without touching the network.
+ */
+class FixtureKeysOrigin extends Origin
+{
+    /**
+     * @var array<array<string, mixed>>
+     */
+    public array $fixtureKeys = [];
+
+    protected function jwks(bool $refresh = false): array
+    {
+        return $this->fixtureKeys;
+    }
+}
+
+/**
  * Exercises everything Origin can prove without credentials: webhook
  * signature verification and delivery parsing, which never touch the
  * network. The live half of the shared adapter suite cannot run at all -
@@ -174,6 +191,135 @@ class OriginTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    public function testGetInstallUrl(): void
+    {
+        $url = $this->adapter->getInstallUrl(
+            'app_0123456789',
+            ['repository:contents:read', 'repository:checks:write'],
+            'https://appwrite.test/v1/vcs/origin/callback',
+            '{"projectId":"p1"}'
+        );
+
+        $parsed = \parse_url($url);
+        \parse_str($parsed['query'] ?? '', $params);
+
+        $this->assertSame('https', $parsed['scheme'] ?? '');
+        $this->assertSame('cursor.com', $parsed['host'] ?? '');
+        $this->assertSame('/codebase/apps/install', $parsed['path'] ?? '');
+        $this->assertSame('app_0123456789', $params['client_id'] ?? '');
+        $this->assertSame('repository:contents:read repository:checks:write', $params['scope'] ?? '');
+        $this->assertSame('https://appwrite.test/v1/vcs/origin/callback', $params['redirect_uri'] ?? '');
+        $this->assertSame('{"projectId":"p1"}', $params['state'] ?? '');
+        $this->assertArrayNotHasKey('source', $params);
+    }
+
+    public function testGetInstallUrlWithoutScopesReadsAppMetadata(): void
+    {
+        // The install page refuses an explicit empty scope list unless told
+        // to read the scopes from the app's registered metadata.
+        \parse_str(\parse_url($this->adapter->getInstallUrl('app_0123456789'), PHP_URL_QUERY) ?: '', $params);
+
+        $this->assertSame('app-metadata', $params['source'] ?? '');
+        $this->assertArrayNotHasKey('scope', $params);
+        $this->assertArrayNotHasKey('redirect_uri', $params);
+        $this->assertArrayNotHasKey('state', $params);
+    }
+
+    /**
+     * Encode a receipt JWT the way Cursor does: EdDSA over
+     * "<base64url header>.<base64url claims>". $secretKey is a libsodium
+     * secret key.
+     *
+     * @param array<string, mixed> $header
+     * @param array<string, mixed> $claims
+     * @param non-empty-string $secretKey
+     */
+    protected function signReceipt(array $header, array $claims, string $secretKey): string
+    {
+        $encode = fn (string $data) => \rtrim(\strtr(\base64_encode($data), '+/', '-_'), '=');
+        $signingInput = $encode(\json_encode($header) ?: '') . '.' . $encode(\json_encode($claims) ?: '');
+
+        return $signingInput . '.' . $encode(\sodium_crypto_sign_detached($signingInput, $secretKey));
+    }
+
+    public function testVerifyReceipt(): void
+    {
+        $keyPair = \sodium_crypto_sign_keypair();
+        $secretKey = \sodium_crypto_sign_secretkey($keyPair);
+        $publicKey = \rtrim(\strtr(\base64_encode(\sodium_crypto_sign_publickey($keyPair)), '+/', '-_'), '=');
+
+        $adapter = new FixtureKeysOrigin(new Cache(new None()));
+        $adapter->fixtureKeys = [['kty' => 'OKP', 'crv' => 'Ed25519', 'kid' => 'k1', 'x' => $publicKey]];
+
+        $header = ['alg' => 'EdDSA', 'kid' => 'k1', 'typ' => 'origin-installation-receipt+jwt'];
+        $claims = [
+            'iss' => 'https://api.cursor.com/v1/origin',
+            'aud' => 'app_0123456789',
+            'sub' => 'i_0123456789',
+            'state' => '{"projectId":"p1"}',
+            'namespace_id' => 'ns_0123456789',
+            'iat' => \time(),
+            'exp' => \time() + 300,
+        ];
+
+        $verified = $adapter->verifyReceipt($this->signReceipt($header, $claims, $secretKey), 'app_0123456789');
+
+        $this->assertSame('i_0123456789', $verified['sub']);
+        $this->assertSame('{"projectId":"p1"}', $verified['state']);
+        $this->assertSame('ns_0123456789', $verified['namespace_id']);
+    }
+
+    public function testVerifyReceiptRejections(): void
+    {
+        $keyPair = \sodium_crypto_sign_keypair();
+        $secretKey = \sodium_crypto_sign_secretkey($keyPair);
+        $publicKey = \rtrim(\strtr(\base64_encode(\sodium_crypto_sign_publickey($keyPair)), '+/', '-_'), '=');
+
+        $adapter = new FixtureKeysOrigin(new Cache(new None()));
+        $adapter->fixtureKeys = [['kty' => 'OKP', 'crv' => 'Ed25519', 'kid' => 'k1', 'x' => $publicKey]];
+
+        $header = ['alg' => 'EdDSA', 'kid' => 'k1', 'typ' => 'origin-installation-receipt+jwt'];
+        $claims = [
+            'iss' => 'https://api.cursor.com/v1/origin',
+            'aud' => 'app_0123456789',
+            'sub' => 'i_0123456789',
+            'iat' => \time(),
+            'exp' => \time() + 300,
+        ];
+
+        $cases = [
+            'not a JWT' => ['not-a-jwt', 'app_0123456789'],
+            'wrong algorithm' => [$this->signReceipt(['alg' => 'HS256'] + $header, $claims, $secretKey), 'app_0123456789'],
+            'wrong token type' => [$this->signReceipt(['typ' => 'other+jwt'] + $header, $claims, $secretKey), 'app_0123456789'],
+            'unknown key id' => [$this->signReceipt(['kid' => 'k2'] + $header, $claims, $secretKey), 'app_0123456789'],
+            'wrong audience' => [$this->signReceipt($header, $claims, $secretKey), 'app_other'],
+            'wrong issuer' => [$this->signReceipt($header, ['iss' => 'https://evil.test'] + $claims, $secretKey), 'app_0123456789'],
+            'expired' => [$this->signReceipt($header, ['exp' => \time() - 300] + $claims, $secretKey), 'app_0123456789'],
+            'missing installation id' => [$this->signReceipt($header, ['sub' => ''] + $claims, $secretKey), 'app_0123456789'],
+            'signed by a different key' => [$this->signReceipt($header, $claims, \sodium_crypto_sign_secretkey(\sodium_crypto_sign_keypair())), 'app_0123456789'],
+        ];
+
+        foreach ($cases as $name => [$receipt, $appId]) {
+            try {
+                $adapter->verifyReceipt($receipt, $appId);
+                $this->fail("Expected the '{$name}' receipt to be rejected");
+            } catch (\Exception $e) {
+                $this->assertNotEmpty($e->getMessage(), $name);
+            }
+        }
+    }
+
+    public function testGetSigningKeys(): void
+    {
+        $adapter = new FixtureKeysOrigin(new Cache(new None()));
+        $adapter->fixtureKeys = [
+            ['kty' => 'OKP', 'crv' => 'Ed25519', 'kid' => 'k1', 'x' => 'first-key'],
+            ['kty' => 'OKP', 'crv' => 'Ed25519', 'kid' => 'k2', 'x' => 'second-key'],
+        ];
+
+        $this->assertSame(['first-key', 'second-key'], $adapter->getSigningKeys());
     }
 
     public function testGetEventPush(): void

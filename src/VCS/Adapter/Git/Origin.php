@@ -58,12 +58,6 @@ class Origin extends Git
     protected string $endpoint = 'https://api.cursor.com/v1/origin';
 
     /**
-     * The Cursor web app's own API. Repository deletion is not part of the
-     * documented partner API but is available here.
-     */
-    protected string $webApiEndpoint = 'https://cursor.com/api/origin';
-
-    /**
      * Browser-facing host. origin.cursor.com redirects here.
      */
     protected string $webEndpoint = 'https://cursor.com/codebase';
@@ -497,60 +491,25 @@ class Origin extends Git
     /**
      * Create new repository
      *
-     * Origin has no repository visibility flag - who can see a repository
-     * follows from the owning user or team workspace - so $private is ignored.
+     * Origin reserves repository creation for user principals; app
+     * installations are denied whatever their scopes.
      *
      * @return array<mixed> Details of new repository
      */
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
-        $response = $this->call(
-            self::METHOD_POST,
-            '/repos/' . \rawurlencode($owner),
-            ['Authorization' => "Bearer {$this->accessToken}"],
-            ['name' => $repositoryName]
-        );
-
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        if ($statusCode >= 400) {
-            throw $this->requestFailed("Creating repository {$repositoryName} failed", $response);
-        }
-
-        return $this->normalizeRepository(\is_array($response['body'] ?? null) ? $response['body'] : []);
+        throw new Exception('createRepository() is not supported by ' . $this->getName());
     }
 
     /**
      * Delete repository
      *
-     * The documented partner API has no deletion endpoint; this rides the
-     * Cursor web app's own API instead, which names the owner `org`.
+     * The partner API has no deletion endpoint; repositories are removed
+     * through the Cursor UI.
      */
     public function deleteRepository(string $owner, string $repositoryName): bool
     {
-        $endpoint = $this->endpoint;
-        $this->endpoint = $this->webApiEndpoint;
-
-        try {
-            $response = $this->call(
-                self::METHOD_POST,
-                '/delete-repo',
-                [
-                    'Authorization' => "Bearer {$this->accessToken}",
-                    // The web API refuses cross-origin state changes outright
-                    'origin' => 'https://cursor.com',
-                ],
-                ['identifier' => ['org' => $owner, 'name' => $repositoryName]]
-            );
-        } finally {
-            $this->endpoint = $endpoint;
-        }
-
-        $statusCode = $response['headers']['status-code'] ?? 0;
-        if ($statusCode >= 400) {
-            throw $this->requestFailed("Deleting repository {$repositoryName} failed", $response);
-        }
-
-        return true;
+        throw new Exception('deleteRepository() is not supported by ' . $this->getName());
     }
 
     /**
@@ -1722,6 +1681,23 @@ class Origin extends Git
     }
 
     /**
+     * Origin reserves repository creation for user principals; app
+     * installations are denied whatever their scopes.
+     */
+    public function supportsRepositoryCreation(): bool
+    {
+        return false;
+    }
+
+    /**
+     * The partner API has no repository deletion endpoint.
+     */
+    public function supportsRepositoryDeletion(): bool
+    {
+        return false;
+    }
+
+    /**
      * Origin offers no archive downloads; consumers package sources
      * themselves, over Git HTTPS.
      */
@@ -1801,12 +1777,13 @@ class Origin extends Git
      */
     public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file', string $branch = ''): array
     {
+        $relative = $this->confinedPath($filepath);
+
         // Also resolves the default branch and confirms the repository exists
         $repository = $this->getRepository($owner, $repositoryName);
         $defaultBranch = \strval($repository['defaultBranch'] ?? 'main');
         $targetBranch = !empty($branch) ? $branch : $defaultBranch;
 
-        $relative = $this->confinedPath($filepath);
         $remote = \escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
         $directory = $this->temporaryDirectory();
         $git = 'git -C ' . \escapeshellarg($directory);
@@ -1828,6 +1805,18 @@ class Origin extends Git
             if (!\is_dir($parent) && !\mkdir($parent, 0777, true)) {
                 throw new Exception("Failed to create directory for {$filepath}");
             }
+
+            // Lexical confinement is not enough once the checkout itself
+            // carries symlinks: a linked directory or file would carry the
+            // write outside, so resolve the parent and refuse link targets
+            $checkout = \realpath($directory);
+            $resolvedParent = \realpath($parent);
+            if ($checkout === false || $resolvedParent === false
+                || !\str_starts_with($resolvedParent . '/', $checkout . '/')
+                || \is_link($absolute)) {
+                throw new Exception("File path escapes the repository: {$filepath}");
+            }
+
             if (\file_put_contents($absolute, $content) === false) {
                 throw new Exception("Failed to write {$filepath}");
             }

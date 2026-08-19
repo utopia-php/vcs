@@ -307,6 +307,20 @@ class OriginTest extends TestCase
         $this->adapter->getEvents('repository.pushed', 'not json');
     }
 
+    public function testCreateFileRejectsEscapingPath(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('escapes the repository');
+        $this->adapter->createFile('owner', 'repo', '../escape.txt', 'content');
+    }
+
+    public function testCreateFileRejectsEmptyPath(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('names no file');
+        $this->adapter->createFile('owner', 'repo', './.', 'content');
+    }
+
     public function testLiveAdapterSuite(): void
     {
         $this->markTestSkipped(

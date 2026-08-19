@@ -1707,6 +1707,31 @@ class Origin extends Git
     }
 
     /**
+     * Git HTTPS URL of a repository. Origin serves content over Git HTTPS
+     * only, so this is the URL consumers clone instead of downloading an
+     * archive.
+     */
+    public function getRepositoryCloneUrl(string $owner, string $repositoryName): string
+    {
+        return $this->gitEndpoint . '/' . \urlencode($owner) . '/' . \urlencode($repositoryName) . '.git';
+    }
+
+    /**
+     * Origin's Git endpoint takes HTTP Basic credentials with the fixed
+     * username x-access-token and the installation token as the password.
+     *
+     * @return array<string, string>
+     */
+    public function getRepositoryCloneHeaders(): array
+    {
+        if (empty($this->accessToken)) {
+            return [];
+        }
+
+        return ['Authorization' => 'Basic ' . \base64_encode('x-access-token:' . $this->accessToken)];
+    }
+
+    /**
      * Origin renders comment markdown without proxying images, so images on
      * a consumer's own host cannot display; comments should stay textual.
      */

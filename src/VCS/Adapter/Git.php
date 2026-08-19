@@ -127,6 +127,28 @@ abstract class Git extends Adapter
     }
 
     /**
+     * Git HTTPS URL of a repository, for a consumer that clones instead of
+     * downloading an archive. Carries no credentials - they ride the headers
+     * from getRepositoryCloneHeaders(), never a string that errors and logs
+     * echo verbatim.
+     */
+    public function getRepositoryCloneUrl(string $owner, string $repositoryName): string
+    {
+        throw new Exception('getRepositoryCloneUrl() is not supported by ' . $this->getName());
+    }
+
+    /**
+     * Headers authenticating a fetch of getRepositoryCloneUrl(), typically
+     * Authorization. Empty when the repository needs none.
+     *
+     * @return array<string, string>
+     */
+    public function getRepositoryCloneHeaders(): array
+    {
+        return [];
+    }
+
+    /**
      * Whether images embedded in pull request comments can render on the
      * provider. Providers without an image proxy (the way GitHub rewrites
      * comment images through its camo CDN) cannot display images hosted on

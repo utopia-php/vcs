@@ -70,8 +70,8 @@ VCS Adapters:
 |---------|---------|
 | GitHub | ✅ |
 | Origin (Cursor) | ✅ |
-| GitLab | ✅ |
-| Bitbucket | ✅ |
+| GitLab |  |
+| Bitbucket |  |
 | Azure DevOps |  |
 
 `✅  - supported, 🛠  - work in progress`

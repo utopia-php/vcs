@@ -48,11 +48,6 @@ class GogsTest extends GiteaTest
         $this->vcsAdapter = $adapter;
     }
 
-    protected function anonymousCloneUrl(string $repositoryName): string
-    {
-        return System::getEnv('TESTS_GOGS_URL', 'http://gogs:3000') . '/' . $this->ownerPath() . '/' . $repositoryName . '.git';
-    }
-
     protected function setupGogs(): void
     {
         $tokenFile = '/gogs-data/gogs/token.txt';

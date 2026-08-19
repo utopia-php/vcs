@@ -69,11 +69,6 @@ class GitLabTest extends Base
         $this->vcsAdapter = $adapter;
     }
 
-    protected function anonymousCloneUrl(string $repositoryName): string
-    {
-        return System::getEnv('TESTS_GITLAB_URL', 'http://gitlab:80') . '/' . $this->ownerPath() . '/' . $repositoryName . '.git';
-    }
-
     /**
      * GitLab owners are carried as "id:path", but it reports the path alone.
      */

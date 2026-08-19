@@ -33,11 +33,6 @@ class GitHubTest extends Base
     protected static string $eventHeader = 'x-github-event';
     protected static string $signatureHeader = 'x-hub-signature-256';
 
-    protected function anonymousCloneUrl(string $repositoryName): string
-    {
-        return 'https://github.com/' . $this->ownerPath() . '/' . $repositoryName . '.git';
-    }
-
     protected function setupAdapter(): void
     {
         $privateKey = str_replace('\\n', "\n", System::getEnv('TESTS_GITHUB_PRIVATE_KEY') ?? '');

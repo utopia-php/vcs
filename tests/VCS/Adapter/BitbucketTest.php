@@ -50,11 +50,6 @@ class BitbucketTest extends Base
         return 'sha256=' . hash_hmac('sha256', $payload, $secret);
     }
 
-    protected function anonymousCloneUrl(string $repositoryName): string
-    {
-        return 'https://bitbucket.org/' . $this->ownerPath() . '/' . $repositoryName . '.git';
-    }
-
     protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

@@ -100,39 +100,6 @@ abstract class Git extends Adapter
     abstract public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array;
 
     /**
-     * Whether the provider can hand out an archive download URL at all, so a
-     * consumer can arrange its own source packaging before calling
-     * getRepositoryPresignedUrl() just to catch it throwing.
-     */
-    public function supportsRepositoryArchives(): bool
-    {
-        return true;
-    }
-
-    /**
-     * Whether images embedded in pull request comments can render on the
-     * provider. Providers without an image proxy (the way GitHub rewrites
-     * comment images through its camo CDN) cannot display images hosted on
-     * the consumer's own host - often private or plain-HTTP - so consumers
-     * should fall back to text there.
-     */
-    public function supportsCommentImages(): bool
-    {
-        return true;
-    }
-
-    /**
-     * Whether the provider can host repositories that anonymous clients are
-     * able to read. Providers that scope every repository to an
-     * authenticated audience (the way Origin binds them to their workspace)
-     * have no public repositories, whatever a visibility flag may claim.
-     */
-    public function supportsPublicRepositories(): bool
-    {
-        return true;
-    }
-
-    /**
      * Headers a caller must send with getRepositoryPresignedUrl() to reach a
      * private repository.
      *

@@ -122,6 +122,17 @@ abstract class Git extends Adapter
     }
 
     /**
+     * Whether the provider can host repositories that anonymous clients are
+     * able to read. Providers that scope every repository to an
+     * authenticated audience (the way Origin binds them to their workspace)
+     * have no public repositories, whatever a visibility flag may claim.
+     */
+    public function supportsPublicRepositories(): bool
+    {
+        return true;
+    }
+
+    /**
      * Headers a caller must send with getRepositoryPresignedUrl() to reach a
      * private repository.
      *

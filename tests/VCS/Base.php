@@ -222,6 +222,12 @@ abstract class Base extends TestCase
      */
     abstract protected function pullRequestPayload(bool $external = false): string;
 
+    /**
+     * URL an anonymous git client would clone the repository from over HTTP,
+     * with no credentials embedded.
+     */
+    abstract protected function anonymousCloneUrl(string $repositoryName): string;
+
     protected function setUp(): void
     {
         $this->setupAdapter();
@@ -502,6 +508,54 @@ abstract class Base extends TestCase
             $this->assertTrue($this->isPrivate($fetched), 'getRepository() did not report the new repository as private');
         } finally {
             $this->discardRepositories($repositoryName);
+        }
+    }
+
+    /**
+     * Response an anonymous git client gets for the repository: the ref
+     * advertisement request `git clone` opens with, sent without credentials.
+     *
+     * @return array{0: int, 1: string} Status code and body
+     */
+    private function fetchAnonymousRefAdvertisement(string $repositoryName): array
+    {
+        $client = new Client();
+        $response = $client->fetch(
+            url: $this->anonymousCloneUrl($repositoryName) . '/info/refs',
+            method: 'GET',
+            query: ['service' => 'git-upload-pack']
+        );
+
+        return [$response->getStatusCode(), $response->text()];
+    }
+
+    /**
+     * The visibility flag alone proves nothing about what reaches the
+     * outside; a public repository has to answer an anonymous git client.
+     * A private repository has to refuse the same request, or the public
+     * answer would say nothing beyond the server being up.
+     */
+    public function testPublicRepositoryIsPubliclyAccessible(): void
+    {
+        $this->skipUnlessSupported($this->vcsAdapter->supportsPublicRepositories(), 'public repositories');
+
+        $publicRepository = 'test-public-access-' . \uniqid();
+        $privateRepository = 'test-private-access-' . \uniqid();
+
+        $this->vcsAdapter->createRepository(static::$owner, $publicRepository, false);
+        $this->vcsAdapter->createRepository(static::$owner, $privateRepository, true);
+
+        try {
+            $this->assertEventually(function () use ($publicRepository) {
+                [$status, $body] = $this->fetchAnonymousRefAdvertisement($publicRepository);
+                $this->assertSame(200, $status, 'An anonymous git client cannot reach the public repository');
+                $this->assertStringContainsString('git-upload-pack', $body, 'The anonymous response is not a git ref advertisement');
+            });
+
+            [$status] = $this->fetchAnonymousRefAdvertisement($privateRepository);
+            $this->assertNotSame(200, $status, 'An anonymous git client can read the private repository');
+        } finally {
+            $this->discardRepositories($publicRepository, $privateRepository);
         }
     }
 

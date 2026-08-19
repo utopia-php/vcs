@@ -1738,6 +1738,15 @@ class Origin extends Git
     }
 
     /**
+     * Origin has no public repositories: every repository is scoped to its
+     * owning workspace and unreachable without credentials.
+     */
+    public function supportsPublicRepositories(): bool
+    {
+        return false;
+    }
+
+    /**
      * Get latest commit of a branch
      *
      * @return array<mixed> Details of the commit

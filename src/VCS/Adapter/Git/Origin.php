@@ -438,8 +438,6 @@ class Origin extends Git
     protected function installationRepositories(): \Generator
     {
         $pageToken = '';
-        $fetched = 0;
-        $maxRepositories = 1000;
 
         do {
             $params = ['pageSize' => 100];
@@ -463,9 +461,13 @@ class Origin extends Git
                 }
             }
 
-            $fetched += \count($repositories);
-            $pageToken = \strval($responseBody['nextPageToken'] ?? '');
-        } while ($pageToken !== '' && $fetched < $maxRepositories);
+            // A next-page token that fails to advance would page forever
+            $nextPageToken = \strval($responseBody['nextPageToken'] ?? '');
+            if ($nextPageToken === $pageToken) {
+                return;
+            }
+            $pageToken = $nextPageToken;
+        } while ($pageToken !== '');
     }
 
     /**
@@ -1761,6 +1763,34 @@ class Origin extends Git
     }
 
     /**
+     * The repository path a caller-supplied file path names, normalized
+     * lexically. Rejects a path that climbs out of the checkout through
+     * `..` segments, which would otherwise write onto the host filesystem.
+     */
+    protected function confinedPath(string $filepath): string
+    {
+        $segments = [];
+        foreach (\explode('/', \str_replace('\\', '/', $filepath)) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                if (\array_pop($segments) === null) {
+                    throw new Exception("File path escapes the repository: {$filepath}");
+                }
+                continue;
+            }
+            $segments[] = $segment;
+        }
+
+        if ($segments === []) {
+            throw new Exception("File path names no file: {$filepath}");
+        }
+
+        return \implode('/', $segments);
+    }
+
+    /**
      * Create a file in a repository
      *
      * Origin has no contents-write API - content changes travel over Git
@@ -1776,6 +1806,7 @@ class Origin extends Git
         $defaultBranch = \strval($repository['defaultBranch'] ?? 'main');
         $targetBranch = !empty($branch) ? $branch : $defaultBranch;
 
+        $relative = $this->confinedPath($filepath);
         $remote = \escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
         $directory = $this->temporaryDirectory();
         $git = 'git -C ' . \escapeshellarg($directory);
@@ -1792,7 +1823,7 @@ class Origin extends Git
                 $this->execute("{$git} checkout -q FETCH_HEAD", 'Checking out the branch tip');
             }
 
-            $absolute = $directory . '/' . \ltrim($filepath, '/');
+            $absolute = $directory . '/' . $relative;
             $parent = \dirname($absolute);
             if (!\is_dir($parent) && !\mkdir($parent, 0777, true)) {
                 throw new Exception("Failed to create directory for {$filepath}");
@@ -1801,13 +1832,13 @@ class Origin extends Git
                 throw new Exception("Failed to write {$filepath}");
             }
 
-            $this->execute("{$git} add " . \escapeshellarg($filepath), 'Staging the file');
+            $this->execute("{$git} add " . \escapeshellarg($relative), 'Staging the file');
             $this->execute("{$git} -c user.name='Utopia VCS' -c user.email='vcs@utopia.dev' commit -q -m " . \escapeshellarg($message), 'Committing the file');
             $commitHash = \implode('', $this->execute("{$git} rev-parse HEAD", 'Reading the commit hash'));
             $this->execute("{$git} push -q {$remote} " . \escapeshellarg('HEAD:refs/heads/' . $targetBranch), 'Pushing the commit');
 
             return [
-                'path' => $filepath,
+                'path' => $relative,
                 'branch' => $targetBranch,
                 'commitHash' => $commitHash,
             ];

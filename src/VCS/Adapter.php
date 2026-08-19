@@ -492,7 +492,9 @@ abstract class Adapter
 
         switch ($headers['content-type']) {
             case 'application/json':
-                $query = json_encode($params);
+                // An empty body must encode as an object - some APIs (e.g.
+                // Origin's proto3-JSON endpoints) reject a bare array
+                $query = $params === [] ? '{}' : json_encode($params);
                 break;
 
             case 'multipart/form-data':

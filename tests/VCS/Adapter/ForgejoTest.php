@@ -41,6 +41,11 @@ class ForgejoTest extends GiteaTest
         $this->vcsAdapter = $adapter;
     }
 
+    protected function anonymousCloneUrl(string $repositoryName): string
+    {
+        return System::getEnv('TESTS_FORGEJO_URL', 'http://forgejo:3000') . '/' . $this->ownerPath() . '/' . $repositoryName . '.git';
+    }
+
     protected function setupForgejo(): void
     {
         $tokenFile = '/forgejo-data/gitea/token.txt';

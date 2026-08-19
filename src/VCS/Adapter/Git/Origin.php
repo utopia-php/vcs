@@ -69,6 +69,13 @@ class Origin extends Git
 
     protected string $accessToken = '';
 
+    /**
+     * Origin's published JWKS, memoized per instance.
+     *
+     * @var array<array<string, mixed>>|null
+     */
+    protected ?array $jwks = null;
+
     protected string $jwtToken = '';
 
     protected string $installationId = '';
@@ -234,6 +241,189 @@ class Origin extends Git
     protected function base64UrlEncode(string $data): string
     {
         return \rtrim(\strtr(\base64_encode($data), '+/', '-_'), '=');
+    }
+
+    protected function base64UrlDecode(string $data): string
+    {
+        $remainder = \strlen($data) % 4;
+        if ($remainder > 0) {
+            $data .= \str_repeat('=', 4 - $remainder);
+        }
+
+        return (string) \base64_decode(\strtr($data, '-_', '+/'), true);
+    }
+
+    /**
+     * URL of the app's installation page on Cursor. A consumer sends a user
+     * here to approve the installation; Cursor confirms it by redirecting to
+     * $redirectUri with an installation receipt (see verifyReceipt()) - there
+     * is no authorization-code exchange.
+     *
+     * @param array<string> $scopes Requested scopes. An empty list reads the
+     *                              scopes registered on the app's metadata
+     *                              instead, since the install page refuses an
+     *                              explicit empty list.
+     * @param string $redirectUri Must exactly match a redirect URI registered on the app
+     * @param string $state Opaque value echoed back as the receipt's state claim
+     */
+    public function getInstallUrl(string $appId, array $scopes = [], string $redirectUri = '', string $state = ''): string
+    {
+        $params = ['client_id' => $appId];
+
+        if (empty($scopes)) {
+            $params['source'] = 'app-metadata';
+        } else {
+            $params['scope'] = \implode(' ', $scopes);
+        }
+
+        if (!empty($redirectUri)) {
+            $params['redirect_uri'] = $redirectUri;
+        }
+
+        if (!empty($state)) {
+            $params['state'] = $state;
+        }
+
+        return $this->webEndpoint . '/apps/install?' . \http_build_query($params);
+    }
+
+    /**
+     * Verifies an installation receipt JWT against Origin's published signing
+     * keys and returns its claims. The receipt is Cursor's only proof of an
+     * installation, so a consumer must verify it before trusting anything
+     * else on its callback. The `sub` claim is the installation id, `state`
+     * echoes the state given to the install URL, and `namespace_id` names
+     * the workspace.
+     *
+     * @return array<string, mixed>
+     * @throws Exception
+     */
+    public function verifyReceipt(string $receipt, string $appId): array
+    {
+        $segments = \explode('.', $receipt);
+
+        if (\count($segments) !== 3) {
+            throw new Exception('Installation receipt is not a JWT');
+        }
+
+        [$headerSegment, $claimsSegment, $signatureSegment] = $segments;
+
+        $header = \json_decode($this->base64UrlDecode($headerSegment), true);
+        $claims = \json_decode($this->base64UrlDecode($claimsSegment), true);
+        $signature = $this->base64UrlDecode($signatureSegment);
+
+        if (!\is_array($header) || !\is_array($claims)) {
+            throw new Exception('Installation receipt is malformed');
+        }
+
+        if (($header['alg'] ?? '') !== 'EdDSA') {
+            throw new Exception('Installation receipt has an unexpected algorithm');
+        }
+
+        // Receipts are documented to carry this media type; tolerate its
+        // absence, but never another Cursor-signed token kind in its place.
+        if (isset($header['typ']) && $header['typ'] !== 'origin-installation-receipt+jwt') {
+            throw new Exception('Installation receipt has an unexpected type');
+        }
+
+        $key = $this->signingKey(\strval($header['kid'] ?? ''));
+
+        if (
+            \strlen($signature) !== SODIUM_CRYPTO_SIGN_BYTES
+            || !\sodium_crypto_sign_verify_detached($signature, $headerSegment . '.' . $claimsSegment, $key)
+        ) {
+            throw new Exception('Installation receipt signature is invalid');
+        }
+
+        if (($claims['iss'] ?? '') !== $this->endpoint) {
+            throw new Exception('Installation receipt issuer is invalid');
+        }
+
+        if (($claims['aud'] ?? '') !== $appId) {
+            throw new Exception('Installation receipt audience does not match the app id');
+        }
+
+        $now = \time();
+        $leeway = 60;
+
+        // Receipts are short-lived, single-use artifacts (about a five-minute
+        // window per Cursor's verification rules).
+        if (isset($claims['exp']) && $now >= (int) $claims['exp'] + $leeway) {
+            throw new Exception('Installation receipt has expired');
+        }
+
+        if (isset($claims['nbf']) && $now < (int) $claims['nbf'] - $leeway) {
+            throw new Exception('Installation receipt is not yet valid');
+        }
+
+        if (isset($claims['iat']) && $now < (int) $claims['iat'] - $leeway) {
+            throw new Exception('Installation receipt is issued in the future');
+        }
+
+        if (empty($claims['sub'])) {
+            throw new Exception('Installation receipt is missing the installation ID');
+        }
+
+        return $claims;
+    }
+
+    /**
+     * Origin's active Ed25519 signing keys as base64url raw key material -
+     * the shape validateWebhookEvent() accepts. Pass $refresh when a
+     * signature fails against a cached set: the keys rotate rarely, but a
+     * delivery signed by a just-rotated key deserves one refetch.
+     *
+     * @return array<string>
+     */
+    public function getSigningKeys(bool $refresh = false): array
+    {
+        return \array_values(\array_map(fn ($key) => \strval($key['x']), $this->jwks($refresh)));
+    }
+
+    /**
+     * Origin's published Ed25519 JWKS entries.
+     *
+     * @return array<array<string, mixed>>
+     */
+    protected function jwks(bool $refresh = false): array
+    {
+        if (!$refresh && $this->jwks !== null) {
+            return $this->jwks;
+        }
+
+        $response = $this->call(self::METHOD_GET, '/keys');
+
+        $keys = [];
+        $body = \is_array($response['body'] ?? null) ? $response['body'] : [];
+        foreach (\is_array($body['keys'] ?? null) ? $body['keys'] : [] as $key) {
+            if (($key['kty'] ?? '') === 'OKP' && ($key['crv'] ?? '') === 'Ed25519' && !empty($key['x'])) {
+                $keys[] = $key;
+            }
+        }
+
+        return $this->jwks = $keys;
+    }
+
+    /**
+     * Raw Ed25519 public key bytes for a JWKS key id.
+     *
+     * @return non-empty-string
+     * @throws Exception
+     */
+    protected function signingKey(string $kid): string
+    {
+        foreach ($this->jwks() as $key) {
+            if (\strval($key['kid'] ?? '') !== $kid) {
+                continue;
+            }
+
+            $publicKey = $this->ed25519PublicKey(\strval($key['x']));
+            if ($publicKey !== null) {
+                return $publicKey;
+            }
+        }
+
+        throw new Exception('Installation receipt is signed with an unknown key');
     }
 
     /**

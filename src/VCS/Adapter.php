@@ -39,36 +39,21 @@ abstract class Adapter
 
     /**
      * Get Adapter Name
-     *
-     * @return string
      */
     abstract public function getName(): string;
 
     /**
      * Get Adapter Type
-     *
-     * @return string
      */
     abstract public function getType(): string;
 
     /**
      * Initialize Variables
-     *
-     * @param string $installationId
-     * @param string $privateKey
-     * @param string|null $appId
-     * @param string|null $accessToken
-     * @param string|null $refreshToken
-     * @return void
      */
     abstract public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void;
 
     /**
      * Generate Access Token
-     *
-     * @param string $privateKey
-     * @param string $appId
-     * @return void
      */
     abstract protected function generateAccessToken(string $privateKey, string $appId): void;
 
@@ -116,7 +101,6 @@ abstract class Adapter
     /**
      * Get repository for the installation
      *
-     * @param string $repositoryName
      * @return array<mixed>
      */
     abstract public function getInstallationRepository(string $repositoryName): array;
@@ -165,8 +149,6 @@ abstract class Adapter
 
     /**
      * Add Comment to Pull Request
-     *
-     * @return string
      */
     abstract public function createComment(string $owner, string $repositoryName, int $pullRequestNumber, string $comment): string;
 
@@ -206,13 +188,12 @@ abstract class Adapter
      * @param  string  $payload Raw body of HTTP request
      * @param  string  $signature Signature provided by Git provider in header
      * @param  string  $signatureKey Webhook secret configured on Git provider
-     * @return bool
      */
     public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
-        $expected = \hash_hmac('sha256', $payload, $signatureKey);
+        $expected = hash_hmac('sha256', $payload, $signatureKey);
 
-        return \hash_equals($expected, $signature);
+        return hash_equals($expected, $signature);
     }
 
     /**
@@ -466,11 +447,8 @@ abstract class Adapter
      *
      * Make an API call
      *
-     * @param  string  $method
-     * @param  string  $path
      * @param  array<mixed>  $params
      * @param  array<string, string>  $headers
-     * @param  bool  $decode
      * @param  bool  $followRedirects When false, a redirect response is returned as-is instead of being followed
      * @return array<mixed>
      *
@@ -479,7 +457,7 @@ abstract class Adapter
     protected function call(string $method, string $path = '', array $headers = [], array $params = [], bool $decode = true, bool $followRedirects = true)
     {
         $headers = array_merge($this->headers, $headers);
-        $ch = curl_init($this->endpoint . $path . (($method == self::METHOD_GET && !empty($params)) ? '?' . http_build_query($params) : ''));
+        $ch = curl_init($this->endpoint . $path . (($method === self::METHOD_GET && $params !== []) ? '?' . http_build_query($params) : ''));
 
         if (!$ch) {
             throw new Exception('Curl failed to initialize');
@@ -490,88 +468,73 @@ abstract class Adapter
         $responseType = '';
         $responseBody = '';
 
-        switch ($headers['content-type']) {
-            case 'application/json':
-                // An empty body must encode as an object - some APIs (e.g.
-                // Origin's proto3-JSON endpoints) reject a bare array
-                $query = $params === [] ? '{}' : json_encode($params);
-                break;
+        $query = match ($headers['content-type']) {
+            // An empty body must encode as an object - some APIs (e.g.
+            // Origin's proto3-JSON endpoints) reject a bare array
+            'application/json' => $params === [] ? '{}' : json_encode($params),
+            'multipart/form-data' => $this->flatten($params),
+            'application/graphql' => $params[0],
+            default => http_build_query($params),
+        };
 
-            case 'multipart/form-data':
-                $query = $this->flatten($params);
-                break;
-
-            case 'application/graphql':
-                $query = $params[0];
-                break;
-
-            default:
-                $query = http_build_query($params);
-                break;
+        $headerLines = [];
+        foreach ($headers as $name => $header) {
+            $headerLines[] = $name . ':' . $header;
         }
 
-        foreach ($headers as $i => $header) {
-            $headers[] = $i . ':' . $header;
-            unset($headers[$i]);
-        }
-
-        curl_setopt($ch, CURLOPT_PATH_AS_IS, 1);
+        curl_setopt($ch, CURLOPT_PATH_AS_IS, true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $followRedirects);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headerLines);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
         curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $header) use (&$responseHeaders) {
-            $len = strlen($header);
-            $header = explode(':', $header, 2);
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, string $header) use (&$responseHeaders): int {
+            $length = \strlen($header);
+            $parts = explode(':', $header, 2);
 
-            if (count($header) < 2) { // ignore invalid headers
-                return $len;
+            if (\count($parts) < 2) { // ignore invalid headers
+                return $length;
             }
 
-            $responseHeaders[strtolower(trim($header[0]))] = trim($header[1]);
+            $responseHeaders[strtolower(trim($parts[0]))] = trim($parts[1]);
 
-            return $len;
+            return $length;
         });
 
-        if ($method != self::METHOD_GET) {
+        if ($method !== self::METHOD_GET) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
         }
 
         // Allow self signed certificates
         if ($this->selfSigned) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         }
 
-        $responseBody = \curl_exec($ch) ?: '';
+        $responseBody = curl_exec($ch) ?: '';
 
         if ($responseBody === true) {
             $responseBody = '';
         }
 
         $responseType = $responseHeaders['content-type'] ?? '';
-        $responseStatus = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $responseStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
         if ($decode) {
-            $length = strpos($responseType, ';') ?: strlen($responseType);
-            switch (substr($responseType, 0, $length)) {
-                case 'application/json':
-                    $json = \json_decode($responseBody, true);
-
-                    if ($json === null) {
-                        throw new Exception('Failed to parse response: ' . $responseBody);
-                    }
-
-                    $responseBody = $json;
-                    $json = null;
-                    break;
+            $length = strpos($responseType, ';') ?: \strlen($responseType);
+            if (substr($responseType, 0, $length) === 'application/json') {
+                $json = json_decode($responseBody, true);
+                if ($json === null) {
+                    throw new Exception('Failed to parse response: ' . $responseBody);
+                }
+                $responseBody = $json;
+                $json = null;
             }
         }
 
-        if ((curl_errno($ch)/* || 200 != $responseStatus*/)) {
+        if ((curl_errno($ch) !== 0/* || 200 != $responseStatus*/)) {
             throw new Exception(curl_error($ch) . ' with status code ' . $responseStatus, $responseStatus);
         }
 
@@ -591,7 +554,6 @@ abstract class Adapter
      * Flatten params array to PHP multiple format
      *
      * @param  array<mixed>  $data
-     * @param  string  $prefix
      * @return array<mixed>
      */
     protected function flatten(array $data, string $prefix = ''): array
@@ -599,9 +561,9 @@ abstract class Adapter
         $output = [];
 
         foreach ($data as $key => $value) {
-            $finalKey = $prefix ? "{$prefix}[{$key}]" : $key;
+            $finalKey = $prefix !== '' && $prefix !== '0' ? "{$prefix}[{$key}]" : $key;
 
-            if (is_array($value)) {
+            if (\is_array($value)) {
                 $output += $this->flatten($value, $finalKey); // @todo: handle name collision here if needed
             } else {
                 $output[$finalKey] = $value;

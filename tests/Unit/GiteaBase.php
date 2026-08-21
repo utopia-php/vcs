@@ -1,79 +1,18 @@
 <?php
 
-namespace Utopia\Tests\Adapter;
+declare(strict_types=1);
 
-use Utopia\Cache\Adapter\None;
-use Utopia\Cache\Cache;
-use Utopia\System\System;
-use Utopia\Tests\Base;
-use Utopia\VCS\Adapter\Git\Gitea;
+namespace Utopia\Tests\Unit;
 
-class GiteaTest extends Base
+/**
+ * Forgejo and Gogs are Gitea forks and deliver Gitea-shaped payloads, so all
+ * three read the same fixtures.
+ */
+abstract class GiteaBase extends Base
 {
-    protected static string $accessToken = '';
-    protected static string $owner = '';
-    protected static string $defaultBranch = 'main';
-    protected static string $existingUser = 'utopia';
-    protected static string $userHandleField = 'login';
-    protected static string $eventHeader = 'x-gitea-event';
-    protected static string $signatureHeader = 'x-gitea-signature';
-
-    /** @var array<string> */
-    protected static array $pullRequestOpenedActions = ['opened', 'synchronized'];
-
-    protected static string $presignedTarballFragment = '.tar.gz?token=';
-    protected static string $presignedZipballFragment = '.zip?token=';
-
     protected function signWebhookPayload(string $payload, string $secret): string
     {
         return hash_hmac('sha256', $payload, $secret);
-    }
-    protected static string $avatarDomain = 'gravatar.com';
-    protected static bool $supportsCheckRuns = false;
-    protected static bool $supportsNamespaceListing = false;
-    protected static bool $supportsInstallationRepository = false;
-    protected static bool $reportsCommitAuthorUrl = false;
-
-    protected function setupAdapter(): void
-    {
-        if (empty(static::$accessToken)) {
-            $this->setupGitea();
-        }
-
-        $adapter = new Gitea(new Cache(new None()));
-        $giteaUrl = System::getEnv('TESTS_GITEA_URL', 'http://gitea:3000');
-
-        $adapter->initializeVariables(
-            installationId: '',
-            privateKey: '',
-            appId: '',
-            accessToken: static::$accessToken,
-            refreshToken: ''
-        );
-        $adapter->setEndpoint($giteaUrl);
-        if (empty(static::$owner)) {
-            $orgName = 'test-org-' . \uniqid();
-            static::$owner = $adapter->createOrganization($orgName);
-        }
-
-        $this->vcsAdapter = $adapter;
-    }
-
-    protected function anonymousCloneUrl(string $repositoryName): string
-    {
-        return System::getEnv('TESTS_GITEA_URL', 'http://gitea:3000') . '/' . $this->ownerPath() . '/' . $repositoryName . '.git';
-    }
-
-    protected function setupGitea(): void
-    {
-        $tokenFile = '/data/gitea/token.txt';
-
-        if (file_exists($tokenFile)) {
-            $contents = file_get_contents($tokenFile);
-            if ($contents !== false) {
-                static::$accessToken = trim($contents);
-            }
-        }
     }
 
     protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
@@ -135,7 +74,7 @@ class GiteaTest extends Base
                     'user' => ['login' => self::EVENT_OWNER],
                 ],
                 'base' => [
-                    'ref' => static::$defaultBranch,
+                    'ref' => self::$defaultBranch,
                     'sha' => 'abc123',
                     'user' => ['login' => self::EVENT_OWNER],
                 ],

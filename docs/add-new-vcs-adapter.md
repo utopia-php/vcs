@@ -7,7 +7,7 @@ To get started with implementing a new VCS adapter, start by reviewing the [READ
 - A `VCS adapter` is a class that provides an interface to a specific VCS like GitHub, Bitbucket etc. It provides methods for interacting with the VCS user account and repositories, such as listing repositories, adding a comment on a pull request, cloning the repository etc.
 - To add a new VCS adapter, you need to extend the `Adapter` parent class and define the required methods.
 
-### File Structure 📂
+### File structure 📂
 
 Below are outlined the most useful files for adding a new VCS adapter: 
 
@@ -24,7 +24,7 @@ Below are outlined the most useful files for adding a new VCS adapter:
         ├── Adapter/ # Where tests of your new adapter go!
         └── Base.php # Parent class that holds all tests
 ```
-### Extend the Adapter 💻
+### Extend the adapter 💻
 
 Create your Git-based adapter `NewGitAdapter.php` file in `src/VCS/Adapter/Git` and extend the parent class:
 
@@ -93,11 +93,11 @@ The default `getEvents()` wraps `getEvent()`, so an adapter that never batches
 needs no override. Consumers that must not miss a ref should call `getEvents()`
 rather than `getEvent()` — the latter reports only the first event of a batch.
 
-### Testing with Docker 🛠️
+### Testing the adapter 🛠️
 
-The existing test suite is helpful when developing a new VCS adapter. Use official Docker images from trusted sources. Add new tests for your new VCS adapter in `tests/VCS/Adapter/VCSTest.php` test class. The specific `docker-compose` command for testing can be found in the [README](/README.md#tests).
+The suite runs in two tiers. Put the webhook payload fixtures and the parsing assertions your adapter answers offline in `tests/Unit/<Adapter>Test.php`, and the calls against a running provider in `tests/E2E/<Adapter>Test.php`. A provider you can self-host joins `docker-compose.yml` as an official image on an offset host port, with a bootstrap that mints an access token into `tests/.tokens`; see the [README](/README.md#tests) for how to run both tiers.
 
-### Tips and Tricks 💡
+### Tips and tricks 💡
 
 - Keep it simple :)
 - Prioritize code performance.

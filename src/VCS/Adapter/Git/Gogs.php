@@ -12,26 +12,31 @@ class Gogs extends Gitea
     /**
      * Get Adapter Name
      */
+    #[\Override]
     public function getName(): string
     {
         return 'gogs';
     }
 
+    #[\Override]
     protected function getHookType(): string
     {
         return 'gogs';
     }
 
+    #[\Override]
     public function getEventHeaderName(): string
     {
         return 'x-gogs-event';
     }
 
+    #[\Override]
     public function getSignatureHeaderName(): string
     {
         return 'x-gogs-signature';
     }
 
+    #[\Override]
     public function getBranchUrl(string $owner, string $repositoryName, string $branch): string
     {
         return $this->getRepositoryUrl($owner, $repositoryName) . "/src/{$branch}";
@@ -44,6 +49,7 @@ class Gogs extends Gitea
      *
      * @return array<mixed> Details of new repository
      */
+    #[\Override]
     public function createRepository(string $owner, string $repositoryName, bool $private): array
     {
         $url = "/org/{$owner}/repos";
@@ -62,12 +68,12 @@ class Gogs extends Gitea
         }
 
         $result = $response['body'] ?? [];
-        if (is_array($result)) {
+        if (\is_array($result)) {
             // Gogs' API does not expose `pushed_at`; surface `updated_at` under that key
             // for parity with the other VCS adapters (GitHub, GitLab).
-            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+            $result['pushed_at'] ??= $result['updated_at'] ?? '';
         }
-        return is_array($result) ? $result : [];
+        return \is_array($result) ? $result : [];
     }
 
     /**
@@ -75,9 +81,10 @@ class Gogs extends Gitea
      *
      * Gogs uses POST /user/orgs instead of Gitea's POST /orgs.
      */
+    #[\Override]
     public function createOrganization(string $orgName): string
     {
-        $url = "/user/orgs";
+        $url = '/user/orgs';
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "token $this->accessToken"], [
             'username' => $orgName,
@@ -96,9 +103,10 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
-        if (!empty($search)) {
+        if ($search !== '' && $search !== '0') {
             return parent::searchRepositories($owner, $page, $per_page, $search);
         }
 
@@ -107,19 +115,19 @@ class Gogs extends Gitea
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             $responseBody = [];
         }
 
-        $total = count($responseBody);
+        $total = \count($responseBody);
         $offset = ($page - 1) * $per_page;
-        $pagedRepos = array_slice($responseBody, $offset, $per_page);
+        $pagedRepos = \array_slice($responseBody, $offset, $per_page);
 
         // Gogs' API does not expose `pushed_at`; surface `updated_at` under that key
         // for parity with the other VCS adapters (GitHub, GitLab).
         foreach ($pagedRepos as &$repo) {
-            if (is_array($repo)) {
-                $repo['pushed_at'] = $repo['pushed_at'] ?? ($repo['updated_at'] ?? '');
+            if (\is_array($repo)) {
+                $repo['pushed_at'] ??= $repo['updated_at'] ?? '';
             }
         }
         unset($repo);
@@ -138,6 +146,7 @@ class Gogs extends Gitea
      *
      * @return array<string>
      */
+    #[\Override]
     public function getRepositoryTree(string $owner, string $repositoryName, string $branch, bool $recursive = false): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/git/trees/" . urlencode($branch);
@@ -173,6 +182,7 @@ class Gogs extends Gitea
      *
      * Gogs does not have /repositories/{id}. Searches all repos to find by ID.
      */
+    #[\Override]
     public function getRepositoryName(string $repositoryId): string
     {
         $repo = $this->findRepositoryById((int) $repositoryId);
@@ -185,6 +195,7 @@ class Gogs extends Gitea
      *
      * Gogs does not have /repositories/{id}. Searches all repos to find by ID.
      */
+    #[\Override]
     public function getOwnerName(string $installationId, ?int $repositoryId = null): string
     {
         if ($repositoryId === null || $repositoryId <= 0) {
@@ -195,7 +206,7 @@ class Gogs extends Gitea
         $owner = $repo['owner'] ?? [];
 
         if (empty($owner['login'])) {
-            throw new Exception("Owner login missing or empty in response");
+            throw new Exception('Owner login missing or empty in response');
         }
 
         return $owner['login'];
@@ -228,14 +239,14 @@ class Gogs extends Gitea
                 }
             }
 
-            if (count($repos) < $limit) {
+            if (\count($repos) < $limit) {
                 break;
             }
 
             $page++;
         }
 
-        throw new RepositoryNotFound("Repository not found");
+        throw new RepositoryNotFound('Repository not found');
     }
 
     /**
@@ -245,6 +256,7 @@ class Gogs extends Gitea
      *
      * @return array<mixed> Details of the commit
      */
+    #[\Override]
     public function getCommit(string $owner, string $repositoryName, string $commitHash): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/commits/{$commitHash}";
@@ -254,7 +266,7 @@ class Gogs extends Gitea
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
         if ($responseHeadersStatusCode >= 400) {
-            throw new Exception("Commit not found or inaccessible");
+            throw new Exception('Commit not found or inaccessible');
         }
 
         $responseBody = $response['body'] ?? [];
@@ -279,11 +291,12 @@ class Gogs extends Gitea
      *
      * @return array<mixed> Details of the commit
      */
+    #[\Override]
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
     {
         // Gogs ignores sha param — verify branch exists first
         $branches = $this->listBranches($owner, $repositoryName);
-        if (!in_array($branch, $branches, true)) {
+        if (!\in_array($branch, $branches, true)) {
             throw new Exception("Branch '{$branch}' not found");
         }
 
@@ -299,9 +312,10 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file', string $branch = ''): array
     {
-        if (!empty($branch)) {
+        if ($branch !== '' && $branch !== '0') {
             // Check if branch is the default branch
             $url = "/repos/{$owner}/{$repositoryName}";
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -321,7 +335,7 @@ class Gogs extends Gitea
             [
                 'content' => base64_encode($content),
                 'message' => $message,
-            ]
+            ],
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -344,7 +358,7 @@ class Gogs extends Gitea
 
         try {
             $fullPath = $dir . '/' . $filepath;
-            $dirPath = dirname($fullPath);
+            $dirPath = \dirname($fullPath);
             if (!is_dir($dirPath)) {
                 mkdir($dirPath, 0777, true);
             }
@@ -367,6 +381,7 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
     {
         $dir = $this->gitClone($owner, $repositoryName, $oldBranchName);
@@ -391,7 +406,7 @@ class Gogs extends Gitea
         $dir = escapeshellarg(sys_get_temp_dir() . '/gogs-' . uniqid());
 
         $branchArg = '';
-        if (!empty($branch)) {
+        if ($branch !== '' && $branch !== '0') {
             $branchArg = ' -b ' . escapeshellarg($branch);
         }
 
@@ -411,7 +426,7 @@ class Gogs extends Gitea
         $output = [];
         $exitCode = 0;
 
-        \exec($command . ' 2>&1', $output, $exitCode);
+        exec($command . ' 2>&1', $output, $exitCode);
 
         $outputStr = implode("\n", $output);
 
@@ -429,9 +444,10 @@ class Gogs extends Gitea
      *
      * @return array<string>
      */
+    #[\Override]
     public function listRepositoryLanguages(string $owner, string $repositoryName): array
     {
-        throw new Exception("Listing repository languages is not supported by Gogs");
+        throw new Exception('Listing repository languages is not supported by Gogs');
     }
 
     /**
@@ -441,16 +457,17 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array
     {
         $dir = $this->gitClone($owner, $repositoryName);
 
         try {
             $this->exec("git -C {$dir} fetch origin " . escapeshellarg($target));
-            if (!empty($message)) {
-                $this->exec("git -C {$dir} tag -a " . escapeshellarg($tagName) . " " . escapeshellarg($target) . " -m " . escapeshellarg($message));
+            if ($message !== '' && $message !== '0') {
+                $this->exec("git -C {$dir} tag -a " . escapeshellarg($tagName) . ' ' . escapeshellarg($target) . ' -m ' . escapeshellarg($message));
             } else {
-                $this->exec("git -C {$dir} tag " . escapeshellarg($tagName) . " " . escapeshellarg($target));
+                $this->exec("git -C {$dir} tag " . escapeshellarg($tagName) . ' ' . escapeshellarg($target));
             }
             $this->exec("git -C {$dir} push origin " . escapeshellarg($tagName));
         } finally {
@@ -472,9 +489,10 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function createPullRequest(string $owner, string $repositoryName, string $title, string $head, string $base, string $body = ''): array
     {
-        throw new Exception("Pull request API is not supported by Gogs");
+        throw new Exception('Pull request API is not supported by Gogs');
     }
 
     /**
@@ -482,9 +500,10 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function getPullRequest(string $owner, string $repositoryName, int $pullRequestNumber): array
     {
-        throw new Exception("Pull request API is not supported by Gogs");
+        throw new Exception('Pull request API is not supported by Gogs');
     }
 
     /**
@@ -492,9 +511,10 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array
     {
-        throw new Exception("Pull request API is not supported by Gogs");
+        throw new Exception('Pull request API is not supported by Gogs');
     }
 
     /**
@@ -502,9 +522,10 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function getPullRequestFiles(string $owner, string $repositoryName, int $pullRequestNumber): array
     {
-        throw new Exception("Pull request API is not supported by Gogs");
+        throw new Exception('Pull request API is not supported by Gogs');
     }
 
     /**
@@ -512,9 +533,10 @@ class Gogs extends Gitea
      *
      * Gogs does not support commit statuses API.
      */
+    #[\Override]
     public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
-        throw new Exception("Commit status API is not supported by Gogs");
+        throw new Exception('Commit status API is not supported by Gogs');
     }
 
     /**
@@ -524,9 +546,10 @@ class Gogs extends Gitea
      *
      * @return array<mixed>
      */
+    #[\Override]
     public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array
     {
-        throw new Exception("Commit status API is not supported by Gogs");
+        throw new Exception('Commit status API is not supported by Gogs');
     }
 
     /**
@@ -536,6 +559,7 @@ class Gogs extends Gitea
      *
      * @return array<string>
      */
+    #[\Override]
     public function listBranches(string $owner, string $repositoryName): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/branches";
@@ -555,13 +579,13 @@ class Gogs extends Gitea
 
         $responseBody = $response['body'] ?? [];
 
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 
         $branches = [];
         foreach ($responseBody as $branch) {
-            if (is_array($branch) && array_key_exists('name', $branch)) {
+            if (\is_array($branch) && \array_key_exists('name', $branch)) {
                 $branches[] = $branch['name'];
             }
         }
@@ -577,6 +601,7 @@ class Gogs extends Gitea
      * @param string $search Glob pattern (e.g. 'v1.*'); empty returns all tags
      * @return array<string>
      */
+    #[\Override]
     public function listTags(string $owner, string $repositoryName, string $search = ''): array
     {
         $url = "/repos/{$owner}/{$repositoryName}/tags";
@@ -596,13 +621,13 @@ class Gogs extends Gitea
 
         $responseBody = $response['body'] ?? [];
 
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 
         $tags = [];
         foreach ($responseBody as $tag) {
-            if (is_array($tag) && array_key_exists('name', $tag)) {
+            if (\is_array($tag) && \array_key_exists('name', $tag)) {
                 $tags[] = $tag['name'];
             }
         }

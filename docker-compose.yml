@@ -1,55 +1,11 @@
+# Services the e2e tier talks to. Tests run on the host, so every provider is
+# published on an offset port (see tests/Services.php) and each bootstrap drops
+# the access token it mints into tests/.tokens, where the host can read it.
+#
+# A bootstrap provisions and then idles: `docker compose up --wait` waits for
+# containers to report healthy, and a token file that exists is what "ready"
+# means here.
 services:
-  tests:
-    build:
-      context: .
-    volumes:
-      - ./src:/usr/local/src/src
-      - ./tests:/usr/local/src/tests
-      - ./phpunit.xml:/usr/local/src/phpunit.xml
-      - gitea-data:/data:ro
-      - forgejo-data:/forgejo-data:ro
-      - gogs-data:/gogs-data:ro
-      - gitlab-data:/gitlab-data:ro
-    environment:
-      - TESTS_GITHUB_PRIVATE_KEY
-      - TESTS_GITHUB_APP_IDENTIFIER
-      - TESTS_GITHUB_INSTALLATION_ID
-      - TESTS_BITBUCKET_ACCESS_TOKEN
-      - TESTS_BITBUCKET_WORKSPACE
-      - TESTS_GITEA_URL=http://gitea:3000
-      - TESTS_REQUEST_CATCHER_URL=http://request-catcher:5000
-      - TESTS_FORGEJO_URL=http://forgejo:3000
-      - TESTS_GOGS_URL=http://gogs:3000
-      - TESTS_GITLAB_URL=http://gitlab:80
-    depends_on:
-      gitea:
-        condition: service_started
-        required: false
-      gitea-bootstrap:
-        condition: service_completed_successfully
-        required: false
-      forgejo:
-        condition: service_started
-        required: false
-      forgejo-bootstrap:
-        condition: service_completed_successfully
-        required: false
-      gogs:
-        condition: service_started
-        required: false
-      gogs-bootstrap:
-        condition: service_completed_successfully
-        required: false
-      gitlab:
-        condition: service_started
-        required: false
-      gitlab-bootstrap:
-        condition: service_completed_successfully
-        required: false
-      request-catcher:                                               
-        condition: service_started
-        required: false
-
   gitea:
     image: gitea/gitea:1.21.5
     environment:
@@ -60,9 +16,10 @@ services:
       - GITEA__webhook__ALLOWED_HOST_LIST=*
       - GITEA__webhook__SKIP_TLS_VERIFY=true
       - GITEA__webhook__DELIVER_TIMEOUT=10
+      - GITEA__server__ROOT_URL=http://127.0.0.1:13000/
       - GITEA__server__LOCAL_ROOT_URL=http://gitea:3000/
     ports:
-      - "3000:3000"
+      - "13000:3000"
     volumes:
       - gitea-data:/data
     healthcheck:
@@ -71,41 +28,33 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    profiles:
-      - gitea
 
   gitea-bootstrap:
     image: gitea/gitea:1.21.5
     volumes:
       - gitea-data:/data
+      - ./tests/.tokens:/tokens
     depends_on:
       gitea:
         condition: service_healthy
-        required: false
     entrypoint: /bin/sh
     environment:
-      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-utopia}
-      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-password}
-      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-utopia@example.com}
+      - ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-utopia}
+      - ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-password}
+      - ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-utopia@example.com}
+      - TOKEN_FILE=/tokens/gitea.txt
     command: >
       -c "
-        su git -c \"gitea admin user create --username $$GITEA_ADMIN_USERNAME --password $$GITEA_ADMIN_PASSWORD --email $$GITEA_ADMIN_EMAIL --admin --must-change-password=false\" || true &&
-        if [ ! -f /data/gitea/token.txt ]; then
-          TOKEN=$$(su git -c \"gitea admin user generate-access-token --username $$GITEA_ADMIN_USERNAME --token-name $$GITEA_ADMIN_USERNAME-token --scopes all --raw\") &&
-          echo $$TOKEN > /data/gitea/token.txt;
-        fi
+        rm -f $$TOKEN_FILE &&
+        su git -c \"gitea admin user create --username $$ADMIN_USERNAME --password $$ADMIN_PASSWORD --email $$ADMIN_EMAIL --admin --must-change-password=false\" || true &&
+        su git -c \"gitea admin user generate-access-token --username $$ADMIN_USERNAME --token-name token-$$(date +%s) --scopes all --raw\" > $$TOKEN_FILE &&
+        tail -f /dev/null
       "
-    profiles:
-      - gitea
-  request-catcher:                                                   
-    image: appwrite/requestcatcher:1.1.0
-    ports:
-      - "5000:5000"
-    profiles:
-      - gitea
-      - forgejo
-      - gogs
-      - gitlab
+    healthcheck:
+      test: ["CMD-SHELL", "test -s $$TOKEN_FILE"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
 
   forgejo:
     image: codeberg.org/forgejo/forgejo:9
@@ -117,7 +66,10 @@ services:
       - FORGEJO__webhook__ALLOWED_HOST_LIST=*
       - FORGEJO__webhook__SKIP_TLS_VERIFY=true
       - FORGEJO__webhook__DELIVER_TIMEOUT=10
+      - FORGEJO__server__ROOT_URL=http://127.0.0.1:13001/
       - FORGEJO__server__LOCAL_ROOT_URL=http://forgejo:3000/
+    ports:
+      - "13001:3000"
     volumes:
       - forgejo-data:/data
     healthcheck:
@@ -126,32 +78,33 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    profiles:
-      - forgejo
 
   forgejo-bootstrap:
     image: codeberg.org/forgejo/forgejo:9
     volumes:
       - forgejo-data:/data
+      - ./tests/.tokens:/tokens
     depends_on:
       forgejo:
         condition: service_healthy
-        required: false
     entrypoint: /bin/sh
     environment:
-      - FORGEJO_ADMIN_USERNAME=${FORGEJO_ADMIN_USERNAME:-utopia}
-      - FORGEJO_ADMIN_PASSWORD=${FORGEJO_ADMIN_PASSWORD:-password}
-      - FORGEJO_ADMIN_EMAIL=${FORGEJO_ADMIN_EMAIL:-utopia@example.com}
+      - ADMIN_USERNAME=${FORGEJO_ADMIN_USERNAME:-utopia}
+      - ADMIN_PASSWORD=${FORGEJO_ADMIN_PASSWORD:-password}
+      - ADMIN_EMAIL=${FORGEJO_ADMIN_EMAIL:-utopia@example.com}
+      - TOKEN_FILE=/tokens/forgejo.txt
     command: >
       -c "
-        su git -c \"forgejo admin user create --username $$FORGEJO_ADMIN_USERNAME --password $$FORGEJO_ADMIN_PASSWORD --email $$FORGEJO_ADMIN_EMAIL --admin --must-change-password=false\" || true &&
-        if [ ! -f /data/gitea/token.txt ]; then
-          TOKEN=$$(su git -c \"forgejo admin user generate-access-token --username $$FORGEJO_ADMIN_USERNAME --token-name $$FORGEJO_ADMIN_USERNAME-token --scopes all --raw\") &&
-          echo $$TOKEN > /data/gitea/token.txt;
-        fi
+        rm -f $$TOKEN_FILE &&
+        su git -c \"forgejo admin user create --username $$ADMIN_USERNAME --password $$ADMIN_PASSWORD --email $$ADMIN_EMAIL --admin --must-change-password=false\" || true &&
+        su git -c \"forgejo admin user generate-access-token --username $$ADMIN_USERNAME --token-name token-$$(date +%s) --scopes all --raw\" > $$TOKEN_FILE &&
+        tail -f /dev/null
       "
-    profiles:
-      - forgejo
+    healthcheck:
+      test: ["CMD-SHELL", "test -s $$TOKEN_FILE"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
 
   gogs:
     image: gogs/gogs:0.14
@@ -159,66 +112,69 @@ services:
       - gogs-data:/data
       - ./resources/gogs/app.ini:/data/gogs/conf/app.ini
     ports:
-      - "3002:3000"
+      - "13002:3000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 15s
-    profiles:
-      - gogs
 
   gogs-bootstrap:
     image: gogs/gogs:0.14
     volumes:
       - gogs-data:/data
       - ./resources/gogs/app.ini:/data/gogs/conf/app.ini
+      - ./tests/.tokens:/tokens
     depends_on:
       gogs:
         condition: service_healthy
-        required: false
     entrypoint: /bin/sh
     environment:
-      - GOGS_ADMIN_USERNAME=${GOGS_ADMIN_USERNAME:-utopia}
-      - GOGS_ADMIN_PASSWORD=${GOGS_ADMIN_PASSWORD:-password}
-      - GOGS_ADMIN_EMAIL=${GOGS_ADMIN_EMAIL:-utopia@example.com}
+      - ADMIN_USERNAME=${GOGS_ADMIN_USERNAME:-utopia}
+      - ADMIN_PASSWORD=${GOGS_ADMIN_PASSWORD:-password}
+      - ADMIN_EMAIL=${GOGS_ADMIN_EMAIL:-utopia@example.com}
+      - TOKEN_FILE=/tokens/gogs.txt
     command:
       - -c
       - |
+        rm -f $$TOKEN_FILE
+
         USER=git /app/gogs/gogs admin create-user \
           --admin \
-          --name $$GOGS_ADMIN_USERNAME \
-          --password $$GOGS_ADMIN_PASSWORD \
-          --email $$GOGS_ADMIN_EMAIL \
+          --name $$ADMIN_USERNAME \
+          --password $$ADMIN_PASSWORD \
+          --email $$ADMIN_EMAIL \
           --config /data/gogs/conf/app.ini || true
 
-        if [ ! -f /data/gogs/token.txt ]; then
-          sleep 2
-          TOKEN=$$(curl -s \
-            -X POST \
-            -u $$GOGS_ADMIN_USERNAME:$$GOGS_ADMIN_PASSWORD \
-            -H "Content-Type: application/json" \
-            -d "{\"name\":\"bootstrap\"}" \
-            http://gogs:3000/api/v1/users/$$GOGS_ADMIN_USERNAME/tokens \
-            | grep -o '"sha1":"[^"]*"' | cut -d'"' -f4)
-          if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi
-          mkdir -p /data/gogs
-          echo $$TOKEN > /data/gogs/token.txt
-        fi
-    profiles:
-      - gogs
+        sleep 2
+        TOKEN=$$(curl -s \
+          -X POST \
+          -u $$ADMIN_USERNAME:$$ADMIN_PASSWORD \
+          -H "Content-Type: application/json" \
+          -d "{\"name\":\"token-$$(date +%s)\"}" \
+          http://gogs:3000/api/v1/users/$$ADMIN_USERNAME/tokens \
+          | grep -o '"sha1":"[^"]*"' | cut -d'"' -f4)
+        if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi
+        echo $$TOKEN > $$TOKEN_FILE
+
+        tail -f /dev/null
+    healthcheck:
+      test: ["CMD-SHELL", "test -s $$TOKEN_FILE"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
 
   gitlab:
     image: gitlab/gitlab-ce:18.10.1-ce.0
     environment:
       - GITLAB_ROOT_PASSWORD=${GITLAB_ROOT_PASSWORD:-;asiweml@562}
       - GITLAB_ROOT_EMAIL=${GITLAB_ROOT_EMAIL:-utopia@example.com}
-      - GITLAB_OMNIBUS_CONFIG=gitlab_rails['initial_root_password'] = ENV['GITLAB_ROOT_PASSWORD']; gitlab_rails['gitlab_signup_enabled'] = false; gitlab_rails['allow_local_requests_from_web_hooks_and_services'] = true;
+      - GITLAB_OMNIBUS_CONFIG=external_url 'http://127.0.0.1:13003'; nginx['listen_port'] = 80; gitlab_rails['initial_root_password'] = ENV['GITLAB_ROOT_PASSWORD']; gitlab_rails['gitlab_signup_enabled'] = false; gitlab_rails['allow_local_requests_from_web_hooks_and_services'] = true;
     volumes:
       - gitlab-data:/var/opt/gitlab
     ports:
-      - "3003:80"
+      - "13003:80"
     healthcheck:
       # A single successful check only means nginx answered, not that the API
       # underneath it can serve requests, so require 3 in a row before
@@ -228,64 +184,59 @@ services:
       timeout: 45s
       retries: 5
       start_period: 300s
-    profiles:
-      - gitlab
 
   gitlab-bootstrap:
     image: alpine/curl:8.12.1
     volumes:
-      - gitlab-data:/gitlab-data
+      - ./tests/.tokens:/tokens
     depends_on:
       gitlab:
         condition: service_healthy
     environment:
       - GITLAB_ROOT_PASSWORD=${GITLAB_ROOT_PASSWORD:-;asiweml@562}
+      - TOKEN_FILE=/tokens/gitlab.txt
     entrypoint: /bin/sh
     command:
       - -c
       - |
-        if [ -f /gitlab-data/token.txt ]; then exit 0; fi
+        rm -f $$TOKEN_FILE
 
-        apk add --no-cache perl
-
-        echo "Waiting for GitLab to be ready..."
-        sleep 10
-
-        # Use OAuth2 password grant to get access token
-        OAUTH_RESPONSE=$$(curl -s -X POST http://gitlab:80/oauth/token \
-        --data-urlencode "grant_type=password" \
-        --data-urlencode "username=root" \
-        --data-urlencode "password=$$GITLAB_ROOT_PASSWORD" \
-        --data-urlencode "scope=api")
-        echo "OAuth response: $$OAUTH_RESPONSE"
-
-        OAUTH_TOKEN=$$(echo "$$OAUTH_RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
-        echo "OAuth token: $$OAUTH_TOKEN"
-
+        # Trade the root password for an OAuth token, then mint a PAT with it
+        OAUTH_TOKEN=$$(curl -s -X POST http://gitlab:80/oauth/token \
+          --data-urlencode "grant_type=password" \
+          --data-urlencode "username=root" \
+          --data-urlencode "password=$$GITLAB_ROOT_PASSWORD" \
+          --data-urlencode "scope=api" \
+          | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
         if [ -z "$$OAUTH_TOKEN" ]; then echo "Failed to get OAuth token"; exit 1; fi
 
-        # Create PAT using OAuth token
-        PAT_RESPONSE=$$(curl -s -X POST http://gitlab:80/api/v4/users/1/personal_access_tokens \
+        TOKEN=$$(curl -s -X POST http://gitlab:80/api/v4/users/1/personal_access_tokens \
           -H "Authorization: Bearer $$OAUTH_TOKEN" \
           -H "Content-Type: application/json" \
-          -d '{"name":"bootstrap","scopes":["api","read_user","read_repository","write_repository"]}')
-        echo "PAT response: $$PAT_RESPONSE"
-
-        TOKEN=$$(echo "$$PAT_RESPONSE" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-        echo "Token: $$TOKEN"
-
+          -d '{"name":"bootstrap","scopes":["api","read_user","read_repository","write_repository"]}' \
+          | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
         if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi
-        mkdir -p /gitlab-data
-        echo $$TOKEN > /gitlab-data/token.txt
 
-        # Enable local requests for webhooks
         curl -s -X PUT "http://gitlab:80/api/v4/application/settings" \
           -H "PRIVATE-TOKEN: $$TOKEN" \
           -H "Content-Type: application/json" \
           -d '{"allow_local_requests_from_web_hooks_and_services":true,"allow_local_requests_from_system_hooks":true}'
-        echo "Local webhook requests enabled"
-    profiles:
-      - gitlab
+
+        echo $$TOKEN > $$TOKEN_FILE
+
+        tail -f /dev/null
+    healthcheck:
+      test: ["CMD-SHELL", "test -s $$TOKEN_FILE"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  # Where the providers deliver their webhooks, so a test can read back what
+  # they sent. Providers reach it in the network, tests over the offset port.
+  request-catcher:
+    image: appwrite/requestcatcher:1.1.0
+    ports:
+      - "15000:5000"
 
 volumes:
   gitea-data:

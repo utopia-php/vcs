@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Utopia\VCS\Adapter\Git;
 
 class Forgejo extends Gitea
@@ -8,24 +10,26 @@ class Forgejo extends Gitea
 
     /**
      * Get Adapter Name
-     *
-     * @return string
      */
+    #[\Override]
     public function getName(): string
     {
         return 'forgejo';
     }
 
+    #[\Override]
     protected function getHookType(): string
     {
         return 'forgejo';
     }
 
+    #[\Override]
     public function getEventHeaderName(): string
     {
         return 'x-forgejo-event';
     }
 
+    #[\Override]
     public function getSignatureHeaderName(): string
     {
         return 'x-forgejo-signature';

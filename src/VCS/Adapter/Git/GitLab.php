@@ -15,17 +15,13 @@ class GitLab extends Git
     protected string $endpoint = 'http://gitlab:80/api/v4';
     protected string $gitlabUrl = 'http://gitlab:80';
     protected string $accessToken;
-    protected Cache $cache;
 
     /**
      * @var array<string, string>
      */
     protected $headers = ['content-type' => 'application/json'];
 
-    public function __construct(Cache $cache)
-    {
-        $this->cache = $cache;
-    }
+    public function __construct(protected Cache $cache) {}
 
     public function setEndpoint(string $endpoint): void
     {
@@ -75,17 +71,14 @@ class GitLab extends Git
 
     public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
-        if (!empty($accessToken)) {
+        if (!\in_array($accessToken, [null, '', '0'], true)) {
             $this->accessToken = $accessToken;
             return;
         }
-        throw new Exception("accessToken is required for this adapter.");
+        throw new Exception('accessToken is required for this adapter.');
     }
 
-    protected function generateAccessToken(string $privateKey, string $appId): void
-    {
-        return;
-    }
+    protected function generateAccessToken(string $privateKey, string $appId): void {}
 
     /**
      * Create a new group/organization
@@ -93,7 +86,7 @@ class GitLab extends Git
      */
     public function createOrganization(string $orgName): string
     {
-        $url = "/groups";
+        $url = '/groups';
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
             'name' => $orgName,
@@ -116,7 +109,7 @@ class GitLab extends Git
      */
     private function getOwnerPath(string $owner): string
     {
-        if (strstr($owner, ':') !== false) {
+        if (str_contains($owner, ':')) {
             return substr($owner, strpos($owner, ':') + 1);
         }
         return $owner;
@@ -138,7 +131,7 @@ class GitLab extends Git
     {
         $namespaceId = (int) $this->getNamespaceId($owner);
 
-        $url = "/projects";
+        $url = '/projects';
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [
             'name' => $repositoryName,
@@ -153,7 +146,7 @@ class GitLab extends Git
         if ($statusCode >= 400) {
             throw new Exception("Creating repository {$repositoryName} failed with status code {$statusCode}", $statusCode);
         }
-        $result = is_array($body) ? $body : [];
+        $result = \is_array($body) ? $body : [];
         $result['pushed_at'] = $result['last_activity_at'] ?? '';
         return $result;
     }
@@ -186,14 +179,14 @@ class GitLab extends Git
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
         if ($responseHeadersStatusCode >= 400) {
-            throw new RepositoryNotFound("Repository not found");
+            throw new RepositoryNotFound('Repository not found');
         }
 
         $result = $response['body'] ?? [];
-        if (is_array($result)) {
+        if (\is_array($result)) {
             $result['pushed_at'] = $result['last_activity_at'] ?? '';
         }
-        return is_array($result) ? $result : [];
+        return \is_array($result) ? $result : [];
     }
 
 
@@ -224,8 +217,8 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
 
         $url = "{$this->endpoint}/projects/{$projectPath}/repository/archive.{$extension}?access_token=" . urlencode($this->accessToken);
-        if (!empty($ref)) {
-            $url .= "&sha=" . urlencode($ref);
+        if ($ref !== '' && $ref !== '0') {
+            $url .= '&sha=' . urlencode($ref);
         }
 
         return $url;
@@ -238,7 +231,7 @@ class GitLab extends Git
 
     public function getInstallationRepository(string $repositoryName): array
     {
-        throw new Exception("getInstallationRepository is not applicable for this adapter");
+        throw new Exception('getInstallationRepository is not applicable for this adapter');
     }
 
     /**
@@ -252,7 +245,7 @@ class GitLab extends Git
     public function listNamespaces(int $page, int $per_page, string $search = ''): array
     {
         $url = "/namespaces?page={$page}&per_page={$per_page}";
-        if (!empty($search)) {
+        if ($search !== '' && $search !== '0') {
             $url .= '&search=' . urlencode($search);
         }
 
@@ -264,9 +257,9 @@ class GitLab extends Git
         }
 
         $items = $response['body'] ?? [];
-        $items = is_array($items) ? $items : [];
+        $items = \is_array($items) ? $items : [];
 
-        $namespaces = array_map(fn (array $namespace) => [
+        $namespaces = array_map(fn(array $namespace): array => [
             'id' => (string) ($namespace['id'] ?? ''),
             'name' => $namespace['name'] ?? ($namespace['path'] ?? ''),
             'path' => $namespace['full_path'] ?? ($namespace['path'] ?? ''),
@@ -286,8 +279,8 @@ class GitLab extends Git
 
         // Try group first, fall back to user namespace
         $url = "/groups/{$ownerPath}/projects?page={$page}&per_page={$per_page}";
-        if (!empty($search)) {
-            $url .= "&search=" . urlencode($search);
+        if ($search !== '' && $search !== '0') {
+            $url .= '&search=' . urlencode($search);
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
@@ -301,8 +294,8 @@ class GitLab extends Git
         if ($statusCode === 404) {
             $filterByNamespace = true;
             $url = "/projects?membership=true&page={$page}&per_page={$per_page}";
-            if (!empty($search)) {
-                $url .= "&search=" . urlencode($search);
+            if ($search !== '' && $search !== '0') {
+                $url .= '&search=' . urlencode($search);
             }
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
@@ -314,7 +307,7 @@ class GitLab extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return ['items' => [], 'total' => 0];
         }
 
@@ -379,12 +372,12 @@ class GitLab extends Git
                     return [];
                 }
                 $responseBody = $response['body'] ?? [];
-                if (!is_array($responseBody) || empty($responseBody)) {
+                if (!\is_array($responseBody) || $responseBody === []) {
                     break;
                 }
                 $allItems = array_merge($allItems, $responseBody);
                 $page++;
-            } while (count($responseBody) === 100);
+            } while (\count($responseBody) === 100);
             return array_column($allItems, 'path');
         }
 
@@ -397,7 +390,7 @@ class GitLab extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 
@@ -409,7 +402,7 @@ class GitLab extends Git
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $encodedPath = urlencode($this->normalizeRepositoryPath($path));
-        $url = "/projects/{$projectPath}/repository/files/{$encodedPath}?ref=" . urlencode(empty($ref) ? 'HEAD' : $ref);
+        $url = "/projects/{$projectPath}/repository/files/{$encodedPath}?ref=" . urlencode($ref === '' || $ref === '0' ? 'HEAD' : $ref);
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
@@ -424,7 +417,7 @@ class GitLab extends Git
         $content = '';
         if (($responseBody['encoding'] ?? '') === 'base64') {
             $rawContent = $responseBody['content'] ?? '';
-            $content = base64_decode($rawContent, true);
+            $content = base64_decode((string) $rawContent, true);
             if ($content === false) {
                 throw new \Utopia\VCS\Exception\FileNotFound();
             }
@@ -445,10 +438,10 @@ class GitLab extends Git
 
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
-        $url = "/projects/{$projectPath}/repository/tree" . (empty($ref) ? '' : '?ref=' . urlencode($ref));
+        $url = "/projects/{$projectPath}/repository/tree" . ($ref === '' || $ref === '0' ? '' : '?ref=' . urlencode($ref));
 
         if ($path !== '') {
-            $url .= (empty($ref) ? '?' : '&') . 'path=' . urlencode($path);
+            $url .= ($ref === '' || $ref === '0' ? '?' : '&') . 'path=' . urlencode($path);
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
@@ -460,7 +453,7 @@ class GitLab extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 
@@ -492,7 +485,7 @@ class GitLab extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 
@@ -507,7 +500,7 @@ class GitLab extends Git
         $url = "/projects/{$projectPath}/repository/files/{$encodedFilepath}";
 
         $payload = [
-            'branch' => empty($branch) ? 'main' : $branch,
+            'branch' => $branch === '' || $branch === '0' ? 'main' : $branch,
             'content' => base64_encode($content),
             'encoding' => 'base64',
             'commit_message' => $message,
@@ -580,8 +573,8 @@ class GitLab extends Git
             'url' => $url,
             'token' => $secret,
             'enable_ssl_verification' => false,
-            'push_events' => in_array('push', $events),
-            'merge_requests_events' => in_array('pull_request', $events),
+            'push_events' => \in_array('push', $events),
+            'merge_requests_events' => \in_array('pull_request', $events),
         ];
 
         $response = $this->call(self::METHOD_POST, $apiUrl, ['Authorization' => 'Bearer ' . $this->accessToken], $payload);
@@ -612,8 +605,8 @@ class GitLab extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!array_key_exists('id', $responseBody)) {
-            throw new Exception("Comment creation response is missing comment ID.");
+        if (!\array_key_exists('id', $responseBody)) {
+            throw new Exception('Comment creation response is missing comment ID.');
         }
 
         return $pullRequestNumber . ':' . ($responseBody['id'] ?? '');
@@ -625,7 +618,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
 
         $parts = explode(':', $commentId, 2);
-        if (count($parts) !== 2) {
+        if (\count($parts) !== 2) {
             return '';
         }
 
@@ -642,7 +635,7 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
 
         $parts = explode(':', $commentId, 2);
-        if (count($parts) !== 2) {
+        if (\count($parts) !== 2) {
             throw new Exception("Invalid comment ID format: {$commentId}");
         }
 
@@ -652,7 +645,7 @@ class GitLab extends Git
 
         $responseHeaders = $response['headers'] ?? [];
         if (($responseHeaders['status-code'] ?? 0) !== 200) {
-            throw new Exception("Failed to update comment: HTTP " . ($responseHeaders['status-code'] ?? 0), $responseHeaders['status-code'] ?? 0);
+            throw new Exception('Failed to update comment: HTTP ' . ($responseHeaders['status-code'] ?? 0), $responseHeaders['status-code'] ?? 0);
         }
 
         return $commentId;
@@ -660,7 +653,7 @@ class GitLab extends Git
 
     public function getUser(string $username): array
     {
-        $url = "/users?username=" . rawurlencode($username);
+        $url = '/users?username=' . rawurlencode($username);
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
@@ -696,7 +689,7 @@ class GitLab extends Git
             return $namespace['path'] ?? '';
         }
 
-        $url = "/user";
+        $url = '/user';
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
@@ -749,7 +742,7 @@ class GitLab extends Git
             $mrResponse = $this->call(
                 self::METHOD_GET,
                 "/projects/{$projectPath}/merge_requests/{$pullRequestNumber}",
-                ['Authorization' => 'Bearer ' . $this->accessToken]
+                ['Authorization' => 'Bearer ' . $this->accessToken],
             );
             $mrBody = $mrResponse['body'] ?? [];
             if (($mrBody['patch_id_sha'] ?? null) !== null) {
@@ -774,7 +767,7 @@ class GitLab extends Git
             }
 
             $files = $response['body'] ?? [];
-            if (!is_array($files) || empty($files)) {
+            if (!\is_array($files) || $files === []) {
                 break;
             }
 
@@ -784,7 +777,7 @@ class GitLab extends Git
                 ];
             }
 
-            if (count($files) < $perPage) {
+            if (\count($files) < $perPage) {
                 break;
             }
             $page++;
@@ -844,14 +837,14 @@ class GitLab extends Git
                 return [];
             }
             $responseBody = $response['body'] ?? [];
-            if (!is_array($responseBody) || empty($responseBody)) {
+            if (!\is_array($responseBody) || $responseBody === []) {
                 break;
             }
             foreach ($responseBody as $branch) {
                 $branches[] = $branch['name'] ?? '';
             }
             $page++;
-        } while (count($responseBody) === 100);
+        } while (\count($responseBody) === 100);
 
         return $branches;
     }
@@ -872,14 +865,14 @@ class GitLab extends Git
                 return [];
             }
             $responseBody = $response['body'] ?? [];
-            if (!is_array($responseBody) || empty($responseBody)) {
+            if (!\is_array($responseBody) || $responseBody === []) {
                 break;
             }
             foreach ($responseBody as $tag) {
                 $tags[] = $tag['name'] ?? '';
             }
             $page++;
-        } while (count($responseBody) === 100);
+        } while (\count($responseBody) === 100);
 
         return $this->matchGlob($tags, $search);
     }
@@ -895,7 +888,7 @@ class GitLab extends Git
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
         if ($responseHeadersStatusCode >= 400) {
-            throw new Exception("Commit not found or inaccessible");
+            throw new Exception('Commit not found or inaccessible');
         }
 
         $commit = $response['body'] ?? [];
@@ -914,7 +907,7 @@ class GitLab extends Git
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
-        $url = "/projects/{$projectPath}/repository/commits?ref_name=" . urlencode($branch) . "&per_page=1";
+        $url = "/projects/{$projectPath}/repository/commits?ref_name=" . urlencode($branch) . '&per_page=1';
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
@@ -926,7 +919,7 @@ class GitLab extends Git
 
         $responseBody = $response['body'] ?? [];
         if (empty($responseBody[0])) {
-            throw new Exception("Latest commit response is missing required information.");
+            throw new Exception('Latest commit response is missing required information.');
         }
 
         $commit = $responseBody[0];
@@ -962,15 +955,15 @@ class GitLab extends Git
             'state' => $gitlabState,
         ];
 
-        if (!empty($description)) {
+        if ($description !== '' && $description !== '0') {
             $payload['description'] = $description;
         }
 
-        if (!empty($target_url)) {
+        if ($target_url !== '' && $target_url !== '0') {
             $payload['target_url'] = $target_url;
         }
 
-        if (!empty($context)) {
+        if ($context !== '' && $context !== '0') {
             $payload['name'] = $context;
         }
 
@@ -985,7 +978,7 @@ class GitLab extends Git
 
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
     {
-        if (empty($rootDirectory) || $rootDirectory === '/') {
+        if (\in_array($rootDirectory, ['', '0', '/'], true)) {
             $rootDirectory = '*';
         }
 
@@ -993,7 +986,7 @@ class GitLab extends Git
 
         // GitLab clone URL format: http://oauth2:{token}@host/owner/repo.git
         $baseUrl = $this->gitlabUrl;
-        if (!empty($this->accessToken)) {
+        if (isset($this->accessToken) && ($this->accessToken !== '' && $this->accessToken !== '0')) {
             $baseUrl = str_replace('://', '://oauth2:' . urlencode($this->accessToken) . '@', $this->gitlabUrl);
         }
 
@@ -1004,13 +997,13 @@ class GitLab extends Git
         $commands = [
             "mkdir -p {$directory}",
             "cd {$directory}",
-            "git config --global init.defaultBranch main",
-            "git init",
+            'git config --global init.defaultBranch main',
+            'git init',
             "git remote add origin {$cloneUrl}",
-            "git config core.sparseCheckout true",
+            'git config core.sparseCheckout true',
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
-            "git config remote.origin.tagopt --no-tags",
+            'git config remote.origin.tagopt --no-tags',
         ];
 
         switch ($versionType) {
@@ -1034,7 +1027,7 @@ class GitLab extends Git
     }
 
     // Maps GitLab's native action to the GitHub/Gitea verbs consumers key off of; 'merge' counts as 'closed' too.
-    private const MERGE_REQUEST_ACTION_MAP = [
+    private const array MERGE_REQUEST_ACTION_MAP = [
         'open' => 'opened',
         'reopen' => 'reopened',
         'update' => 'synchronize',
@@ -1045,8 +1038,8 @@ class GitLab extends Git
     public function getEvents(string $event, string $payload): array
     {
         $payloadArray = json_decode($payload, true);
-        if ($payloadArray === null || !is_array($payloadArray)) {
-            throw new Exception("Invalid payload.");
+        if ($payloadArray === null || !\is_array($payloadArray)) {
+            throw new Exception('Invalid payload.');
         }
 
         switch ($event) {
@@ -1065,7 +1058,7 @@ class GitLab extends Git
                     $latestCommit = $commits[array_key_last($commits)];
                 }
 
-                $repositoryId = strval($project['id'] ?? '');
+                $repositoryId = \strval($project['id'] ?? '');
                 $repositoryName = $project['name'] ?? '';
                 $repositoryUrl = $project['web_url'] ?? '';
                 $owner = $project['namespace'] ?? '';
@@ -1074,7 +1067,7 @@ class GitLab extends Git
 
                 $affectedFiles = [];
                 foreach ($commits as $commit) {
-                    $changedFiles = \array_merge($commit['added'] ?? [], $commit['modified'] ?? [], $commit['removed'] ?? []);
+                    $changedFiles = array_merge($commit['added'] ?? [], $commit['modified'] ?? [], $commit['removed'] ?? []);
                     foreach ($changedFiles as $file) {
                         $affectedFiles[$file] = true;
                     }
@@ -1102,14 +1095,14 @@ class GitLab extends Git
                     'external' => false,
                     'pullRequestNumber' => '',
                     'action' => '',
-                    'affectedFiles' => \array_keys($affectedFiles),
+                    'affectedFiles' => array_keys($affectedFiles),
                 ]];
 
             case 'Merge Request Hook':
                 $project = $payloadArray['project'] ?? [];
                 $mr = $payloadArray['object_attributes'] ?? [];
 
-                $repositoryId = strval($project['id'] ?? '');
+                $repositoryId = \strval($project['id'] ?? '');
                 $repositoryName = $project['name'] ?? '';
                 $repositoryUrl = $project['web_url'] ?? '';
                 $owner = $project['namespace'] ?? '';
@@ -1147,6 +1140,7 @@ class GitLab extends Git
      * GitLab doesn't sign the payload -- it just echoes back the configured
      * secret token verbatim, so there's no HMAC to compute here.
      */
+    #[\Override]
     public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
         return hash_equals($signatureKey, $signature);
@@ -1163,7 +1157,7 @@ class GitLab extends Git
             'ref' => $target,
         ];
 
-        if (!empty($message)) {
+        if ($message !== '' && $message !== '0') {
             $payload['message'] = $message;
         }
 
@@ -1182,7 +1176,7 @@ class GitLab extends Git
     {
         $ownerPath = $this->getOwnerPath($owner);
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
-        $url = "/projects/{$projectPath}/repository/commits/" . urlencode($commitHash) . "/statuses";
+        $url = "/projects/{$projectPath}/repository/commits/" . urlencode($commitHash) . '/statuses';
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
 
@@ -1193,7 +1187,7 @@ class GitLab extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 

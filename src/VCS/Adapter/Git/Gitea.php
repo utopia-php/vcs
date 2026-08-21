@@ -5,8 +5,8 @@ namespace Utopia\VCS\Adapter\Git;
 use Exception;
 use Utopia\Cache\Cache;
 use Utopia\VCS\Adapter\Git;
-use Utopia\VCS\Exception\RepositoryNotFound;
 use Utopia\VCS\Exception\FileNotFound;
+use Utopia\VCS\Exception\RepositoryNotFound;
 
 class Gitea extends Git
 {
@@ -22,8 +22,6 @@ class Gitea extends Git
 
     protected string $giteaUrl;
 
-    protected Cache $cache;
-
     /**
      * Global Headers
      *
@@ -31,10 +29,7 @@ class Gitea extends Git
      */
     protected $headers = ['content-type' => 'application/json'];
 
-    public function __construct(Cache $cache)
-    {
-        $this->cache = $cache;
-    }
+    public function __construct(protected Cache $cache) {}
 
     public function setEndpoint(string $endpoint): void
     {
@@ -44,8 +39,6 @@ class Gitea extends Git
 
     /**
      * Get Adapter Name
-     *
-     * @return string
      */
     public function getName(): string
     {
@@ -65,13 +58,13 @@ class Gitea extends Git
      */
     public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
-        if (!empty($accessToken)) {
+        if (!\in_array($accessToken, [null, '', '0'], true)) {
             $this->accessToken = $accessToken;
             $this->refreshToken = $refreshToken;
             return;
         }
 
-        throw new Exception("accessToken is required for this adapter.");
+        throw new Exception('accessToken is required for this adapter.');
     }
 
     /**
@@ -83,7 +76,7 @@ class Gitea extends Git
     protected function generateAccessToken(string $privateKey, string $appId): void
     {
         // Not applicable for this adapter - OAuth2 tokens are passed directly
-        return;
+
     }
 
     /**
@@ -107,17 +100,17 @@ class Gitea extends Git
         }
 
         $result = $response['body'] ?? [];
-        if (is_array($result)) {
+        if (\is_array($result)) {
             // Gitea's API does not expose `pushed_at`; surface `updated_at` under that key
             // for parity with the other VCS adapters (GitHub, GitLab).
-            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+            $result['pushed_at'] ??= $result['updated_at'] ?? '';
         }
-        return is_array($result) ? $result : [];
+        return \is_array($result) ? $result : [];
     }
 
     public function createOrganization(string $orgName): string
     {
-        $url = "/orgs";
+        $url = '/orgs';
 
         $response = $this->call(self::METHOD_POST, $url, ['Authorization' => "token $this->accessToken"], [
             'username' => $orgName,
@@ -165,7 +158,7 @@ class Gitea extends Git
                 'limit' => 100,
             ];
 
-            if (!empty($search)) {
+            if ($search !== '' && $search !== '0') {
                 $queryParams['q'] = $search;
             }
 
@@ -182,12 +175,12 @@ class Gitea extends Git
 
             $responseBody = $response['body'] ?? [];
 
-            if (!is_array($responseBody)) {
+            if (!\is_array($responseBody)) {
                 throw new Exception('Unexpected response body: ' . json_encode($responseBody));
             }
 
-            if (!array_key_exists('data', $responseBody)) {
-                throw new Exception("Repositories list missing in response: " . json_encode($responseBody));
+            if (!\array_key_exists('data', $responseBody)) {
+                throw new Exception('Repositories list missing in response: ' . json_encode($responseBody));
             }
 
             $repos = $responseBody['data'];
@@ -201,26 +194,26 @@ class Gitea extends Git
                 if ($repoOwner === $owner) {
                     $filteredRepos[] = $repo;
 
-                    if (count($filteredRepos) >= $maxToCollect) {
+                    if (\count($filteredRepos) >= $maxToCollect) {
                         break 2;
                     }
                 }
             }
 
-            if (count($repos) < 100) {
+            if (\count($repos) < 100) {
                 break;
             }
 
             $currentPage++;
         }
 
-        $total = count($filteredRepos);
+        $total = \count($filteredRepos);
         $offset = ($page - 1) * $per_page;
-        $pagedRepos = array_slice($filteredRepos, $offset, $per_page);
+        $pagedRepos = \array_slice($filteredRepos, $offset, $per_page);
 
         foreach ($pagedRepos as &$repo) {
-            if (is_array($repo)) {
-                $repo['pushed_at'] = $repo['pushed_at'] ?? ($repo['updated_at'] ?? '');
+            if (\is_array($repo)) {
+                $repo['pushed_at'] ??= $repo['updated_at'] ?? '';
             }
         }
         unset($repo);
@@ -243,7 +236,7 @@ class Gitea extends Git
      */
     public function getInstallationRepository(string $repositoryName): array
     {
-        throw new Exception("getInstallationRepository is not applicable for this adapter - use getRepository() with owner and repo name instead");
+        throw new Exception('getInstallationRepository is not applicable for this adapter - use getRepository() with owner and repo name instead');
     }
 
     public function getRepository(string $owner, string $repositoryName): array
@@ -256,14 +249,14 @@ class Gitea extends Git
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
         if ($responseHeadersStatusCode >= 400) {
-            throw new RepositoryNotFound("Repository not found");
+            throw new RepositoryNotFound('Repository not found');
         }
 
         $result = $response['body'] ?? [];
-        if (is_array($result)) {
-            $result['pushed_at'] = $result['pushed_at'] ?? ($result['updated_at'] ?? '');
+        if (\is_array($result)) {
+            $result['pushed_at'] ??= $result['updated_at'] ?? '';
         }
-        return is_array($result) ? $result : [];
+        return \is_array($result) ? $result : [];
     }
 
     /**
@@ -289,7 +282,7 @@ class Gitea extends Git
             default => throw new Exception("Invalid archive format: {$format}. Use 'tarball' or 'zipball'."),
         };
 
-        if (empty($ref)) {
+        if ($ref === '' || $ref === '0') {
             $ref = $this->getRepository($owner, $repositoryName)['default_branch'] ?? '';
             if (empty($ref)) {
                 throw new Exception('Unable to resolve default branch for archive download.');
@@ -297,7 +290,7 @@ class Gitea extends Git
         }
 
         // Encode the ref but keep slashes so nested branch names (e.g. feature/foo) still resolve
-        $encodedRef = \str_replace('%2F', '/', \rawurlencode($ref));
+        $encodedRef = str_replace('%2F', '/', rawurlencode((string) $ref));
 
         return "{$this->endpoint}/repos/{$owner}/{$repositoryName}/archive/{$encodedRef}.{$extension}?token=" . urlencode($this->accessToken);
     }
@@ -310,8 +303,8 @@ class Gitea extends Git
 
         $responseBody = $response['body'] ?? [];
 
-        if (!array_key_exists('name', $responseBody)) {
-            throw new RepositoryNotFound("Repository not found");
+        if (!\array_key_exists('name', $responseBody)) {
+            throw new RepositoryNotFound('Repository not found');
         }
 
         return $responseBody['name'] ?? '';
@@ -350,11 +343,11 @@ class Gitea extends Git
 
         $payload = [
             'content' => base64_encode($content),
-            'message' => $message
+            'message' => $message,
         ];
 
         // Add branch if specified
-        if (!empty($branch)) {
+        if ($branch !== '' && $branch !== '0') {
             $payload['branch'] = $branch;
         }
 
@@ -362,7 +355,7 @@ class Gitea extends Git
             self::METHOD_POST,
             $url,
             ['Authorization' => "token $this->accessToken"],
-            $payload
+            $payload,
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -393,8 +386,8 @@ class Gitea extends Git
             ['Authorization' => "token $this->accessToken"],
             [
                 'new_branch_name' => $newBranchName,
-                'old_branch_name' => $oldBranchName
-            ]
+                'old_branch_name' => $oldBranchName,
+            ],
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -425,8 +418,8 @@ class Gitea extends Git
     {
         $path = $this->normalizeRepositoryPath($path);
         $url = "/repos/{$owner}/{$repositoryName}/contents/{$path}";
-        if (!empty($ref)) {
-            $url .= "?ref=" . urlencode($ref);
+        if ($ref !== '' && $ref !== '0') {
+            $url .= '?ref=' . urlencode($ref);
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -451,7 +444,7 @@ class Gitea extends Git
         return [
             'sha' => $responseBody['sha'] ?? '',
             'size' => $responseBody['size'] ?? 0,
-            'content' => $content
+            'content' => $content,
         ];
     }
 
@@ -459,11 +452,11 @@ class Gitea extends Git
     {
         $path = $this->normalizeRepositoryPath($path);
         $url = "/repos/{$owner}/{$repositoryName}/contents";
-        if (!empty($path)) {
+        if ($path !== '' && $path !== '0') {
             $url .= "/{$path}";
         }
-        if (!empty($ref)) {
-            $url .= "?ref=" . urlencode($ref);
+        if ($ref !== '' && $ref !== '0') {
+            $url .= '?ref=' . urlencode($ref);
         }
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
@@ -489,7 +482,7 @@ class Gitea extends Git
             $contents[] = [
                 'name' => $item['name'] ?? '',
                 'size' => $item['size'] ?? 0,
-                'type' => $type === 'file' ? self::CONTENTS_FILE : self::CONTENTS_DIRECTORY
+                'type' => $type === 'file' ? self::CONTENTS_FILE : self::CONTENTS_DIRECTORY,
             ];
         }
 
@@ -533,7 +526,7 @@ class Gitea extends Git
             'base' => $base,
         ];
 
-        if (!empty($body)) {
+        if ($body !== '' && $body !== '0') {
             $payload['body'] = $body;
         }
 
@@ -541,7 +534,7 @@ class Gitea extends Git
             self::METHOD_POST,
             $url,
             ['Authorization' => "token $this->accessToken"],
-            $payload
+            $payload,
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -550,9 +543,7 @@ class Gitea extends Git
             throw new Exception("Failed to create pull request: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
         }
 
-        $responseBody = $response['body'] ?? [];
-
-        return $responseBody;
+        return $response['body'] ?? [];
     }
 
     protected function getHookType(): string
@@ -585,7 +576,7 @@ class Gitea extends Git
                     'content_type' => 'json',
                     'secret' => $secret,
                 ],
-            ]
+            ],
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -611,8 +602,8 @@ class Gitea extends Git
 
         $responseBody = $response['body'] ?? [];
 
-        if (!array_key_exists('id', $responseBody)) {
-            throw new Exception("Comment creation response is missing comment ID.");
+        if (!\array_key_exists('id', $responseBody)) {
+            throw new Exception('Comment creation response is missing comment ID.');
         }
 
         return (string) ($responseBody['id'] ?? '');
@@ -643,8 +634,8 @@ class Gitea extends Git
 
         $responseBody = $response['body'] ?? [];
 
-        if (!array_key_exists('id', $responseBody)) {
-            throw new Exception("Comment update response is missing comment ID.");
+        if (!\array_key_exists('id', $responseBody)) {
+            throw new Exception('Comment update response is missing comment ID.');
         }
 
         return (string) ($responseBody['id'] ?? '');
@@ -658,7 +649,7 @@ class Gitea extends Git
      */
     public function getUser(string $username): array
     {
-        $url = "/users/" . rawurlencode($username);
+        $url = '/users/' . rawurlencode($username);
 
         $response = $this->call(self::METHOD_GET, $url, ['Authorization' => "token $this->accessToken"]);
 
@@ -683,7 +674,7 @@ class Gitea extends Git
 
         $login = $response['body']['login'] ?? '';
         if (empty($login)) {
-            throw new Exception("Authenticated user login missing or empty in response");
+            throw new Exception('Authenticated user login missing or empty in response');
         }
 
         return $login;
@@ -741,7 +732,7 @@ class Gitea extends Git
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
 
         if ($responseHeadersStatusCode === 404) {
-            throw new RepositoryNotFound("Repository not found");
+            throw new RepositoryNotFound('Repository not found');
         }
 
         if ($responseHeadersStatusCode >= 400) {
@@ -752,7 +743,7 @@ class Gitea extends Git
         $owner = $responseBody['owner'] ?? [];
 
         if (empty($owner['login'])) {
-            throw new Exception("Owner login missing or empty in response");
+            throw new Exception('Owner login missing or empty in response');
         }
 
         return $owner['login'];
@@ -856,15 +847,15 @@ class Gitea extends Git
                 break;
             }
 
-            $responseBody = \json_decode($response['body'] ?? '', true);
+            $responseBody = json_decode($response['body'] ?? '', true);
 
-            if (!is_array($responseBody)) {
+            if (!\is_array($responseBody)) {
                 break;
             }
 
             $pageCount = 0;
             foreach ($responseBody as $branch) {
-                if (is_array($branch) && array_key_exists('name', $branch)) {
+                if (\is_array($branch) && \array_key_exists('name', $branch)) {
                     $allBranches[] = $branch['name'] ?? '';
                     $pageCount++;
                 }
@@ -911,15 +902,15 @@ class Gitea extends Git
                 break;
             }
 
-            $responseBody = \json_decode($response['body'] ?? '', true);
+            $responseBody = json_decode($response['body'] ?? '', true);
 
-            if (!is_array($responseBody)) {
+            if (!\is_array($responseBody)) {
                 break;
             }
 
             $pageCount = 0;
             foreach ($responseBody as $tag) {
-                if (is_array($tag) && array_key_exists('name', $tag)) {
+                if (\is_array($tag) && \array_key_exists('name', $tag)) {
                     $allTags[] = $tag['name'] ?? '';
                     $pageCount++;
                 }
@@ -950,7 +941,7 @@ class Gitea extends Git
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
         if ($responseHeadersStatusCode >= 400) {
-            throw new Exception("Commit not found or inaccessible");
+            throw new Exception('Commit not found or inaccessible');
         }
 
         $responseBody = $response['body'] ?? [];
@@ -995,7 +986,7 @@ class Gitea extends Git
         $responseBody = $response['body'] ?? [];
 
         if (empty($responseBody[0] ?? [])) {
-            throw new Exception("Latest commit response is missing required information.");
+            throw new Exception('Latest commit response is missing required information.');
         }
 
         $responseBodyFirst = $responseBody[0];
@@ -1023,7 +1014,6 @@ class Gitea extends Git
      * @param string $description Status description
      * @param string $target_url Target URL for status
      * @param string $context Status context/identifier
-     * @return void
      */
     public function updateCommitStatus(string $repositoryName, string $commitHash, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
@@ -1033,15 +1023,15 @@ class Gitea extends Git
             'state' => $state,
         ];
 
-        if (!empty($description)) {
+        if ($description !== '' && $description !== '0') {
             $body['description'] = $description;
         }
 
-        if (!empty($target_url)) {
+        if ($target_url !== '' && $target_url !== '0') {
             $body['target_url'] = $target_url;
         }
 
-        if (!empty($context)) {
+        if ($context !== '' && $context !== '0') {
             $body['context'] = $context;
         }
 
@@ -1067,11 +1057,11 @@ class Gitea extends Git
          */
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
     {
-        if (empty($rootDirectory)) {
+        if ($rootDirectory === '' || $rootDirectory === '0') {
             $rootDirectory = '*';
         }
         $cloneUrl = "{$this->giteaUrl}/{$owner}/{$repositoryName}";
-        if (!empty($this->accessToken)) {
+        if (isset($this->accessToken) && ($this->accessToken !== '' && $this->accessToken !== '0')) {
             $cloneUrl = str_replace('://', "://{$owner}:{$this->accessToken}@", $this->giteaUrl) . "/{$owner}/{$repositoryName}";
         }
 
@@ -1083,13 +1073,13 @@ class Gitea extends Git
         $commands = [
             "mkdir -p {$directory}",
             "cd {$directory}",
-            "git config --global init.defaultBranch main",
-            "git init",
+            'git config --global init.defaultBranch main',
+            'git init',
             "git remote add origin {$cloneUrl}",
-            "git config core.sparseCheckout true",
+            'git config core.sparseCheckout true',
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
-            "git config remote.origin.tagopt --no-tags",
+            'git config remote.origin.tagopt --no-tags',
         ];
 
         switch ($versionType) {
@@ -1123,8 +1113,8 @@ class Gitea extends Git
     {
         $payload = json_decode($payload, true);
 
-        if ($payload === null || !is_array($payload)) {
-            throw new Exception("Invalid payload.");
+        if ($payload === null || !\is_array($payload)) {
+            throw new Exception('Invalid payload.');
         }
 
         switch ($event) {
@@ -1137,11 +1127,11 @@ class Gitea extends Git
 
                 $branchCreated = $payload['created'] ?? false;
                 $branchDeleted = $payload['deleted'] ?? false;
-                $repositoryId = strval($payloadRepository['id'] ?? '');
+                $repositoryId = \strval($payloadRepository['id'] ?? '');
                 $repositoryName = $payloadRepository['name'] ?? '';
                 $branch = str_replace('refs/heads/', '', $payload['ref'] ?? '');
                 $repositoryUrl = $payloadRepository['html_url'] ?? '';
-                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . "/src/branch/" . $branch : '';
+                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/src/branch/' . $branch : '';
                 $commitHash = $payload['after'] ?? '';
                 $owner = $payloadRepositoryOwner['login'] ?? '';
                 $authorUrl = $payloadSender['html_url'] ?? '';
@@ -1186,7 +1176,7 @@ class Gitea extends Git
                     'external' => false,
                     'pullRequestNumber' => '',
                     'action' => '',
-                    'affectedFiles' => \array_keys($affectedFiles),
+                    'affectedFiles' => array_keys($affectedFiles),
                 ]];
 
             case 'pull_request':
@@ -1199,18 +1189,18 @@ class Gitea extends Git
                 $payloadPullRequestUser = $payloadPullRequest['user'] ?? [];
                 $payloadPullRequestBase = $payloadPullRequest['base'] ?? [];
 
-                $repositoryId = strval($payloadRepository['id'] ?? '');
+                $repositoryId = \strval($payloadRepository['id'] ?? '');
                 $branch = $payloadPullRequestHead['ref'] ?? '';
                 $repositoryName = $payloadRepository['name'] ?? '';
                 $repositoryUrl = $payloadRepository['html_url'] ?? '';
-                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . "/src/branch/" . $branch : '';
+                $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/src/branch/' . $branch : '';
                 $pullRequestNumber = $payload['number'] ?? '';
                 $action = $payload['action'] ?? '';
                 $owner = $payloadRepositoryOwner['login'] ?? '';
                 $authorUrl = $payloadSender['html_url'] ?? '';
                 $authorAvatarUrl = $payloadPullRequestUser['avatar_url'] ?? '';
                 $commitHash = $payloadPullRequestHead['sha'] ?? '';
-                $headCommitUrl = $repositoryUrl ? $repositoryUrl . "/commit/" . $commitHash : '';
+                $headCommitUrl = $repositoryUrl ? $repositoryUrl . '/commit/' . $commitHash : '';
 
                 // Check if PR is from a fork (external)
                 $headRepoFullName = $payloadPullRequestHeadRepo['full_name'] ?? '';
@@ -1257,7 +1247,7 @@ class Gitea extends Git
             'target' => $target,
         ];
 
-        if (!empty($message)) {
+        if ($message !== '' && $message !== '0') {
             $payload['message'] = $message;
         }
 
@@ -1265,7 +1255,7 @@ class Gitea extends Git
             self::METHOD_POST,
             $url,
             ['Authorization' => "token $this->accessToken"],
-            $payload
+            $payload,
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -1298,7 +1288,7 @@ class Gitea extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 

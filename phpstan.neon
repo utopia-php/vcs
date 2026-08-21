@@ -1,3 +1,7 @@
+includes:
+    - ../../phpstan.neon
+
 parameters:
-  excludePaths:
-    - tests/resources
+    # The suite asserts the shape of what an adapter returns even where a
+    # docblock already claims it - the provider is the source of truth.
+    treatPhpDocTypesAsCertain: false

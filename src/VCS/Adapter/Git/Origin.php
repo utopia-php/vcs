@@ -80,8 +80,6 @@ class Origin extends Git
 
     protected string $installationId = '';
 
-    protected Cache $cache;
-
     /**
      * Global Headers
      *
@@ -89,10 +87,7 @@ class Origin extends Git
      */
     protected $headers = ['content-type' => 'application/json'];
 
-    public function __construct(Cache $cache)
-    {
-        $this->cache = $cache;
-    }
+    public function __construct(protected Cache $cache) {}
 
     /**
      * Get Adapter Name
@@ -119,14 +114,14 @@ class Origin extends Git
         if ($response == false || !\is_string($response)) {
             $this->generateAccessToken($privateKey, $appId);
 
-            $tokens = \json_encode([
+            $tokens = json_encode([
                 'jwtToken' => $this->jwtToken,
                 'accessToken' => $this->accessToken,
             ]) ?: '{}';
 
             $this->cache->save('origin-' . $installationId, $tokens);
         } else {
-            $parsed = \json_decode($response, true);
+            $parsed = json_decode($response, true);
             $parsed = \is_array($parsed) ? $parsed : [];
             $this->jwtToken = \strval($parsed['jwtToken'] ?? '');
             $this->accessToken = \strval($parsed['accessToken'] ?? '');
@@ -141,7 +136,7 @@ class Origin extends Git
      */
     protected function generateAccessToken(string $privateKey, ?string $appId): void
     {
-        if (empty($appId)) {
+        if (\in_array($appId, [null, '', '0'], true)) {
             throw new Exception('Origin requires the app id to sign the app JWT.');
         }
 
@@ -151,13 +146,13 @@ class Origin extends Git
             self::METHOD_POST,
             '/app/installations/' . $this->installationId . '/access_tokens',
             ['Authorization' => 'Bearer ' . $this->jwtToken],
-            ['scopes' => [], 'repositoryIds' => []] // empty arrays inherit the full installation grant
+            ['scopes' => [], 'repositoryIds' => []], // empty arrays inherit the full installation grant
         );
 
         $responseBody = $response['body'] ?? [];
         $statusCode = $response['headers']['status-code'] ?? 0;
         if (!\is_array($responseBody) || !\array_key_exists('token', $responseBody)) {
-            $safeBody = \is_array($responseBody) ? \json_encode(\array_intersect_key($responseBody, \array_flip(['code', 'message']))) : '';
+            $safeBody = \is_array($responseBody) ? json_encode(array_intersect_key($responseBody, array_flip(['code', 'message']))) : '';
             throw new Exception('Failed to retrieve access token from Origin API. Status: ' . $statusCode . '. Response: ' . $safeBody, (int) $statusCode);
         }
 
@@ -172,7 +167,7 @@ class Origin extends Git
     {
         $secretKey = $this->ed25519SecretKey($privateKey);
 
-        $iat = \time();
+        $iat = time();
         $header = ['alg' => 'EdDSA', 'kid' => $appId, 'typ' => 'JWT'];
         $claims = [
             'iss' => $appId,
@@ -181,11 +176,11 @@ class Origin extends Git
             'exp' => $iat + self::APP_JWT_EXPIRY,
         ];
 
-        $signingInput = $this->base64UrlEncode(\json_encode($header) ?: '')
+        $signingInput = $this->base64UrlEncode(json_encode($header) ?: '')
             . '.'
-            . $this->base64UrlEncode(\json_encode($claims) ?: '');
+            . $this->base64UrlEncode(json_encode($claims) ?: '');
 
-        $signature = \sodium_crypto_sign_detached($signingInput, $secretKey);
+        $signature = sodium_crypto_sign_detached($signingInput, $secretKey);
 
         return $signingInput . '.' . $this->base64UrlEncode($signature);
     }
@@ -201,11 +196,11 @@ class Origin extends Git
      */
     protected function ed25519SecretKey(string $privateKey): string
     {
-        $privateKey = \trim($privateKey);
+        $privateKey = trim($privateKey);
 
-        if (\str_contains($privateKey, '-----BEGIN')) {
-            $body = \preg_replace('/-----[A-Z ]+-----|\s+/', '', $privateKey) ?? '';
-            $der = \base64_decode($body, true);
+        if (str_contains($privateKey, '-----BEGIN')) {
+            $body = preg_replace('/-----[A-Z ]+-----|\s+/', '', $privateKey) ?? '';
+            $der = base64_decode($body, true);
             if ($der === false) {
                 throw new Exception('Failed to decode the Origin private key PEM.');
             }
@@ -213,13 +208,13 @@ class Origin extends Git
             // In PKCS#8 the Ed25519 seed is the 32 bytes after the
             // OCTET STRING wrapper (04 22 04 20).
             $marker = "\x04\x22\x04\x20";
-            $offset = \strpos($der, $marker);
-            $seed = $offset !== false ? \substr($der, $offset + 4, 32) : '';
+            $offset = strpos($der, $marker);
+            $seed = $offset !== false ? substr($der, $offset + 4, 32) : '';
             if (\strlen($seed) !== SODIUM_CRYPTO_SIGN_SEEDBYTES) {
                 throw new Exception('The Origin private key is not an Ed25519 PKCS#8 key.');
             }
         } else {
-            $decoded = \base64_decode(\strtr($privateKey, '-_', '+/'), true);
+            $decoded = base64_decode(strtr($privateKey, '-_', '+/'), true);
             if ($decoded === false) {
                 throw new Exception('Failed to decode the Origin private key.');
             }
@@ -235,22 +230,22 @@ class Origin extends Git
             $seed = $decoded;
         }
 
-        return \sodium_crypto_sign_secretkey(\sodium_crypto_sign_seed_keypair($seed));
+        return sodium_crypto_sign_secretkey(sodium_crypto_sign_seed_keypair($seed));
     }
 
     protected function base64UrlEncode(string $data): string
     {
-        return \rtrim(\strtr(\base64_encode($data), '+/', '-_'), '=');
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
     protected function base64UrlDecode(string $data): string
     {
         $remainder = \strlen($data) % 4;
         if ($remainder > 0) {
-            $data .= \str_repeat('=', 4 - $remainder);
+            $data .= str_repeat('=', 4 - $remainder);
         }
 
-        return (string) \base64_decode(\strtr($data, '-_', '+/'), true);
+        return (string) base64_decode(strtr($data, '-_', '+/'), true);
     }
 
     /**
@@ -270,21 +265,21 @@ class Origin extends Git
     {
         $params = ['client_id' => $appId];
 
-        if (empty($scopes)) {
+        if ($scopes === []) {
             $params['source'] = 'app-metadata';
         } else {
-            $params['scope'] = \implode(' ', $scopes);
+            $params['scope'] = implode(' ', $scopes);
         }
 
-        if (!empty($redirectUri)) {
+        if ($redirectUri !== '' && $redirectUri !== '0') {
             $params['redirect_uri'] = $redirectUri;
         }
 
-        if (!empty($state)) {
+        if ($state !== '' && $state !== '0') {
             $params['state'] = $state;
         }
 
-        return $this->webEndpoint . '/apps/install?' . \http_build_query($params);
+        return $this->webEndpoint . '/apps/install?' . http_build_query($params);
     }
 
     /**
@@ -300,7 +295,7 @@ class Origin extends Git
      */
     public function verifyReceipt(string $receipt, string $appId): array
     {
-        $segments = \explode('.', $receipt);
+        $segments = explode('.', $receipt);
 
         if (\count($segments) !== 3) {
             throw new Exception('Installation receipt is not a JWT');
@@ -308,8 +303,8 @@ class Origin extends Git
 
         [$headerSegment, $claimsSegment, $signatureSegment] = $segments;
 
-        $header = \json_decode($this->base64UrlDecode($headerSegment), true);
-        $claims = \json_decode($this->base64UrlDecode($claimsSegment), true);
+        $header = json_decode($this->base64UrlDecode($headerSegment), true);
+        $claims = json_decode($this->base64UrlDecode($claimsSegment), true);
         $signature = $this->base64UrlDecode($signatureSegment);
 
         if (!\is_array($header) || !\is_array($claims)) {
@@ -330,7 +325,7 @@ class Origin extends Git
 
         if (
             \strlen($signature) !== SODIUM_CRYPTO_SIGN_BYTES
-            || !\sodium_crypto_sign_verify_detached($signature, $headerSegment . '.' . $claimsSegment, $key)
+            || !sodium_crypto_sign_verify_detached($signature, $headerSegment . '.' . $claimsSegment, $key)
         ) {
             throw new Exception('Installation receipt signature is invalid');
         }
@@ -343,7 +338,7 @@ class Origin extends Git
             throw new Exception('Installation receipt audience does not match the app id');
         }
 
-        $now = \time();
+        $now = time();
         $leeway = 60;
 
         // Receipts are short-lived, single-use artifacts (about a five-minute
@@ -377,7 +372,7 @@ class Origin extends Git
      */
     public function getSigningKeys(bool $refresh = false): array
     {
-        return \array_values(\array_map(fn ($key) => \strval($key['x']), $this->jwks($refresh)));
+        return array_values(array_map(fn(array $key): string => \strval($key['x']), $this->jwks($refresh)));
     }
 
     /**
@@ -473,7 +468,7 @@ class Origin extends Git
         $response = $this->call(
             self::METHOD_GET,
             '/app/installations/' . $installationId,
-            ['Authorization' => "Bearer {$this->jwtToken}"]
+            ['Authorization' => "Bearer {$this->jwtToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -506,7 +501,7 @@ class Origin extends Git
                 $params['pageToken'] = $pageToken;
             }
 
-            $response = $this->call(self::METHOD_GET, '/repos/' . \rawurlencode($owner), ['Authorization' => "Bearer {$this->accessToken}"], $params);
+            $response = $this->call(self::METHOD_GET, '/repos/' . rawurlencode($owner), ['Authorization' => "Bearer {$this->accessToken}"], $params);
 
             $statusCode = $response['headers']['status-code'] ?? 0;
 
@@ -523,14 +518,14 @@ class Origin extends Git
             }
 
             $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
-            $repositories = \array_merge($repositories, \is_array($responseBody['repositories'] ?? null) ? $responseBody['repositories'] : []);
+            $repositories = array_merge($repositories, \is_array($responseBody['repositories'] ?? null) ? $responseBody['repositories'] : []);
             $pageToken = \strval($responseBody['nextPageToken'] ?? '');
         } while ($pageToken !== '');
 
         return [
-            'items' => \array_map(
-                fn ($repository) => $this->normalizeRepository(\is_array($repository) ? $repository : []),
-                \array_slice($repositories, ($page - 1) * $per_page, $per_page)
+            'items' => array_map(
+                fn($repository): array => $this->normalizeRepository(\is_array($repository) ? $repository : []),
+                \array_slice($repositories, ($page - 1) * $per_page, $per_page),
             ),
             'total' => \count($repositories),
         ];
@@ -567,10 +562,10 @@ class Origin extends Git
         $repositories = [];
         foreach ($this->installationRepositories() as $repository) {
             $repositoryOwner = \is_array($repository['owner'] ?? null) ? $repository['owner'] : [];
-            if (\strtolower(\strval($repositoryOwner['slug'] ?? '')) !== \strtolower($owner)) {
+            if (strtolower(\strval($repositoryOwner['slug'] ?? '')) !== strtolower($owner)) {
                 continue;
             }
-            if ($search !== '' && \stripos(\strval($repository['name'] ?? ''), $search) === false) {
+            if ($search !== '' && stripos(\strval($repository['name'] ?? ''), $search) === false) {
                 continue;
             }
 
@@ -591,7 +586,7 @@ class Origin extends Git
     public function getInstallationRepository(string $repositoryName): array
     {
         foreach ($this->installationRepositories() as $repository) {
-            if (\strtolower(\strval($repository['name'] ?? '')) === \strtolower($repositoryName)) {
+            if (strtolower(\strval($repository['name'] ?? '')) === strtolower($repositoryName)) {
                 return $this->normalizeRepository($repository);
             }
         }
@@ -663,8 +658,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            '/repos/' . \rawurlencode($owner) . '/' . \rawurlencode($repositoryName),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repositoryName),
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -713,7 +708,7 @@ class Origin extends Git
             self::METHOD_GET,
             $this->repositoryPath($owner, $repositoryName) . '/pulls',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            ['head' => $branch, 'state' => 'open', 'pageSize' => 1]
+            ['head' => $branch, 'state' => 'open', 'pageSize' => 1],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -726,7 +721,7 @@ class Origin extends Git
 
         $pullRequest = $pullRequests[0] ?? [];
 
-        return \is_array($pullRequest) && !empty($pullRequest) ? $this->normalizePullRequest($pullRequest) : [];
+        return \is_array($pullRequest) && $pullRequest !== [] ? $this->normalizePullRequest($pullRequest) : [];
     }
 
     /**
@@ -739,7 +734,7 @@ class Origin extends Git
         $response = $this->call(
             self::METHOD_GET,
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber,
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -766,7 +761,7 @@ class Origin extends Git
                 'head' => $head,
                 'base' => $base,
                 'body' => $body,
-            ]
+            ],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -801,7 +796,7 @@ class Origin extends Git
 
     protected function shortBranchName(string $ref): string
     {
-        return \str_starts_with($ref, 'refs/heads/') ? \substr($ref, \strlen('refs/heads/')) : $ref;
+        return str_starts_with($ref, 'refs/heads/') ? substr($ref, \strlen('refs/heads/')) : $ref;
     }
 
     /**
@@ -813,7 +808,7 @@ class Origin extends Git
     {
         return $this->collectPages(
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/files',
-            'files'
+            'files',
         );
     }
 
@@ -826,7 +821,7 @@ class Origin extends Git
             self::METHOD_POST,
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/comments',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            ['body' => $comment]
+            ['body' => $comment],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -849,8 +844,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            $this->repositoryPath($owner, $repositoryName) . '/pulls/comments/' . \rawurlencode($commentId),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            $this->repositoryPath($owner, $repositoryName) . '/pulls/comments/' . rawurlencode($commentId),
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -870,9 +865,9 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_PATCH,
-            $this->repositoryPath($owner, $repositoryName) . '/pulls/comments/' . \rawurlencode($commentId),
+            $this->repositoryPath($owner, $repositoryName) . '/pulls/comments/' . rawurlencode($commentId),
             ['Authorization' => "Bearer {$this->accessToken}"],
-            ['body' => $comment]
+            ['body' => $comment],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -896,46 +891,46 @@ class Origin extends Git
      */
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
     {
-        if (empty($rootDirectory)) {
+        if ($rootDirectory === '' || $rootDirectory === '0') {
             $rootDirectory = '*';
         }
 
         $cloneUrl = $this->authenticatedCloneUrl($owner, $repositoryName);
 
-        $directory = \escapeshellarg($directory);
-        $rootDirectory = \escapeshellarg($rootDirectory);
+        $directory = escapeshellarg($directory);
+        $rootDirectory = escapeshellarg($rootDirectory);
 
         $commands = [
             "mkdir -p {$directory}",
             "cd {$directory}",
-            "git config --global init.defaultBranch main",
-            "git init",
+            'git config --global init.defaultBranch main',
+            'git init',
             "git remote add origin {$cloneUrl}",
             // Enable sparse checkout
-            "git config core.sparseCheckout true",
+            'git config core.sparseCheckout true',
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
             // Disable fetching of refs we don't need
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
             // Disable fetching of tags
-            "git config remote.origin.tagopt --no-tags",
+            'git config remote.origin.tagopt --no-tags',
         ];
 
         switch ($versionType) {
             case self::CLONE_TYPE_BRANCH:
-                $branchName = \escapeshellarg($version);
+                $branchName = escapeshellarg($version);
                 $commands[] = "if git ls-remote --exit-code --heads origin {$branchName}; then git pull --depth=1 origin {$branchName} && git checkout {$branchName}; else git checkout -b {$branchName}; fi";
                 break;
             case self::CLONE_TYPE_COMMIT:
-                $commitHash = \escapeshellarg($version);
+                $commitHash = escapeshellarg($version);
                 $commands[] = "git fetch --depth=1 origin {$commitHash} && git checkout {$commitHash}";
                 break;
             case self::CLONE_TYPE_TAG:
-                $tagName = \escapeshellarg($version);
+                $tagName = escapeshellarg($version);
                 $commands[] = "git fetch --depth=1 origin refs/tags/$(git ls-remote --tags origin {$tagName} | tail -n 1 | awk -F '/' '{print $3}') && git checkout FETCH_HEAD";
                 break;
         }
 
-        return \implode(' && ', $commands);
+        return implode(' && ', $commands);
     }
 
     /**
@@ -943,10 +938,10 @@ class Origin extends Git
      */
     protected function authenticatedCloneUrl(string $owner, string $repositoryName): string
     {
-        $credentials = !empty($this->accessToken) ? 'x-access-token:' . \urlencode($this->accessToken) . '@' : '';
-        $host = \substr($this->gitEndpoint, \strlen('https://'));
+        $credentials = $this->accessToken === '' || $this->accessToken === '0' ? '' : 'x-access-token:' . urlencode($this->accessToken) . '@';
+        $host = substr($this->gitEndpoint, \strlen('https://'));
 
-        return 'https://' . $credentials . $host . '/' . \urlencode($owner) . '/' . \urlencode($repositoryName) . '.git';
+        return 'https://' . $credentials . $host . '/' . urlencode($owner) . '/' . urlencode($repositoryName) . '.git';
     }
 
     /**
@@ -963,6 +958,7 @@ class Origin extends Git
      * @param string $signatureKey Origin's Ed25519 public key: SPKI PEM, or the
      *                             base64/base64url raw 32 bytes (the JWK 'x' value)
      */
+    #[\Override]
     public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
         $publicKey = $this->ed25519PublicKey($signatureKey);
@@ -970,20 +966,23 @@ class Origin extends Git
             return false;
         }
 
-        $digest = \hash('sha256', $payload);
+        $digest = hash('sha256', $payload);
 
         // The header may carry several space-separated signatures during key rotation
-        foreach (\preg_split('/\s+/', \trim($signature)) ?: [] as $candidate) {
-            if (!\str_starts_with($candidate, 'v1ed,')) {
+        foreach (preg_split('/\s+/', trim($signature)) ?: [] as $candidate) {
+            if (!str_starts_with($candidate, 'v1ed,')) {
                 continue;
             }
 
-            $decoded = \base64_decode(\substr($candidate, 5), true);
-            if ($decoded === false || \strlen($decoded) !== SODIUM_CRYPTO_SIGN_BYTES) {
+            $decoded = base64_decode(substr($candidate, 5), true);
+            if ($decoded === false) {
+                continue;
+            }
+            if (\strlen($decoded) !== SODIUM_CRYPTO_SIGN_BYTES) {
                 continue;
             }
 
-            if (\sodium_crypto_sign_verify_detached($decoded, $digest, $publicKey)) {
+            if (sodium_crypto_sign_verify_detached($decoded, $digest, $publicKey)) {
                 return true;
             }
         }
@@ -998,24 +997,24 @@ class Origin extends Git
      */
     protected function ed25519PublicKey(string $signatureKey): ?string
     {
-        $signatureKey = \trim($signatureKey);
+        $signatureKey = trim($signatureKey);
 
-        if (\str_contains($signatureKey, '-----BEGIN')) {
-            $body = \preg_replace('/-----[A-Z ]+-----|\s+/', '', $signatureKey) ?? '';
-            $der = \base64_decode($body, true);
+        if (str_contains($signatureKey, '-----BEGIN')) {
+            $body = preg_replace('/-----[A-Z ]+-----|\s+/', '', $signatureKey) ?? '';
+            $der = base64_decode($body, true);
             if ($der === false) {
                 return null;
             }
 
             // In SPKI the Ed25519 key is the 32 bytes after the BIT STRING wrapper (03 21 00)
             $marker = "\x03\x21\x00";
-            $offset = \strpos($der, $marker);
-            $publicKey = $offset !== false ? \substr($der, $offset + 3, 32) : '';
+            $offset = strpos($der, $marker);
+            $publicKey = $offset !== false ? substr($der, $offset + 3, 32) : '';
 
             return \strlen($publicKey) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES ? $publicKey : null;
         }
 
-        $decoded = \base64_decode(\strtr($signatureKey, '-_', '+/'), true);
+        $decoded = base64_decode(strtr($signatureKey, '-_', '+/'), true);
         if ($decoded !== false && \strlen($decoded) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
             return $decoded;
         }
@@ -1036,7 +1035,7 @@ class Origin extends Git
      */
     public function getEvents(string $event, string $payload): array
     {
-        $decoded = \json_decode($payload, true);
+        $decoded = json_decode($payload, true);
 
         if ($decoded === null || !\is_array($decoded)) {
             throw new Exception('Invalid payload.');
@@ -1061,7 +1060,7 @@ class Origin extends Git
             return $this->pullRequestEvents($type, $eventPayload, $installationId);
         }
 
-        if (\str_starts_with($type, 'installation.')) {
+        if (str_starts_with($type, 'installation.')) {
             return $this->installationEvents($type, $eventPayload, $installationId);
         }
 
@@ -1080,7 +1079,7 @@ class Origin extends Git
         $repositoryId = \strval($repository['id'] ?? '');
         $repositoryName = \strval($repository['name'] ?? '');
         $owner = \strval($repositoryOwner['slug'] ?? '');
-        $repositoryUrl = !empty($owner) && !empty($repositoryName) ? $this->getRepositoryUrl($owner, $repositoryName) : '';
+        $repositoryUrl = $owner !== '' && $owner !== '0' && ($repositoryName !== '' && $repositoryName !== '0') ? $this->getRepositoryUrl($owner, $repositoryName) : '';
 
         $refUpdates = \is_array($payload['refUpdates'] ?? null) ? $payload['refUpdates'] : [];
 
@@ -1099,7 +1098,7 @@ class Origin extends Git
                 'branchCreated' => (bool) ($refUpdate['created'] ?? false),
                 'branchDeleted' => (bool) ($refUpdate['deleted'] ?? false),
                 'branch' => $branch,
-                'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $this->getBranchUrl($owner, $repositoryName, $branch) : '',
+                'branchUrl' => $repositoryUrl !== '' && $repositoryUrl !== '0' && ($branch !== '' && $branch !== '0') ? $this->getBranchUrl($owner, $repositoryName, $branch) : '',
                 'repositoryId' => $repositoryId,
                 'repositoryName' => $repositoryName,
                 'repositoryUrl' => $repositoryUrl,
@@ -1111,7 +1110,7 @@ class Origin extends Git
                 'headCommitAuthorName' => \strval($headCommitAuthor['name'] ?? ''),
                 'headCommitAuthorEmail' => \strval($headCommitAuthor['email'] ?? ''),
                 'headCommitMessage' => \strval($headCommit['message'] ?? ''),
-                'headCommitUrl' => !empty($repositoryUrl) && !empty($commitHash) ? $this->getCommitUrl($owner, $repositoryName, $commitHash) : '',
+                'headCommitUrl' => $repositoryUrl !== '' && $repositoryUrl !== '0' && ($commitHash !== '' && $commitHash !== '0') ? $this->getCommitUrl($owner, $repositoryName, $commitHash) : '',
                 'external' => false,
                 'pullRequestNumber' => '',
                 'action' => '',
@@ -1137,13 +1136,13 @@ class Origin extends Git
         $repositoryId = \strval($repository['id'] ?? '');
         $repositoryName = \strval($repository['name'] ?? '');
         $owner = \strval($repositoryOwner['slug'] ?? '');
-        $repositoryUrl = !empty($owner) && !empty($repositoryName) ? $this->getRepositoryUrl($owner, $repositoryName) : '';
+        $repositoryUrl = $owner !== '' && $owner !== '0' && ($repositoryName !== '' && $repositoryName !== '0') ? $this->getRepositoryUrl($owner, $repositoryName) : '';
         $branch = $this->shortBranchName(\strval($head['ref'] ?? ''));
         $commitHash = \strval($head['sha'] ?? '');
 
         return [[
             'branch' => $branch,
-            'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $this->getBranchUrl($owner, $repositoryName, $branch) : '',
+            'branchUrl' => $repositoryUrl !== '' && $repositoryUrl !== '0' && ($branch !== '' && $branch !== '0') ? $this->getBranchUrl($owner, $repositoryName, $branch) : '',
             'repositoryId' => $repositoryId,
             'repositoryName' => $repositoryName,
             'repositoryUrl' => $repositoryUrl,
@@ -1152,7 +1151,7 @@ class Origin extends Git
             'owner' => $owner,
             'authorUrl' => '',
             'authorAvatarUrl' => '',
-            'headCommitUrl' => !empty($repositoryUrl) && !empty($commitHash) ? $this->getCommitUrl($owner, $repositoryName, $commitHash) : '',
+            'headCommitUrl' => $repositoryUrl !== '' && $repositoryUrl !== '0' && ($commitHash !== '' && $commitHash !== '0') ? $this->getCommitUrl($owner, $repositoryName, $commitHash) : '',
             // Origin pull requests always come from a branch of the same repository
             'external' => false,
             'pullRequestNumber' => (int) ($pullRequest['number'] ?? 0),
@@ -1174,7 +1173,7 @@ class Origin extends Git
         }
 
         return [[
-            'action' => \substr($type, \strlen('installation.')),
+            'action' => substr($type, \strlen('installation.')),
             'installationId' => $installationId,
             'userName' => \strval($target['slug'] ?? ''),
         ]];
@@ -1246,7 +1245,7 @@ class Origin extends Git
                 self::METHOD_GET,
                 $this->repositoryPath($owner, $repositoryName) . '/branches',
                 ['Authorization' => "Bearer {$this->accessToken}"],
-                $params
+                $params,
             );
 
             $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1279,7 +1278,7 @@ class Origin extends Git
             self::METHOD_GET,
             $this->repositoryPath($owner, $repositoryName) . '/git/matching-refs',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            ['ref' => 'tags/']
+            ['ref' => 'tags/'],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1293,7 +1292,7 @@ class Origin extends Git
         $tags = [];
         foreach ($responseBody as $ref) {
             if (\is_array($ref) && \is_string($ref['ref'] ?? null)) {
-                $tags[] = \str_replace('refs/tags/', '', $ref['ref']);
+                $tags[] = str_replace('refs/tags/', '', $ref['ref']);
             }
         }
 
@@ -1310,7 +1309,7 @@ class Origin extends Git
      */
     public function updateCommitStatus(string $repositoryName, string $SHA, string $owner, string $state, string $description = '', string $target_url = '', string $context = ''): void
     {
-        $context = !empty($context) ? $context : 'default';
+        $context = $context === '' || $context === '0' ? 'default' : $context;
 
         $checkRun = [
             'key' => $context,
@@ -1323,14 +1322,14 @@ class Origin extends Git
 
         if ($state !== 'pending') {
             $checkRun['conclusion'] = $state === 'success' ? 'success' : 'failure';
-            $checkRun['completedAt'] = \gmdate('Y-m-d\TH:i:s\Z');
+            $checkRun['completedAt'] = gmdate('Y-m-d\TH:i:s\Z');
         }
 
-        if (!empty($description)) {
-            $checkRun['output'] = ['title' => \mb_strimwidth($description, 0, 255), 'summary' => $description];
+        if ($description !== '' && $description !== '0') {
+            $checkRun['output'] = ['title' => mb_strimwidth($description, 0, 255), 'summary' => $description];
         }
 
-        if (!empty($target_url)) {
+        if ($target_url !== '' && $target_url !== '0') {
             $checkRun['detailsUrl'] = $target_url;
         }
 
@@ -1346,7 +1345,7 @@ class Origin extends Git
                     'externalId' => $context,
                 ],
                 'checkRun' => $checkRun,
-            ]
+            ],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1424,39 +1423,39 @@ class Origin extends Git
         string $startedAt = '',
         string $completedAt = '',
     ): array {
-        if ($status === 'completed' && empty($conclusion)) {
+        if ($status === 'completed' && ($conclusion === '' || $conclusion === '0')) {
             throw new Exception("conclusion is required when status is 'completed'");
         }
 
         // Conclusion requires status=completed; auto-set completed_at if not provided.
-        if (!empty($conclusion)) {
+        if ($conclusion !== '' && $conclusion !== '0') {
             $status = 'completed';
-            if (empty($completedAt)) {
-                $completedAt = \gmdate('Y-m-d\TH:i:s\Z');
+            if ($completedAt === '' || $completedAt === '0') {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
             }
         }
 
-        $externalId = !empty($externalId) ? $externalId : \uniqid('attempt-');
+        $externalId = $externalId === '' || $externalId === '0' ? uniqid('attempt-') : $externalId;
 
-        $checkRun = \array_merge(
+        $checkRun = array_merge(
             [
                 'key' => $name . '/' . $externalId,
                 'name' => $name,
-                'status' => !empty($status) ? $status : 'queued',
+                'status' => $status === '' || $status === '0' ? 'queued' : $status,
                 'externalId' => $externalId,
                 'externalUpdatedAt' => $this->rfc3339Now(),
             ],
-            \array_filter([
+            array_filter([
                 'conclusion' => $conclusion,
                 'startedAt' => $startedAt,
                 'completedAt' => $completedAt,
                 'detailsUrl' => $detailsUrl,
-            ], fn ($value) => !empty($value))
+            ], fn(string $value): bool => $value !== '' && $value !== '0'),
         );
 
         // Output requires both title and summary.
-        if (!empty($title) && !empty($summary)) {
-            $checkRun['output'] = \array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn ($value) => !empty($value));
+        if ($title !== '' && $title !== '0' && ($summary !== '' && $summary !== '0')) {
+            $checkRun['output'] = array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn(string $value): bool => $value !== '' && $value !== '0');
         }
 
         $response = $this->call(
@@ -1471,7 +1470,7 @@ class Origin extends Git
                     'externalId' => $externalId,
                 ],
                 'checkRun' => $checkRun,
-            ]
+            ],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1484,7 +1483,7 @@ class Origin extends Git
         return $this->normalizeCheckRun(
             \is_array($responseBody['checkRun'] ?? null) ? $responseBody['checkRun'] : [],
             $owner,
-            $repositoryName
+            $repositoryName,
         );
     }
 
@@ -1505,8 +1504,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            $this->repositoryPath($owner, $repositoryName) . '/check-runs/' . \rawurlencode($checkRunId),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            $this->repositoryPath($owner, $repositoryName) . '/check-runs/' . rawurlencode($checkRunId),
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1547,15 +1546,15 @@ class Origin extends Git
         string $startedAt = '',
         string $completedAt = '',
     ): array {
-        if ($status === 'completed' && empty($conclusion)) {
+        if ($status === 'completed' && ($conclusion === '' || $conclusion === '0')) {
             throw new Exception("conclusion is required when status is 'completed'");
         }
 
         // Conclusion requires status=completed; auto-set completed_at if not provided.
-        if (!empty($conclusion)) {
+        if ($conclusion !== '' && $conclusion !== '0') {
             $status = 'completed';
-            if (empty($completedAt)) {
-                $completedAt = \gmdate('Y-m-d\TH:i:s\Z');
+            if ($completedAt === '' || $completedAt === '0') {
+                $completedAt = gmdate('Y-m-d\TH:i:s\Z');
             }
         }
 
@@ -1565,27 +1564,27 @@ class Origin extends Git
 
         $existingOutput = \is_array($existing['output'] ?? null) ? $existing['output'] : [];
 
-        $checkRun = \array_merge(
+        $checkRun = array_merge(
             [
                 'key' => \strval($existing['key'] ?? ''),
-                'name' => !empty($name) ? $name : \strval($existing['name'] ?? ''),
-                'status' => !empty($status) ? $status : \strval($existing['status'] ?? ''),
+                'name' => $name === '' || $name === '0' ? \strval($existing['name'] ?? '') : $name,
+                'status' => $status === '' || $status === '0' ? \strval($existing['status'] ?? '') : $status,
                 // Reusing the external id updates this attempt instead of creating a retry
                 'externalId' => \strval($existing['externalId'] ?? ''),
                 'externalUpdatedAt' => $this->rfc3339Now(),
             ],
-            \array_filter([
-                'conclusion' => !empty($conclusion) ? $conclusion : \strval($existing['conclusion'] ?? ''),
-                'startedAt' => !empty($startedAt) ? $startedAt : \strval($existing['startedAt'] ?? ''),
-                'completedAt' => !empty($completedAt) ? $completedAt : \strval($existing['completedAt'] ?? ''),
-                'detailsUrl' => !empty($detailsUrl) ? $detailsUrl : \strval($existing['detailsUrl'] ?? ''),
-            ], fn ($value) => !empty($value))
+            array_filter([
+                'conclusion' => $conclusion === '' || $conclusion === '0' ? \strval($existing['conclusion'] ?? '') : $conclusion,
+                'startedAt' => $startedAt === '' || $startedAt === '0' ? \strval($existing['startedAt'] ?? '') : $startedAt,
+                'completedAt' => $completedAt === '' || $completedAt === '0' ? \strval($existing['completedAt'] ?? '') : $completedAt,
+                'detailsUrl' => $detailsUrl === '' || $detailsUrl === '0' ? \strval($existing['detailsUrl'] ?? '') : $detailsUrl,
+            ], fn(string $value): bool => $value !== '' && $value !== '0'),
         );
 
         // Output requires both title and summary; keep what the run already reports otherwise.
-        if (!empty($title) && !empty($summary)) {
-            $checkRun['output'] = \array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn ($value) => !empty($value));
-        } elseif (!empty($existingOutput)) {
+        if ($title !== '' && $title !== '0' && ($summary !== '' && $summary !== '0')) {
+            $checkRun['output'] = array_filter(['title' => $title, 'summary' => $summary, 'text' => $text], fn(string $value): bool => $value !== '' && $value !== '0');
+        } elseif ($existingOutput !== []) {
             $checkRun['output'] = $existingOutput;
         }
 
@@ -1595,16 +1594,16 @@ class Origin extends Git
             ['Authorization' => "Bearer {$this->accessToken}"],
             [
                 'headSha' => \strval($existing['sha'] ?? ''),
-                'checkSuite' => \array_merge(
+                'checkSuite' => array_merge(
                     [
                         'key' => \strval($suite['key'] ?? ''),
                         'name' => \strval($suite['name'] ?? ''),
                         'externalId' => \strval($suite['externalId'] ?? ''),
                     ],
-                    \array_filter(['detailsUrl' => \strval($suite['detailsUrl'] ?? '')], fn ($value) => !empty($value))
+                    array_filter(['detailsUrl' => \strval($suite['detailsUrl'] ?? '')], fn(string $value): bool => $value !== '' && $value !== '0'),
                 ),
                 'checkRun' => $checkRun,
-            ]
+            ],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1617,7 +1616,7 @@ class Origin extends Git
         return $this->normalizeCheckRun(
             \is_array($responseBody['checkRun'] ?? null) ? $responseBody['checkRun'] : [],
             $owner,
-            $repositoryName
+            $repositoryName,
         );
     }
 
@@ -1628,8 +1627,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            $this->repositoryPath($owner, $repositoryName) . '/check-suites/' . \rawurlencode($checkSuiteId),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            $this->repositoryPath($owner, $repositoryName) . '/check-suites/' . rawurlencode($checkSuiteId),
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1657,12 +1656,12 @@ class Origin extends Git
             'id' => $id,
             'name' => \strval($checkRun['name'] ?? ''),
             'status' => \strval($checkRun['status'] ?? ''),
-            'conclusion' => !empty($checkRun['conclusion']) ? \strval($checkRun['conclusion']) : null,
+            'conclusion' => empty($checkRun['conclusion']) ? null : \strval($checkRun['conclusion']),
             'head_sha' => $sha,
             'url' => $this->endpoint . $this->repositoryPath($owner, $repositoryName) . '/check-runs/' . $id,
-            'html_url' => !empty($sha) ? $this->getCommitUrl($owner, $repositoryName, $sha) : $this->getRepositoryUrl($owner, $repositoryName),
-            'started_at' => !empty($checkRun['startedAt']) ? \strval($checkRun['startedAt']) : null,
-            'completed_at' => !empty($checkRun['completedAt']) ? \strval($checkRun['completedAt']) : null,
+            'html_url' => $sha === '' || $sha === '0' ? $this->getRepositoryUrl($owner, $repositoryName) : $this->getCommitUrl($owner, $repositoryName, $sha),
+            'started_at' => empty($checkRun['startedAt']) ? null : \strval($checkRun['startedAt']),
+            'completed_at' => empty($checkRun['completedAt']) ? null : \strval($checkRun['completedAt']),
             'details_url' => \strval($checkRun['detailsUrl'] ?? ''),
             'external_id' => \strval($checkRun['externalId'] ?? ''),
             'key' => \strval($checkRun['key'] ?? ''),
@@ -1681,9 +1680,9 @@ class Origin extends Git
      */
     protected function rfc3339Now(): string
     {
-        $now = \DateTime::createFromFormat('U.u', \sprintf('%.6F', \microtime(true)));
+        $now = \DateTime::createFromFormat('U.u', \sprintf('%.6F', microtime(true)));
 
-        return $now !== false ? $now->format('Y-m-d\TH:i:s.u\Z') : \gmdate('Y-m-d\TH:i:s\Z');
+        return $now !== false ? $now->format('Y-m-d\TH:i:s.u\Z') : gmdate('Y-m-d\TH:i:s\Z');
     }
 
     /**
@@ -1696,11 +1695,11 @@ class Origin extends Git
         // Branch names may contain slashes, which would be read as extra path
         // segments, so resolve the branch to its tip SHA first
         $sha = $branch;
-        if (!\preg_match('/^[0-9a-f]{40}([0-9a-f]{24})?$/i', $branch)) {
+        if (!preg_match('/^[0-9a-f]{40}([0-9a-f]{24})?$/i', $branch)) {
             $refResponse = $this->call(
                 self::METHOD_GET,
                 $this->repositoryPath($owner, $repositoryName) . '/git/ref/heads/' . $this->encodeRef($branch),
-                ['Authorization' => "Bearer {$this->accessToken}"]
+                ['Authorization' => "Bearer {$this->accessToken}"],
             );
 
             $refStatusCode = $refResponse['headers']['status-code'] ?? 0;
@@ -1720,7 +1719,7 @@ class Origin extends Git
         $response = $this->call(
             self::METHOD_GET,
             $this->repositoryPath($owner, $repositoryName) . '/git/trees/' . $sha . ($recursive ? '?recursive=1' : ''),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1730,7 +1729,7 @@ class Origin extends Git
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
 
-        return \array_column(\is_array($responseBody['tree'] ?? null) ? $responseBody['tree'] : [], 'path');
+        return array_column(\is_array($responseBody['tree'] ?? null) ? $responseBody['tree'] : [], 'path');
     }
 
     /**
@@ -1754,7 +1753,7 @@ class Origin extends Git
     public function listRepositoryContents(string $owner, string $repositoryName, string $path = '', string $ref = ''): array
     {
         $params = ['path' => $this->normalizeRepositoryPath($path)];
-        if (!empty($ref)) {
+        if ($ref !== '' && $ref !== '0') {
             $params['ref'] = $ref;
         }
 
@@ -1762,7 +1761,7 @@ class Origin extends Git
             self::METHOD_GET,
             $this->repositoryPath($owner, $repositoryName) . '/contents',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            $params
+            $params,
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1775,7 +1774,7 @@ class Origin extends Git
         $items = [];
         if (($responseBody['type'] ?? '') === 'dir') {
             $items = \is_array($responseBody['entries'] ?? null) ? $responseBody['entries'] : [];
-        } elseif (!empty($responseBody)) {
+        } elseif ($responseBody !== []) {
             $items = [$responseBody];
         }
 
@@ -1803,7 +1802,7 @@ class Origin extends Git
     public function getRepositoryContent(string $owner, string $repositoryName, string $path, string $ref = ''): array
     {
         $params = ['path' => $this->normalizeRepositoryPath($path)];
-        if (!empty($ref)) {
+        if ($ref !== '' && $ref !== '0') {
             $params['ref'] = $ref;
         }
 
@@ -1811,7 +1810,7 @@ class Origin extends Git
             self::METHOD_GET,
             $this->repositoryPath($owner, $repositoryName) . '/contents',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            $params
+            $params,
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1829,7 +1828,7 @@ class Origin extends Git
             'sha' => \strval($responseBody['sha'] ?? ''),
             // Sizes ride as JSON strings under the API's 64-bit integer convention
             'size' => (int) ($responseBody['size'] ?? 0),
-            'content' => \base64_decode(\strval($responseBody['content'] ?? '')),
+            'content' => base64_decode(\strval($responseBody['content'] ?? '')),
         ];
     }
 
@@ -1842,8 +1841,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            $this->repositoryPath($owner, $repositoryName) . '/commits/' . \rawurlencode($commitHash),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            $this->repositoryPath($owner, $repositoryName) . '/commits/' . rawurlencode($commitHash),
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -1866,7 +1865,7 @@ class Origin extends Git
             'commitAuthorAvatar' => '',
             'commitAuthorUrl' => '',
             'commitHash' => $sha,
-            'commitUrl' => !empty($sha) ? $this->getCommitUrl($owner, $repositoryName, $sha) : '',
+            'commitUrl' => $sha === '' || $sha === '0' ? '' : $this->getCommitUrl($owner, $repositoryName, $sha),
         ];
     }
 
@@ -1874,6 +1873,7 @@ class Origin extends Git
      * Origin reserves repository creation for user principals; app
      * installations are denied whatever their scopes.
      */
+    #[\Override]
     public function supportsRepositoryCreation(): bool
     {
         return false;
@@ -1882,6 +1882,7 @@ class Origin extends Git
     /**
      * The partner API has no repository deletion endpoint.
      */
+    #[\Override]
     public function supportsRepositoryDeletion(): bool
     {
         return false;
@@ -1891,6 +1892,7 @@ class Origin extends Git
      * Origin offers no archive downloads; consumers package sources
      * themselves, over Git HTTPS.
      */
+    #[\Override]
     public function supportsRepositoryArchives(): bool
     {
         return false;
@@ -1903,7 +1905,7 @@ class Origin extends Git
      */
     public function getRepositoryCloneUrl(string $owner, string $repositoryName): string
     {
-        return $this->gitEndpoint . '/' . \urlencode($owner) . '/' . \urlencode($repositoryName) . '.git';
+        return $this->gitEndpoint . '/' . urlencode($owner) . '/' . urlencode($repositoryName) . '.git';
     }
 
     /**
@@ -1912,19 +1914,21 @@ class Origin extends Git
      *
      * @return array<string, string>
      */
+    #[\Override]
     public function getRepositoryCloneHeaders(): array
     {
-        if (empty($this->accessToken)) {
+        if ($this->accessToken === '' || $this->accessToken === '0') {
             return [];
         }
 
-        return ['Authorization' => 'Basic ' . \base64_encode('x-access-token:' . $this->accessToken)];
+        return ['Authorization' => 'Basic ' . base64_encode('x-access-token:' . $this->accessToken)];
     }
 
     /**
      * Origin renders comment markdown without proxying images, so images on
      * a consumer's own host cannot display; comments should stay textual.
      */
+    #[\Override]
     public function supportsCommentImages(): bool
     {
         return false;
@@ -1934,6 +1938,7 @@ class Origin extends Git
      * Origin has no public repositories: every repository is scoped to its
      * owning workspace and unreachable without credentials.
      */
+    #[\Override]
     public function supportsPublicRepositories(): bool
     {
         return false;
@@ -1961,12 +1966,15 @@ class Origin extends Git
     protected function confinedPath(string $filepath): string
     {
         $segments = [];
-        foreach (\explode('/', \str_replace('\\', '/', $filepath)) as $segment) {
-            if ($segment === '' || $segment === '.') {
+        foreach (explode('/', str_replace('\\', '/', $filepath)) as $segment) {
+            if ($segment === '') {
+                continue;
+            }
+            if ($segment === '.') {
                 continue;
             }
             if ($segment === '..') {
-                if (\array_pop($segments) === null) {
+                if (array_pop($segments) === null) {
                     throw new Exception("File path escapes the repository: {$filepath}");
                 }
                 continue;
@@ -1978,7 +1986,7 @@ class Origin extends Git
             throw new Exception("File path names no file: {$filepath}");
         }
 
-        return \implode('/', $segments);
+        return implode('/', $segments);
     }
 
     /**
@@ -1997,11 +2005,11 @@ class Origin extends Git
         // Also resolves the default branch and confirms the repository exists
         $repository = $this->getRepository($owner, $repositoryName);
         $defaultBranch = \strval($repository['defaultBranch'] ?? 'main');
-        $targetBranch = !empty($branch) ? $branch : $defaultBranch;
+        $targetBranch = $branch === '' || $branch === '0' ? $defaultBranch : $branch;
 
-        $remote = \escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
+        $remote = escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
         $directory = $this->temporaryDirectory();
-        $git = 'git -C ' . \escapeshellarg($directory);
+        $git = 'git -C ' . escapeshellarg($directory);
 
         try {
             $this->execute("{$git} init -q", 'Initializing the working repository');
@@ -2009,37 +2017,37 @@ class Origin extends Git
             // Base the commit on the branch tip when there is one; a missing
             // target branch grows from the default branch, and an empty
             // repository starts from scratch
-            $hasBase = $this->tryExecute("{$git} fetch -q --depth=1 {$remote} " . \escapeshellarg('refs/heads/' . $targetBranch))
-                || (!empty($branch) && $branch !== $defaultBranch && $this->tryExecute("{$git} fetch -q --depth=1 {$remote} " . \escapeshellarg('refs/heads/' . $defaultBranch)));
+            $hasBase = $this->tryExecute("{$git} fetch -q --depth=1 {$remote} " . escapeshellarg('refs/heads/' . $targetBranch))
+                || (!\in_array($branch, ['', '0', $defaultBranch], true) && $this->tryExecute("{$git} fetch -q --depth=1 {$remote} " . escapeshellarg('refs/heads/' . $defaultBranch)));
             if ($hasBase) {
                 $this->execute("{$git} checkout -q FETCH_HEAD", 'Checking out the branch tip');
             }
 
             $absolute = $directory . '/' . $relative;
             $parent = \dirname($absolute);
-            if (!\is_dir($parent) && !\mkdir($parent, 0777, true)) {
+            if (!is_dir($parent) && !mkdir($parent, 0777, true)) {
                 throw new Exception("Failed to create directory for {$filepath}");
             }
 
             // Lexical confinement is not enough once the checkout itself
             // carries symlinks: a linked directory or file would carry the
             // write outside, so resolve the parent and refuse link targets
-            $checkout = \realpath($directory);
-            $resolvedParent = \realpath($parent);
+            $checkout = realpath($directory);
+            $resolvedParent = realpath($parent);
             if ($checkout === false || $resolvedParent === false
-                || !\str_starts_with($resolvedParent . '/', $checkout . '/')
-                || \is_link($absolute)) {
+                || !str_starts_with($resolvedParent . '/', $checkout . '/')
+                || is_link($absolute)) {
                 throw new Exception("File path escapes the repository: {$filepath}");
             }
 
-            if (\file_put_contents($absolute, $content) === false) {
+            if (file_put_contents($absolute, $content) === false) {
                 throw new Exception("Failed to write {$filepath}");
             }
 
-            $this->execute("{$git} add " . \escapeshellarg($relative), 'Staging the file');
-            $this->execute("{$git} -c user.name='Utopia VCS' -c user.email='vcs@utopia.dev' commit -q -m " . \escapeshellarg($message), 'Committing the file');
-            $commitHash = \implode('', $this->execute("{$git} rev-parse HEAD", 'Reading the commit hash'));
-            $this->execute("{$git} push -q {$remote} " . \escapeshellarg('HEAD:refs/heads/' . $targetBranch), 'Pushing the commit');
+            $this->execute("{$git} add " . escapeshellarg($relative), 'Staging the file');
+            $this->execute("{$git} -c user.name='Utopia VCS' -c user.email='vcs@utopia.dev' commit -q -m " . escapeshellarg($message), 'Committing the file');
+            $commitHash = implode('', $this->execute("{$git} rev-parse HEAD", 'Reading the commit hash'));
+            $this->execute("{$git} push -q {$remote} " . escapeshellarg('HEAD:refs/heads/' . $targetBranch), 'Pushing the commit');
 
             return [
                 'path' => $relative,
@@ -2061,15 +2069,15 @@ class Origin extends Git
      */
     public function createBranch(string $owner, string $repositoryName, string $newBranchName, string $oldBranchName): array
     {
-        $remote = \escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
+        $remote = escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
         $directory = $this->temporaryDirectory();
-        $git = 'git -C ' . \escapeshellarg($directory);
+        $git = 'git -C ' . escapeshellarg($directory);
 
         try {
             $this->execute("{$git} init -q", 'Initializing the working repository');
-            $this->execute("{$git} fetch -q --depth=1 {$remote} " . \escapeshellarg('refs/heads/' . $oldBranchName), "Fetching branch {$oldBranchName}");
-            $sha = \implode('', $this->execute("{$git} rev-parse FETCH_HEAD", 'Reading the branch tip'));
-            $this->execute("{$git} push -q {$remote} " . \escapeshellarg('FETCH_HEAD:refs/heads/' . $newBranchName), "Creating branch {$newBranchName}");
+            $this->execute("{$git} fetch -q --depth=1 {$remote} " . escapeshellarg('refs/heads/' . $oldBranchName), "Fetching branch {$oldBranchName}");
+            $sha = implode('', $this->execute("{$git} rev-parse FETCH_HEAD", 'Reading the branch tip'));
+            $this->execute("{$git} push -q {$remote} " . escapeshellarg('FETCH_HEAD:refs/heads/' . $newBranchName), "Creating branch {$newBranchName}");
 
             return [
                 'name' => $newBranchName,
@@ -2091,27 +2099,27 @@ class Origin extends Git
      */
     public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array
     {
-        $remote = \escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
+        $remote = escapeshellarg($this->authenticatedCloneUrl($owner, $repositoryName));
         $directory = $this->temporaryDirectory();
-        $git = 'git -C ' . \escapeshellarg($directory);
+        $git = 'git -C ' . escapeshellarg($directory);
 
         try {
             $this->execute("{$git} init -q", 'Initializing the working repository');
 
             // Prefer fetching the target object directly; fall back to every
             // branch head for servers that refuse fetch-by-SHA
-            if (!$this->tryExecute("{$git} fetch -q --depth=1 {$remote} " . \escapeshellarg($target))) {
-                $this->execute("{$git} fetch -q {$remote} " . \escapeshellarg('refs/heads/*:refs/remotes/origin/*'), "Fetching commit {$target}");
+            if (!$this->tryExecute("{$git} fetch -q --depth=1 {$remote} " . escapeshellarg($target))) {
+                $this->execute("{$git} fetch -q {$remote} " . escapeshellarg('refs/heads/*:refs/remotes/origin/*'), "Fetching commit {$target}");
             }
 
-            if (!empty($message)) {
+            if ($message !== '' && $message !== '0') {
                 $this->execute(
-                    "{$git} -c user.name='Utopia VCS' -c user.email='vcs@utopia.dev' tag -a " . \escapeshellarg($tagName) . ' -m ' . \escapeshellarg($message) . ' ' . \escapeshellarg($target),
-                    "Creating tag {$tagName}"
+                    "{$git} -c user.name='Utopia VCS' -c user.email='vcs@utopia.dev' tag -a " . escapeshellarg($tagName) . ' -m ' . escapeshellarg($message) . ' ' . escapeshellarg($target),
+                    "Creating tag {$tagName}",
                 );
-                $this->execute("{$git} push -q {$remote} " . \escapeshellarg('refs/tags/' . $tagName), "Pushing tag {$tagName}");
+                $this->execute("{$git} push -q {$remote} " . escapeshellarg('refs/tags/' . $tagName), "Pushing tag {$tagName}");
             } else {
-                $this->execute("{$git} push -q {$remote} " . \escapeshellarg($target . ':refs/tags/' . $tagName), "Pushing tag {$tagName}");
+                $this->execute("{$git} push -q {$remote} " . escapeshellarg($target . ':refs/tags/' . $tagName), "Pushing tag {$tagName}");
             }
 
             return [
@@ -2126,8 +2134,8 @@ class Origin extends Git
 
     protected function temporaryDirectory(): string
     {
-        $directory = \sys_get_temp_dir() . '/utopia-vcs-origin-' . \uniqid();
-        if (!\mkdir($directory, 0777, true)) {
+        $directory = sys_get_temp_dir() . '/utopia-vcs-origin-' . uniqid();
+        if (!mkdir($directory, 0777, true)) {
             throw new Exception('Failed to create a temporary directory for the Git operation.');
         }
 
@@ -2136,8 +2144,8 @@ class Origin extends Git
 
     protected function removeDirectory(string $directory): void
     {
-        if (\is_dir($directory)) {
-            \exec('rm -rf ' . \escapeshellarg($directory));
+        if (is_dir($directory)) {
+            exec('rm -rf ' . escapeshellarg($directory));
         }
     }
 
@@ -2151,12 +2159,12 @@ class Origin extends Git
     {
         $output = [];
         $exitCode = 0;
-        \exec($command . ' 2>&1', $output, $exitCode);
+        exec($command . ' 2>&1', $output, $exitCode);
 
         if ($exitCode !== 0) {
-            $printed = \implode("\n", $output);
-            if (!empty($this->accessToken)) {
-                $printed = \str_replace([$this->accessToken, \urlencode($this->accessToken)], '***', $printed);
+            $printed = implode("\n", $output);
+            if ($this->accessToken !== '' && $this->accessToken !== '0') {
+                $printed = str_replace([$this->accessToken, urlencode($this->accessToken)], '***', $printed);
             }
 
             throw new Exception("{$action} failed: {$printed}");
@@ -2169,7 +2177,7 @@ class Origin extends Git
     {
         $output = [];
         $exitCode = 0;
-        \exec($command . ' 2>&1', $output, $exitCode);
+        exec($command . ' 2>&1', $output, $exitCode);
 
         return $exitCode === 0;
     }
@@ -2206,7 +2214,7 @@ class Origin extends Git
             self::METHOD_PATCH,
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber,
             ['Authorization' => "Bearer {$this->accessToken}"],
-            $params
+            $params,
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2229,7 +2237,7 @@ class Origin extends Git
         $response = $this->call(
             self::METHOD_POST,
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/merge',
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2241,7 +2249,7 @@ class Origin extends Git
 
         return [
             'mergeCommitSha' => \strval($responseBody['mergeCommitSha'] ?? ''),
-            'mergedPullNumbers' => \array_map('intval', \is_array($responseBody['mergedPullNumbers'] ?? null) ? $responseBody['mergedPullNumbers'] : []),
+            'mergedPullNumbers' => array_map(intval(...), \is_array($responseBody['mergedPullNumbers'] ?? null) ? $responseBody['mergedPullNumbers'] : []),
             'pullRequest' => $this->normalizePullRequest(\is_array($responseBody['pullRequest'] ?? null) ? $responseBody['pullRequest'] : []),
         ];
     }
@@ -2262,12 +2270,12 @@ class Origin extends Git
         $pullRequests = $this->collectPages(
             $this->repositoryPath($owner, $repositoryName) . '/pulls',
             'pullRequests',
-            $params
+            $params,
         );
 
-        return \array_map(
-            fn ($pullRequest) => $this->normalizePullRequest(\is_array($pullRequest) ? $pullRequest : []),
-            $pullRequests
+        return array_map(
+            fn($pullRequest): array => $this->normalizePullRequest(\is_array($pullRequest) ? $pullRequest : []),
+            $pullRequests,
         );
     }
 
@@ -2280,7 +2288,7 @@ class Origin extends Git
     {
         return $this->collectPages(
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/comments',
-            'comments'
+            'comments',
         );
     }
 
@@ -2293,7 +2301,7 @@ class Origin extends Git
     {
         return $this->collectPages(
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/commits',
-            'commits'
+            'commits',
         );
     }
 
@@ -2317,7 +2325,7 @@ class Origin extends Git
             self::METHOD_POST,
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/reviews',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            $params
+            $params,
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2338,7 +2346,7 @@ class Origin extends Git
     {
         return $this->collectPages(
             $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/reviews',
-            'reviews'
+            'reviews',
         );
     }
 
@@ -2351,9 +2359,9 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_PATCH,
-            $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/reviews/' . \rawurlencode($reviewId),
+            $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/reviews/' . rawurlencode($reviewId),
             ['Authorization' => "Bearer {$this->accessToken}"],
-            ['body' => $body]
+            ['body' => $body],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2374,9 +2382,9 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_PUT,
-            $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/reviews/' . \rawurlencode($reviewId) . '/dismissals',
+            $this->repositoryPath($owner, $repositoryName) . '/pulls/' . $pullRequestNumber . '/reviews/' . rawurlencode($reviewId) . '/dismissals',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            ['message' => $message]
+            ['message' => $message],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2404,7 +2412,7 @@ class Origin extends Git
         $commits = $this->collectPages(
             $this->repositoryPath($owner, $repositoryName) . '/commits',
             'commits',
-            $params
+            $params,
         );
 
         $normalized = [];
@@ -2423,7 +2431,7 @@ class Origin extends Git
                 'commitAuthorAvatar' => '',
                 'commitAuthorUrl' => '',
                 'commitHash' => $commitSha,
-                'commitUrl' => !empty($commitSha) ? $this->getCommitUrl($owner, $repositoryName, $commitSha) : '',
+                'commitUrl' => $commitSha === '' || $commitSha === '0' ? '' : $this->getCommitUrl($owner, $repositoryName, $commitSha),
             ];
         }
 
@@ -2438,8 +2446,8 @@ class Origin extends Git
     public function listCommitFiles(string $owner, string $repositoryName, string $sha): array
     {
         return $this->collectPages(
-            $this->repositoryPath($owner, $repositoryName) . '/commits/' . \rawurlencode($sha) . '/files',
-            'files'
+            $this->repositoryPath($owner, $repositoryName) . '/commits/' . rawurlencode($sha) . '/files',
+            'files',
         );
     }
 
@@ -2457,8 +2465,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            $this->repositoryPath($owner, $repositoryName) . '/compare/' . \rawurlencode($base) . '...' . \rawurlencode($head),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            $this->repositoryPath($owner, $repositoryName) . '/compare/' . rawurlencode($base) . '...' . rawurlencode($head),
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2478,8 +2486,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_GET,
-            $this->repositoryPath($owner, $repositoryName) . '/git/blobs/' . \rawurlencode($sha),
-            ['Authorization' => "Bearer {$this->accessToken}"]
+            $this->repositoryPath($owner, $repositoryName) . '/git/blobs/' . rawurlencode($sha),
+            ['Authorization' => "Bearer {$this->accessToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2493,7 +2501,7 @@ class Origin extends Git
         return [
             'sha' => \strval($responseBody['sha'] ?? ''),
             'size' => (int) ($responseBody['size'] ?? 0),
-            'content' => \base64_decode(\strval($responseBody['content'] ?? '')),
+            'content' => base64_decode(\strval($responseBody['content'] ?? '')),
         ];
     }
 
@@ -2506,7 +2514,7 @@ class Origin extends Git
      */
     public function batchGetRepositoryContents(string $owner, string $repositoryName, array $paths, string $ref = ''): array
     {
-        $params = ['paths' => \array_values($paths)];
+        $params = ['paths' => array_values($paths)];
         if ($ref !== '') {
             $params['ref'] = $ref;
         }
@@ -2515,7 +2523,7 @@ class Origin extends Git
             self::METHOD_POST,
             $this->repositoryPath($owner, $repositoryName) . '/contents:batchGet',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            $params
+            $params,
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2535,7 +2543,7 @@ class Origin extends Git
             $content = \is_array($result['content'] ?? null) ? $result['content'] : [];
 
             $contents[$path] = !empty($result['found']) && ($content['type'] ?? '') === 'file'
-                ? \base64_decode(\strval($content['content'] ?? ''))
+                ? base64_decode(\strval($content['content'] ?? ''))
                 : null;
         }
 
@@ -2560,13 +2568,13 @@ class Origin extends Git
     public function listCheckRunsForCommit(string $owner, string $repositoryName, string $sha): array
     {
         $checkRuns = $this->collectPages(
-            $this->repositoryPath($owner, $repositoryName) . '/commits/' . \rawurlencode($sha) . '/check-runs',
-            'checkRuns'
+            $this->repositoryPath($owner, $repositoryName) . '/commits/' . rawurlencode($sha) . '/check-runs',
+            'checkRuns',
         );
 
-        return \array_map(
-            fn ($checkRun) => $this->normalizeCheckRun(\is_array($checkRun) ? $checkRun : [], $owner, $repositoryName),
-            $checkRuns
+        return array_map(
+            fn($checkRun): array => $this->normalizeCheckRun(\is_array($checkRun) ? $checkRun : [], $owner, $repositoryName),
+            $checkRuns,
         );
     }
 
@@ -2578,13 +2586,13 @@ class Origin extends Git
     public function listCheckRunsForSuite(string $owner, string $repositoryName, string $checkSuiteId): array
     {
         $checkRuns = $this->collectPages(
-            $this->repositoryPath($owner, $repositoryName) . '/check-suites/' . \rawurlencode($checkSuiteId) . '/check-runs',
-            'checkRuns'
+            $this->repositoryPath($owner, $repositoryName) . '/check-suites/' . rawurlencode($checkSuiteId) . '/check-runs',
+            'checkRuns',
         );
 
-        return \array_map(
-            fn ($checkRun) => $this->normalizeCheckRun(\is_array($checkRun) ? $checkRun : [], $owner, $repositoryName),
-            $checkRuns
+        return array_map(
+            fn($checkRun): array => $this->normalizeCheckRun(\is_array($checkRun) ? $checkRun : [], $owner, $repositoryName),
+            $checkRuns,
         );
     }
 
@@ -2601,7 +2609,7 @@ class Origin extends Git
      */
     public function batchUpsertCheckRuns(string $owner, string $repositoryName, string $headSha, string $suiteName, array $checkRuns): array
     {
-        $suiteExternalId = \uniqid('attempt-');
+        $suiteExternalId = uniqid('attempt-');
 
         $runs = [];
         foreach ($checkRuns as $input) {
@@ -2610,20 +2618,20 @@ class Origin extends Git
             $conclusion = \strval($input['conclusion'] ?? '');
             $completedAt = \strval($input['completedAt'] ?? '');
 
-            if ($status === 'completed' && empty($conclusion)) {
+            if ($status === 'completed' && ($conclusion === '' || $conclusion === '0')) {
                 throw new Exception("conclusion is required when status is 'completed'");
             }
 
-            if (!empty($conclusion)) {
+            if ($conclusion !== '' && $conclusion !== '0') {
                 $status = 'completed';
-                if (empty($completedAt)) {
-                    $completedAt = \gmdate('Y-m-d\TH:i:s\Z');
+                if ($completedAt === '' || $completedAt === '0') {
+                    $completedAt = gmdate('Y-m-d\TH:i:s\Z');
                 }
             }
 
-            $externalId = \strval($input['externalId'] ?? '') ?: \uniqid('attempt-');
+            $externalId = \strval($input['externalId'] ?? '') ?: uniqid('attempt-');
 
-            $run = \array_merge(
+            $run = array_merge(
                 [
                     'key' => \strval($input['key'] ?? '') ?: $name . '/' . $externalId,
                     'name' => $name,
@@ -2631,22 +2639,22 @@ class Origin extends Git
                     'externalId' => $externalId,
                     'externalUpdatedAt' => $this->rfc3339Now(),
                 ],
-                \array_filter([
+                array_filter([
                     'conclusion' => $conclusion,
                     'startedAt' => \strval($input['startedAt'] ?? ''),
                     'completedAt' => $completedAt,
                     'detailsUrl' => \strval($input['detailsUrl'] ?? ''),
-                ], fn ($value) => !empty($value))
+                ], fn(string $value): bool => $value !== '' && $value !== '0'),
             );
 
             $title = \strval($input['title'] ?? '');
             $summary = \strval($input['summary'] ?? '');
-            if (!empty($title) && !empty($summary)) {
-                $run['output'] = \array_filter([
+            if ($title !== '' && $title !== '0' && ($summary !== '' && $summary !== '0')) {
+                $run['output'] = array_filter([
                     'title' => $title,
                     'summary' => $summary,
                     'text' => \strval($input['text'] ?? ''),
-                ], fn ($value) => !empty($value));
+                ], fn(string $value): bool => $value !== '' && $value !== '0');
             }
 
             $runs[] = $run;
@@ -2664,7 +2672,7 @@ class Origin extends Git
                     'externalId' => $suiteExternalId,
                 ],
                 'checkRuns' => $runs,
-            ]
+            ],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2674,9 +2682,9 @@ class Origin extends Git
 
         $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
 
-        return \array_map(
-            fn ($checkRun) => $this->normalizeCheckRun(\is_array($checkRun) ? $checkRun : [], $owner, $repositoryName),
-            \is_array($responseBody['checkRuns'] ?? null) ? $responseBody['checkRuns'] : []
+        return array_map(
+            fn($checkRun): array => $this->normalizeCheckRun(\is_array($checkRun) ? $checkRun : [], $owner, $repositoryName),
+            \is_array($responseBody['checkRuns'] ?? null) ? $responseBody['checkRuns'] : [],
         );
     }
 
@@ -2717,8 +2725,8 @@ class Origin extends Git
     {
         $response = $this->call(
             self::METHOD_DELETE,
-            '/app/installations/' . \rawurlencode($installationId),
-            ['Authorization' => "Bearer {$this->jwtToken}"]
+            '/app/installations/' . rawurlencode($installationId),
+            ['Authorization' => "Bearer {$this->jwtToken}"],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2756,7 +2764,7 @@ class Origin extends Git
             self::METHOD_GET,
             '/app/webhook/deliveries',
             ['Authorization' => "Bearer {$this->jwtToken}"],
-            $params
+            $params,
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2785,7 +2793,7 @@ class Origin extends Git
             self::METHOD_POST,
             '/app/webhook/deliveries:batchRedeliver',
             ['Authorization' => "Bearer {$this->jwtToken}"],
-            ['deliveryIds' => \array_values($deliveryIds)]
+            ['deliveryIds' => array_values($deliveryIds)],
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2852,7 +2860,7 @@ class Origin extends Git
             self::METHOD_POST,
             $this->repositoryPath($owner, $repositoryName) . ':syncMirror',
             ['Authorization' => "Bearer {$this->accessToken}"],
-            $params
+            $params,
         );
 
         $statusCode = $response['headers']['status-code'] ?? 0;
@@ -2877,7 +2885,7 @@ class Origin extends Git
         $pageToken = '';
 
         do {
-            $query = \array_merge($params, ['pageSize' => 100]);
+            $query = array_merge($params, ['pageSize' => 100]);
             if ($pageToken !== '') {
                 $query['pageToken'] = $pageToken;
             }
@@ -2890,7 +2898,7 @@ class Origin extends Git
             }
 
             $responseBody = \is_array($response['body'] ?? null) ? $response['body'] : [];
-            $items = \array_merge($items, \is_array($responseBody[$field] ?? null) ? $responseBody[$field] : []);
+            $items = array_merge($items, \is_array($responseBody[$field] ?? null) ? $responseBody[$field] : []);
             $pageToken = \strval($responseBody['nextPageToken'] ?? '');
         } while ($pageToken !== '');
 
@@ -2912,13 +2920,13 @@ class Origin extends Git
 
         return new Exception(
             "{$action}: HTTP {$statusCode}" . ($message !== '' ? " ({$message})" : ''),
-            $statusCode
+            $statusCode,
         );
     }
 
     protected function repositoryPath(string $owner, string $repositoryName): string
     {
-        return '/repos/' . \rawurlencode($owner) . '/' . \rawurlencode($repositoryName);
+        return '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repositoryName);
     }
 
     /**
@@ -2928,6 +2936,6 @@ class Origin extends Git
      */
     protected function encodeRef(string $ref): string
     {
-        return \str_replace('%2F', '/', \rawurlencode($ref));
+        return str_replace('%2F', '/', rawurlencode($ref));
     }
 }

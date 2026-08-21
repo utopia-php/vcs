@@ -1,6 +1,6 @@
 <?php
 
-namespace Utopia\Tests\Adapter;
+namespace Utopia\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Utopia\Cache\Adapter\None;
@@ -18,6 +18,7 @@ class FixtureKeysOrigin extends Origin
      */
     public array $fixtureKeys = [];
 
+    #[\Override]
     protected function jwks(bool $refresh = false): array
     {
         return $this->fixtureKeys;
@@ -30,17 +31,17 @@ class FixtureKeysOrigin extends Origin
  * network. The live half of the shared adapter suite cannot run at all -
  * see testLiveAdapterSuite().
  */
-class OriginTest extends TestCase
+final class OriginTest extends TestCase
 {
-    protected const REPOSITORY_ID = 'repo_0123456789';
-    protected const REPOSITORY_NAME = 'test-repo';
-    protected const OWNER = 'test-owner';
-    protected const COMMIT_HASH = 'def4567890def4567890def4567890def4567890';
-    protected const COMMIT_MESSAGE = 'Test commit message';
-    protected const AUTHOR_NAME = 'Test Author';
-    protected const AUTHOR_EMAIL = 'author@example.com';
-    protected const HEAD_BRANCH = 'feature-branch';
-    protected const PULL_REQUEST_NUMBER = 42;
+    protected const string REPOSITORY_ID = 'repo_0123456789';
+    protected const string REPOSITORY_NAME = 'test-repo';
+    protected const string OWNER = 'test-owner';
+    protected const string COMMIT_HASH = 'def4567890def4567890def4567890def4567890';
+    protected const string COMMIT_MESSAGE = 'Test commit message';
+    protected const string AUTHOR_NAME = 'Test Author';
+    protected const string AUTHOR_EMAIL = 'author@example.com';
+    protected const string HEAD_BRANCH = 'feature-branch';
+    protected const int PULL_REQUEST_NUMBER = 42;
 
     protected Origin $adapter;
 
@@ -62,14 +63,14 @@ class OriginTest extends TestCase
      */
     protected function signWebhookPayload(string $payload, string $secretKey): string
     {
-        return 'v1ed,' . \base64_encode(\sodium_crypto_sign_detached(\hash('sha256', $payload), $secretKey));
+        return 'v1ed,' . base64_encode(sodium_crypto_sign_detached(hash('sha256', $payload), $secretKey));
     }
 
     public function testValidateWebhookEvent(): void
     {
-        $keyPair = \sodium_crypto_sign_keypair();
-        $secretKey = \sodium_crypto_sign_secretkey($keyPair);
-        $publicKey = \base64_encode(\sodium_crypto_sign_publickey($keyPair));
+        $keyPair = sodium_crypto_sign_keypair();
+        $secretKey = sodium_crypto_sign_secretkey($keyPair);
+        $publicKey = base64_encode(sodium_crypto_sign_publickey($keyPair));
 
         $payload = 'whd_0123456789.1755500000.{"deliveryId":"whd_0123456789"}';
         $signature = $this->signWebhookPayload($payload, $secretKey);
@@ -78,9 +79,9 @@ class OriginTest extends TestCase
         $this->assertFalse($this->adapter->validateWebhookEvent($payload, 'not-the-signature', $publicKey));
 
         // A signature by a different key must not verify
-        $otherSecretKey = \sodium_crypto_sign_secretkey(\sodium_crypto_sign_keypair());
+        $otherSecretKey = sodium_crypto_sign_secretkey(sodium_crypto_sign_keypair());
         $this->assertFalse(
-            $this->adapter->validateWebhookEvent($payload, $this->signWebhookPayload($payload, $otherSecretKey), $publicKey)
+            $this->adapter->validateWebhookEvent($payload, $this->signWebhookPayload($payload, $otherSecretKey), $publicKey),
         );
 
         // Tampered content must not verify either
@@ -91,20 +92,20 @@ class OriginTest extends TestCase
         $this->assertTrue($this->adapter->validateWebhookEvent(
             $payload,
             $this->signWebhookPayload($payload, $otherSecretKey) . ' ' . $signature,
-            $publicKey
+            $publicKey,
         ));
     }
 
     public function testValidateWebhookEventAcceptsPemPublicKey(): void
     {
-        $keyPair = \sodium_crypto_sign_keypair();
+        $keyPair = sodium_crypto_sign_keypair();
 
         // SPKI wrapping of a raw Ed25519 public key
-        $der = \hex2bin('302a300506032b6570032100') . \sodium_crypto_sign_publickey($keyPair);
-        $pem = "-----BEGIN PUBLIC KEY-----\n" . \chunk_split(\base64_encode((string) $der), 64, "\n") . '-----END PUBLIC KEY-----';
+        $der = hex2bin('302a300506032b6570032100') . sodium_crypto_sign_publickey($keyPair);
+        $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . '-----END PUBLIC KEY-----';
 
         $payload = 'whd_0123456789.1755500000.{"deliveryId":"whd_0123456789"}';
-        $signature = $this->signWebhookPayload($payload, \sodium_crypto_sign_secretkey($keyPair));
+        $signature = $this->signWebhookPayload($payload, sodium_crypto_sign_secretkey($keyPair));
 
         $this->assertTrue($this->adapter->validateWebhookEvent($payload, $signature, $pem));
     }
@@ -134,8 +135,8 @@ class OriginTest extends TestCase
                     ],
                     'refUpdates' => [[
                         'ref' => 'refs/heads/' . $branch,
-                        'before' => $created ? \str_repeat('0', 40) : 'abc123',
-                        'after' => $deleted ? \str_repeat('0', 40) : self::COMMIT_HASH,
+                        'before' => $created ? str_repeat('0', 40) : 'abc123',
+                        'after' => $deleted ? str_repeat('0', 40) : self::COMMIT_HASH,
                         'created' => $created,
                         'deleted' => $deleted,
                         'forced' => false,
@@ -199,11 +200,11 @@ class OriginTest extends TestCase
             'app_0123456789',
             ['repository:contents:read', 'repository:checks:write'],
             'https://appwrite.test/v1/vcs/origin/callback',
-            '{"projectId":"p1"}'
+            '{"projectId":"p1"}',
         );
 
-        $parsed = \parse_url($url);
-        \parse_str($parsed['query'] ?? '', $params);
+        $parsed = parse_url($url);
+        parse_str($parsed['query'] ?? '', $params);
 
         $this->assertSame('https', $parsed['scheme'] ?? '');
         $this->assertSame('cursor.com', $parsed['host'] ?? '');
@@ -219,7 +220,7 @@ class OriginTest extends TestCase
     {
         // The install page refuses an explicit empty scope list unless told
         // to read the scopes from the app's registered metadata.
-        \parse_str(\parse_url($this->adapter->getInstallUrl('app_0123456789'), PHP_URL_QUERY) ?: '', $params);
+        parse_str(parse_url($this->adapter->getInstallUrl('app_0123456789'), PHP_URL_QUERY) ?: '', $params);
 
         $this->assertSame('app-metadata', $params['source'] ?? '');
         $this->assertArrayNotHasKey('scope', $params);
@@ -238,17 +239,17 @@ class OriginTest extends TestCase
      */
     protected function signReceipt(array $header, array $claims, string $secretKey): string
     {
-        $encode = fn (string $data) => \rtrim(\strtr(\base64_encode($data), '+/', '-_'), '=');
-        $signingInput = $encode(\json_encode($header) ?: '') . '.' . $encode(\json_encode($claims) ?: '');
+        $encode = fn(string $data): string => rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+        $signingInput = $encode(json_encode($header) ?: '') . '.' . $encode(json_encode($claims) ?: '');
 
-        return $signingInput . '.' . $encode(\sodium_crypto_sign_detached($signingInput, $secretKey));
+        return $signingInput . '.' . $encode(sodium_crypto_sign_detached($signingInput, $secretKey));
     }
 
     public function testVerifyReceipt(): void
     {
-        $keyPair = \sodium_crypto_sign_keypair();
-        $secretKey = \sodium_crypto_sign_secretkey($keyPair);
-        $publicKey = \rtrim(\strtr(\base64_encode(\sodium_crypto_sign_publickey($keyPair)), '+/', '-_'), '=');
+        $keyPair = sodium_crypto_sign_keypair();
+        $secretKey = sodium_crypto_sign_secretkey($keyPair);
+        $publicKey = rtrim(strtr(base64_encode(sodium_crypto_sign_publickey($keyPair)), '+/', '-_'), '=');
 
         $adapter = new FixtureKeysOrigin(new Cache(new None()));
         $adapter->fixtureKeys = [['kty' => 'OKP', 'crv' => 'Ed25519', 'kid' => 'k1', 'x' => $publicKey]];
@@ -260,8 +261,8 @@ class OriginTest extends TestCase
             'sub' => 'i_0123456789',
             'state' => '{"projectId":"p1"}',
             'namespace_id' => 'ns_0123456789',
-            'iat' => \time(),
-            'exp' => \time() + 300,
+            'iat' => time(),
+            'exp' => time() + 300,
         ];
 
         $verified = $adapter->verifyReceipt($this->signReceipt($header, $claims, $secretKey), 'app_0123456789');
@@ -273,9 +274,9 @@ class OriginTest extends TestCase
 
     public function testVerifyReceiptRejections(): void
     {
-        $keyPair = \sodium_crypto_sign_keypair();
-        $secretKey = \sodium_crypto_sign_secretkey($keyPair);
-        $publicKey = \rtrim(\strtr(\base64_encode(\sodium_crypto_sign_publickey($keyPair)), '+/', '-_'), '=');
+        $keyPair = sodium_crypto_sign_keypair();
+        $secretKey = sodium_crypto_sign_secretkey($keyPair);
+        $publicKey = rtrim(strtr(base64_encode(sodium_crypto_sign_publickey($keyPair)), '+/', '-_'), '=');
 
         $adapter = new FixtureKeysOrigin(new Cache(new None()));
         $adapter->fixtureKeys = [['kty' => 'OKP', 'crv' => 'Ed25519', 'kid' => 'k1', 'x' => $publicKey]];
@@ -285,8 +286,8 @@ class OriginTest extends TestCase
             'iss' => 'https://api.cursor.com/v1/origin',
             'aud' => 'app_0123456789',
             'sub' => 'i_0123456789',
-            'iat' => \time(),
-            'exp' => \time() + 300,
+            'iat' => time(),
+            'exp' => time() + 300,
         ];
 
         $cases = [
@@ -296,9 +297,9 @@ class OriginTest extends TestCase
             'unknown key id' => [$this->signReceipt(['kid' => 'k2'] + $header, $claims, $secretKey), 'app_0123456789'],
             'wrong audience' => [$this->signReceipt($header, $claims, $secretKey), 'app_other'],
             'wrong issuer' => [$this->signReceipt($header, ['iss' => 'https://evil.test'] + $claims, $secretKey), 'app_0123456789'],
-            'expired' => [$this->signReceipt($header, ['exp' => \time() - 300] + $claims, $secretKey), 'app_0123456789'],
+            'expired' => [$this->signReceipt($header, ['exp' => time() - 300] + $claims, $secretKey), 'app_0123456789'],
             'missing installation id' => [$this->signReceipt($header, ['sub' => ''] + $claims, $secretKey), 'app_0123456789'],
-            'signed by a different key' => [$this->signReceipt($header, $claims, \sodium_crypto_sign_secretkey(\sodium_crypto_sign_keypair())), 'app_0123456789'],
+            'signed by a different key' => [$this->signReceipt($header, $claims, sodium_crypto_sign_secretkey(sodium_crypto_sign_keypair())), 'app_0123456789'],
         ];
 
         foreach ($cases as $name => [$receipt, $appId]) {
@@ -324,7 +325,7 @@ class OriginTest extends TestCase
 
     public function testGetEventPush(): void
     {
-        $events = $this->adapter->getEvents('repository.pushed', (string) \json_encode($this->pushPayload('main')));
+        $events = $this->adapter->getEvents('repository.pushed', (string) json_encode($this->pushPayload('main')));
 
         $this->assertCount(1, $events);
         $event = $events[0];
@@ -350,11 +351,11 @@ class OriginTest extends TestCase
 
     public function testGetEventPushBranchLifecycle(): void
     {
-        $created = $this->adapter->getEvents('repository.pushed', (string) \json_encode($this->pushPayload('new-branch', created: true)));
+        $created = $this->adapter->getEvents('repository.pushed', (string) json_encode($this->pushPayload('new-branch', created: true)));
         $this->assertTrue($created[0]['branchCreated']);
         $this->assertFalse($created[0]['branchDeleted']);
 
-        $deleted = $this->adapter->getEvents('repository.pushed', (string) \json_encode($this->pushPayload('old-branch', deleted: true)));
+        $deleted = $this->adapter->getEvents('repository.pushed', (string) json_encode($this->pushPayload('old-branch', deleted: true)));
         $this->assertFalse($deleted[0]['branchCreated']);
         $this->assertTrue($deleted[0]['branchDeleted']);
     }
@@ -368,7 +369,7 @@ class OriginTest extends TestCase
         $payload['event']['payload']['refUpdates'][] = $secondRef;
         $payload['event']['payload']['refUpdatesCount'] = 2;
 
-        $events = $this->adapter->getEvents('repository.pushed', (string) \json_encode($payload));
+        $events = $this->adapter->getEvents('repository.pushed', (string) json_encode($payload));
 
         $this->assertCount(2, $events);
         $this->assertSame('main', $events[0]['branch']);
@@ -377,7 +378,7 @@ class OriginTest extends TestCase
 
     public function testGetEventPullRequest(): void
     {
-        $events = $this->adapter->getEvents('pull_request.created', (string) \json_encode($this->pullRequestPayload()));
+        $events = $this->adapter->getEvents('pull_request.created', (string) json_encode($this->pullRequestPayload()));
 
         $this->assertCount(1, $events);
         $event = $events[0];
@@ -408,19 +409,19 @@ class OriginTest extends TestCase
         ];
 
         foreach ($expected as $type => $action) {
-            $events = $this->adapter->getEvents($type, (string) \json_encode($this->pullRequestPayload($type)));
+            $events = $this->adapter->getEvents($type, (string) json_encode($this->pullRequestPayload($type)));
             $this->assertCount(1, $events);
             $this->assertSame($action, $events[0]['action'], "Unexpected action for {$type}");
         }
 
         // Comment, review and reviewer deliveries are not lifecycle events
         $type = 'pull_request.comment.created';
-        $this->assertSame([], $this->adapter->getEvents($type, (string) \json_encode($this->pullRequestPayload($type))));
+        $this->assertSame([], $this->adapter->getEvents($type, (string) json_encode($this->pullRequestPayload($type))));
     }
 
     public function testGetEventInstallation(): void
     {
-        $payload = (string) \json_encode([
+        $payload = (string) json_encode([
             'deliveryId' => 'whd_0123456789',
             'appId' => 'app_0123456789',
             'installationId' => 'i_0123456789',
@@ -470,7 +471,7 @@ class OriginTest extends TestCase
     public function testLiveAdapterSuite(): void
     {
         $this->markTestSkipped(
-            'Origin cannot run the shared live suite: the partner API does not allow app installations to create repositories, and it has no repository deletion endpoint, so fixture repositories can neither be provisioned nor cleaned up.'
+            'Origin cannot run the shared live suite: the partner API does not allow app installations to create repositories, and it has no repository deletion endpoint, so fixture repositories can neither be provisioned nor cleaned up.',
         );
     }
 }

@@ -1,18 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Utopia\VCS\Adapter;
 
 use Exception;
-use Utopia\VCS\Adapter;
 use Utopia\Cache\Cache;
+use Utopia\VCS\Adapter;
 
 abstract class Git extends Adapter
 {
     protected string $endpoint;
 
     protected string $accessToken;
-
-    protected Cache $cache;
 
     /**
      * Global Headers
@@ -21,15 +21,10 @@ abstract class Git extends Adapter
      */
     protected $headers = ['content-type' => 'application/json'];
 
-    public function __construct(Cache $cache)
-    {
-        $this->cache = $cache;
-    }
+    public function __construct(protected Cache $cache) {}
 
     /**
      * Get Adapter Type
-     *
-     * @return string
      */
     public function getType(): string
     {
@@ -302,12 +297,12 @@ abstract class Git extends Adapter
      */
     protected function normalizeRepositoryPath(string $path): string
     {
-        $segments = \array_filter(
-            \explode('/', $path),
-            fn (string $segment): bool => $segment !== '' && $segment !== '.'
+        $segments = array_filter(
+            explode('/', $path),
+            fn(string $segment): bool => $segment !== '' && $segment !== '.',
         );
 
-        return \implode('/', $segments);
+        return implode('/', $segments);
     }
 
     /**
@@ -320,9 +315,9 @@ abstract class Git extends Adapter
     protected function matchGlob(array $names, string $pattern): array
     {
         if ($pattern === '') {
-            return \array_values($names);
+            return array_values($names);
         }
 
-        return \array_values(\array_filter($names, fn (string $name) => \fnmatch($pattern, $name)));
+        return array_values(array_filter($names, fn(string $name): bool => fnmatch($pattern, $name)));
     }
 }

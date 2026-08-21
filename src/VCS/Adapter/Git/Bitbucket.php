@@ -17,19 +17,19 @@ class Bitbucket extends Git
     /**
      * Largest page size Bitbucket accepts.
      */
-    private const PAGE_SIZE = 100;
+    private const int PAGE_SIZE = 100;
 
     /**
      * Depth used to walk a repository tree recursively. Bitbucket has no
      * "unlimited" value for max_depth, so this stands in for one.
      */
-    private const MAX_TREE_DEPTH = 100;
+    private const int MAX_TREE_DEPTH = 100;
 
     /**
      * Maps the state vocabulary shared by the other adapters (GitHub's) onto
      * Bitbucket's build states.
      */
-    private const COMMIT_STATE_MAP = [
+    private const array COMMIT_STATE_MAP = [
         'pending' => 'INPROGRESS',
         'in_progress' => 'INPROGRESS',
         'success' => 'SUCCESSFUL',
@@ -42,7 +42,7 @@ class Bitbucket extends Git
      * Bitbucket holds four states where a check run has seven verdicts, so a
      * run read back reports its state's verdict, not the one it was written with.
      */
-    private const CHECK_RUN_CONCLUSION_MAP = [
+    private const array CHECK_RUN_CONCLUSION_MAP = [
         'success' => 'SUCCESSFUL',
         'failure' => 'FAILED',
         'timed_out' => 'FAILED',
@@ -55,7 +55,7 @@ class Bitbucket extends Git
     /**
      * @var array<string, array{status: string, conclusion: string|null}>
      */
-    private const CHECK_RUN_STATE_MAP = [
+    private const array CHECK_RUN_STATE_MAP = [
         'INPROGRESS' => ['status' => 'in_progress', 'conclusion' => null],
         'SUCCESSFUL' => ['status' => 'completed', 'conclusion' => 'success'],
         'FAILED' => ['status' => 'completed', 'conclusion' => 'failure'],
@@ -66,7 +66,7 @@ class Bitbucket extends Git
      * Reverse of COMMIT_STATE_MAP, so getCommitStatuses() reports states in the
      * same vocabulary updateCommitStatus() accepts.
      */
-    private const COMMIT_STATE_MAP_REVERSE = [
+    private const array COMMIT_STATE_MAP_REVERSE = [
         'INPROGRESS' => 'pending',
         'SUCCESSFUL' => 'success',
         'FAILED' => 'failure',
@@ -77,7 +77,7 @@ class Bitbucket extends Git
      * Maps Bitbucket's event keys to the pull request verbs consumers key off
      * of; both a merge and a decline count as 'closed'.
      */
-    private const PULL_REQUEST_ACTION_MAP = [
+    private const array PULL_REQUEST_ACTION_MAP = [
         'pullrequest:created' => 'opened',
         'pullrequest:updated' => 'synchronize',
         'pullrequest:fulfilled' => 'closed',
@@ -93,8 +93,6 @@ class Bitbucket extends Git
 
     protected string $accessToken;
 
-    protected Cache $cache;
-
     /**
      * Global Headers
      *
@@ -102,10 +100,7 @@ class Bitbucket extends Git
      */
     protected $headers = ['content-type' => 'application/json'];
 
-    public function __construct(Cache $cache)
-    {
-        $this->cache = $cache;
-    }
+    public function __construct(protected Cache $cache) {}
 
     /**
      * Moves only the API host; the browser-facing host stays on bitbucket.org.
@@ -163,22 +158,19 @@ class Bitbucket extends Git
      */
     public function initializeVariables(string $installationId, string $privateKey, ?string $appId = null, ?string $accessToken = null, ?string $refreshToken = null): void
     {
-        if (!empty($accessToken)) {
+        if (!\in_array($accessToken, [null, '', '0'], true)) {
             $this->accessToken = $accessToken;
 
             return;
         }
 
-        throw new Exception("accessToken is required for this adapter.");
+        throw new Exception('accessToken is required for this adapter.');
     }
 
     /**
      * Not applicable for this adapter - OAuth2 tokens are passed directly.
      */
-    protected function generateAccessToken(string $privateKey, string $appId): void
-    {
-        return;
-    }
+    protected function generateAccessToken(string $privateKey, string $appId): void {}
 
     /**
      * Bitbucket reads the ref as one path segment, so a nested name like
@@ -187,14 +179,14 @@ class Bitbucket extends Git
      */
     private function resolveRef(string $owner, string $repositoryName, string $ref): string
     {
-        if (\strpos($ref, '/') === false) {
+        if (!str_contains($ref, '/')) {
             return $ref;
         }
 
         $response = $this->call(
             self::METHOD_GET,
             "/repositories/{$owner}/{$repositoryName}/refs/branches/{$ref}",
-            ['Authorization' => $this->authorizationHeader()]
+            ['Authorization' => $this->authorizationHeader()],
         );
 
         $branch = $response['body'] ?? [];
@@ -223,13 +215,13 @@ class Bitbucket extends Git
     private function workspaceSlugOf(array $repository): string
     {
         $slug = (string) ($repository['workspace']['slug'] ?? '');
-        if (!empty($slug)) {
+        if ($slug !== '' && $slug !== '0') {
             return $slug;
         }
 
         $fullName = (string) ($repository['full_name'] ?? '');
 
-        return strpos($fullName, '/') !== false ? explode('/', $fullName)[0] : '';
+        return str_contains($fullName, '/') ? explode('/', $fullName)[0] : '';
     }
 
     /**
@@ -272,13 +264,13 @@ class Bitbucket extends Git
             $error = $response['body']['error']['message'] ?? '';
             throw new Exception(
                 "Creating repository {$repositoryName} failed with status code {$statusCode}" . ($error !== '' ? ": {$error}" : ''),
-                $statusCode
+                $statusCode,
             );
         }
 
         $responseBody = $response['body'] ?? [];
 
-        return $this->normalizeRepository(is_array($responseBody) ? $responseBody : []);
+        return $this->normalizeRepository(\is_array($responseBody) ? $responseBody : []);
     }
 
     public function deleteRepository(string $owner, string $repositoryName): bool
@@ -305,21 +297,21 @@ class Bitbucket extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new RepositoryNotFound("Repository not found");
+            throw new RepositoryNotFound('Repository not found');
         }
 
         $responseBody = $response['body'] ?? [];
 
-        return $this->normalizeRepository(is_array($responseBody) ? $responseBody : []);
+        return $this->normalizeRepository(\is_array($responseBody) ? $responseBody : []);
     }
 
     public function getRepositoryName(string $repositoryId): string
     {
         // $repositoryId is the "workspace/slug" id normalizeRepository() mints.
         // It travels as one path segment, so its slash arrives encoded.
-        $repositoryId = \rawurldecode($repositoryId);
+        $repositoryId = rawurldecode($repositoryId);
 
-        if (strpos($repositoryId, '/') === false) {
+        if (!str_contains($repositoryId, '/')) {
             throw new RepositoryNotFound("Repository {$repositoryId} not found");
         }
 
@@ -337,14 +329,14 @@ class Bitbucket extends Git
 
     public function getInstallationRepository(string $repositoryName): array
     {
-        throw new Exception("getInstallationRepository is not applicable for this adapter");
+        throw new Exception('getInstallationRepository is not applicable for this adapter');
     }
 
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $url = "/repositories/{$owner}?page={$page}&pagelen={$per_page}";
 
-        if (!empty($search)) {
+        if ($search !== '' && $search !== '0') {
             // Bitbucket's filter grammar quotes string literals, so escape the
             // characters that would otherwise break out of the quoted value.
             $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $search);
@@ -360,13 +352,13 @@ class Bitbucket extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return ['items' => [], 'total' => 0];
         }
 
         $repositories = [];
         foreach (($responseBody['values'] ?? []) as $repository) {
-            $repository = $this->normalizeRepository(is_array($repository) ? $repository : []);
+            $repository = $this->normalizeRepository(\is_array($repository) ? $repository : []);
             $repositories[] = [
                 'id' => $repository['id'],
                 'name' => $repository['name'] ?? '',
@@ -417,10 +409,10 @@ class Bitbucket extends Git
      */
     private function sourceUrl(string $owner, string $repositoryName, string $path, string $ref): string
     {
-        if (empty($ref)) {
+        if ($ref === '' || $ref === '0') {
             $ref = $this->mainBranchName($owner, $repositoryName);
 
-            if (empty($ref)) {
+            if ($ref === '' || $ref === '0') {
                 throw new Exception("Unable to resolve the main branch of {$owner}/{$repositoryName}.");
             }
         }
@@ -428,7 +420,7 @@ class Bitbucket extends Git
         $ref = $this->resolveRef($owner, $repositoryName, $ref);
 
         // Encode each path segment but keep the separators between them
-        $path = implode('/', array_map('rawurlencode', explode('/', $this->normalizeRepositoryPath($path))));
+        $path = implode('/', array_map(rawurlencode(...), explode('/', $this->normalizeRepositoryPath($path))));
 
         return "/repositories/{$owner}/{$repositoryName}/src/" . rawurlencode($ref) . '/' . $path;
     }
@@ -444,7 +436,7 @@ class Bitbucket extends Git
     {
         try {
             $base = $this->sourceUrl($owner, $repositoryName, $path, $ref);
-        } catch (Exception $e) {
+        } catch (Exception) {
             return [];
         }
 
@@ -468,12 +460,12 @@ class Bitbucket extends Git
             }
 
             $responseBody = $response['body'] ?? [];
-            if (!is_array($responseBody)) {
+            if (!\is_array($responseBody)) {
                 break;
             }
 
             $values = $responseBody['values'] ?? [];
-            if (!is_array($values)) {
+            if (!\is_array($values)) {
                 break;
             }
 
@@ -482,7 +474,7 @@ class Bitbucket extends Git
             // Source listings page by handing back the url of the next page,
             // which this endpoint expects to be followed as given.
             $next = (string) ($responseBody['next'] ?? '');
-            $url = \str_starts_with($next, $this->endpoint) ? \substr($next, \strlen($this->endpoint)) : '';
+            $url = str_starts_with($next, $this->endpoint) ? substr($next, \strlen($this->endpoint)) : '';
         }
 
         return $items;
@@ -493,7 +485,7 @@ class Bitbucket extends Git
         try {
             $url = $this->sourceUrl($owner, $repositoryName, $path, $ref);
         } catch (Exception $e) {
-            throw new FileNotFound();
+            throw new FileNotFound($e->getMessage(), $e->getCode(), $e);
         }
 
         // A missing file is the expected, common case here (not every repo
@@ -503,7 +495,7 @@ class Bitbucket extends Git
         try {
             $metaResponse = $this->call(self::METHOD_GET, $url . '?format=meta', ['Authorization' => $this->authorizationHeader()]);
         } catch (Exception $e) {
-            throw new FileNotFound();
+            throw new FileNotFound($e->getMessage(), $e->getCode(), $e);
         }
 
         $metaHeaders = $metaResponse['headers'] ?? [];
@@ -512,7 +504,7 @@ class Bitbucket extends Git
         }
 
         $meta = $metaResponse['body'] ?? [];
-        if (!is_array($meta) || ($meta['type'] ?? '') !== 'commit_file') {
+        if (!\is_array($meta) || ($meta['type'] ?? '') !== 'commit_file') {
             throw new FileNotFound();
         }
 
@@ -520,7 +512,7 @@ class Bitbucket extends Git
         // don't let the response be decoded as JSON.
         try {
             $contentResponse = $this->call(self::METHOD_GET, $url, ['Authorization' => $this->authorizationHeader()], [], false);
-        } catch (Exception $e) {
+        } catch (Exception) {
             throw new FileNotFound();
         }
 
@@ -530,13 +522,13 @@ class Bitbucket extends Git
         }
 
         $content = $contentResponse['body'] ?? '';
-        $content = is_string($content) ? $content : '';
+        $content = \is_string($content) ? $content : '';
 
         return [
             // Bitbucket exposes no blob id, so compute the one git stores --
             // the repository is git backed, so this is the same value the
             // other adapters read straight off their responses.
-            'sha' => \hash('sha1', 'blob ' . \strlen($content) . "\0" . $content),
+            'sha' => hash('sha1', 'blob ' . \strlen($content) . "\0" . $content),
             'size' => \strlen($content),
             'content' => $content,
         ];
@@ -550,18 +542,18 @@ class Bitbucket extends Git
     {
         try {
             $repository = $this->getRepository($owner, $repositoryName);
-        } catch (RepositoryNotFound $e) {
+        } catch (RepositoryNotFound) {
             return [];
         }
 
         $language = (string) ($repository['language'] ?? '');
 
-        return empty($language) ? [] : [$language];
+        return $language === '' || $language === '0' ? [] : [$language];
     }
 
     public function createFile(string $owner, string $repositoryName, string $filepath, string $content, string $message = 'Add file', string $branch = ''): array
     {
-        if (empty($branch)) {
+        if ($branch === '' || $branch === '0') {
             $branch = $this->mainBranchName($owner, $repositoryName);
         }
 
@@ -578,7 +570,7 @@ class Bitbucket extends Git
         // An empty repository has no branch to commit onto yet, and naming one
         // Bitbucket doesn't have is refused; omitting it lets Bitbucket create
         // its own default, which the caller reads back off the repository.
-        if (!empty($branch)) {
+        if ($branch !== '' && $branch !== '0') {
             $payload['branch'] = $branch;
         }
 
@@ -589,7 +581,7 @@ class Bitbucket extends Git
                 'Authorization' => $this->authorizationHeader(),
                 'content-type' => 'application/x-www-form-urlencoded',
             ],
-            $payload
+            $payload,
         );
 
         $responseHeaders = $response['headers'] ?? [];
@@ -601,7 +593,7 @@ class Bitbucket extends Git
         // The response body is empty; the new commit is named by the Location header.
         $location = (string) ($responseHeaders['location'] ?? '');
         $commitHash = '';
-        if (\preg_match('#/commit/([0-9a-f]+)#', $location, $matches) === 1) {
+        if (preg_match('#/commit/([0-9a-f]+)#', $location, $matches) === 1) {
             $commitHash = $matches[1];
         }
 
@@ -660,12 +652,12 @@ class Bitbucket extends Git
             }
 
             $responseBody = $response['body'] ?? [];
-            if (!is_array($responseBody)) {
+            if (!\is_array($responseBody)) {
                 break;
             }
 
             $values = $responseBody['values'] ?? [];
-            if (!is_array($values)) {
+            if (!\is_array($values)) {
                 break;
             }
 
@@ -688,7 +680,7 @@ class Bitbucket extends Git
             'target' => ['hash' => $target],
         ];
 
-        if (!empty($message)) {
+        if ($message !== '' && $message !== '0') {
             $payload['message'] = $message;
         }
 
@@ -712,12 +704,12 @@ class Bitbucket extends Git
         $responseHeaders = $response['headers'] ?? [];
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode >= 400) {
-            throw new Exception("Commit not found or inaccessible");
+            throw new Exception('Commit not found or inaccessible');
         }
 
         $commit = $response['body'] ?? [];
 
-        return $this->parseCommit(is_array($commit) ? $commit : []);
+        return $this->parseCommit(\is_array($commit) ? $commit : []);
     }
 
     public function getLatestCommit(string $owner, string $repositoryName, string $branch): array
@@ -735,10 +727,10 @@ class Bitbucket extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
+        $values = \is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
 
         if (empty($values[0])) {
-            throw new Exception("Latest commit response is missing required information.");
+            throw new Exception('Latest commit response is missing required information.');
         }
 
         return $this->parseCommit($values[0]);
@@ -752,13 +744,13 @@ class Bitbucket extends Git
      */
     private function authorNameOf(array $author): string
     {
-        $user = is_array($author['user'] ?? null) ? $author['user'] : [];
+        $user = \is_array($author['user'] ?? null) ? $author['user'] : [];
         $name = $user['display_name'] ?? '';
         if (!empty($name)) {
             return (string) $name;
         }
 
-        return \trim(\preg_replace('/<[^>]*>/', '', (string) ($author['raw'] ?? '')) ?? '');
+        return trim(preg_replace('/<[^>]*>/', '', (string) ($author['raw'] ?? '')) ?? '');
     }
 
     /**
@@ -770,15 +762,15 @@ class Bitbucket extends Git
     private function parseCommit(array $commit): array
     {
         $author = $commit['author'] ?? [];
-        $author = is_array($author) ? $author : [];
+        $author = \is_array($author) ? $author : [];
         $user = $author['user'] ?? [];
-        $user = is_array($user) ? $user : [];
-        $userLinks = is_array($user['links'] ?? null) ? $user['links'] : [];
+        $user = \is_array($user) ? $user : [];
+        $userLinks = \is_array($user['links'] ?? null) ? $user['links'] : [];
 
         $name = $this->authorNameOf($author);
 
         return [
-            'commitAuthor' => empty($name) ? 'Unknown' : $name,
+            'commitAuthor' => $name === '' || $name === '0' ? 'Unknown' : $name,
             'commitMessage' => $commit['message'] ?? 'No message',
             'commitHash' => $commit['hash'] ?? '',
             'commitUrl' => $commit['links']['html']['href'] ?? '',
@@ -793,7 +785,7 @@ class Bitbucket extends Git
 
         // Bitbucket identifies a status by its key and overwrites a status
         // posted under a key it already has, so the context doubles as the key.
-        $key = empty($context) ? $this->getName() : $context;
+        $key = $context === '' || $context === '0' ? $this->getName() : $context;
 
         $payload = [
             'key' => $key,
@@ -801,10 +793,10 @@ class Bitbucket extends Git
             'state' => self::COMMIT_STATE_MAP[$state] ?? $state,
             // A build status without a URL is rejected, so point at the commit
             // itself when the caller has nowhere better to link.
-            'url' => empty($target_url) ? $this->getCommitUrl($owner, $repositoryName, $commitHash) : $target_url,
+            'url' => $target_url === '' || $target_url === '0' ? $this->getCommitUrl($owner, $repositoryName, $commitHash) : $target_url,
         ];
 
-        if (!empty($description)) {
+        if ($description !== '' && $description !== '0') {
             $payload['description'] = $description;
         }
 
@@ -830,7 +822,7 @@ class Bitbucket extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody)) {
+        if (!\is_array($responseBody)) {
             return [];
         }
 
@@ -870,13 +862,13 @@ class Bitbucket extends Git
 
         // Each run takes a key of its own, so two runs of one name on a commit
         // stay two statuses rather than one overwriting the other.
-        $key = 'check-run-' . \bin2hex(\random_bytes(8));
+        $key = 'check-run-' . bin2hex(random_bytes(8));
 
         $written = $this->writeBuildStatus($owner, $repositoryName, $headSha, [
             'key' => $key,
             'name' => $name,
-            'state' => $this->checkRunState($status, $conclusion),
-            'url' => empty($detailsUrl) ? $this->getCommitUrl($owner, $repositoryName, $headSha) : $detailsUrl,
+            'state' => $this->checkRunState($conclusion),
+            'url' => $detailsUrl === '' || $detailsUrl === '0' ? $this->getCommitUrl($owner, $repositoryName, $headSha) : $detailsUrl,
             'description' => $summary,
         ]);
 
@@ -884,7 +876,7 @@ class Bitbucket extends Git
             'status' => $status,
             'conclusion' => $conclusion === '' ? null : $conclusion,
             'output' => ['title' => $title, 'summary' => $summary, 'text' => $text],
-            'started_at' => empty($startedAt) ? ($written['created_on'] ?? null) : $startedAt,
+            'started_at' => $startedAt === '' || $startedAt === '0' ? ($written['created_on'] ?? null) : $startedAt,
             'completed_at' => empty($completedAt) ? null : $completedAt,
         ]);
     }
@@ -934,10 +926,10 @@ class Bitbucket extends Git
 
         $written = $this->writeBuildStatus($owner, $repositoryName, $commitHash, [
             'key' => $key,
-            'name' => empty($name) ? $current['name'] : $name,
-            'state' => $this->checkRunState($status, $conclusion),
-            'url' => empty($detailsUrl) ? $current['html_url'] : $detailsUrl,
-            'description' => empty($summary) ? ($current['output']['summary'] ?? '') : $summary,
+            'name' => $name === '' || $name === '0' ? $current['name'] : $name,
+            'state' => $this->checkRunState($conclusion),
+            'url' => $detailsUrl === '' || $detailsUrl === '0' ? $current['html_url'] : $detailsUrl,
+            'description' => $summary === '' || $summary === '0' ? ($current['output']['summary'] ?? '') : $summary,
         ]);
 
         return $this->parseCheckRun($written, $owner, $repositoryName, $commitHash, [
@@ -953,14 +945,14 @@ class Bitbucket extends Git
      */
     private function settleCheckRun(string $status, string $conclusion, string $completedAt): array
     {
-        if ($status === 'completed' && empty($conclusion)) {
+        if ($status === 'completed' && ($conclusion === '' || $conclusion === '0')) {
             throw new Exception("conclusion is required when status is 'completed'");
         }
 
-        if (!empty($conclusion)) {
+        if ($conclusion !== '' && $conclusion !== '0') {
             $status = 'completed';
 
-            if (empty($completedAt)) {
+            if ($completedAt === '' || $completedAt === '0') {
                 $completedAt = gmdate('Y-m-d\TH:i:s\Z');
             }
         }
@@ -968,9 +960,9 @@ class Bitbucket extends Git
         return [$status, $conclusion, $completedAt];
     }
 
-    private function checkRunState(string $status, string $conclusion): string
+    private function checkRunState(string $conclusion): string
     {
-        if (empty($conclusion)) {
+        if ($conclusion === '' || $conclusion === '0') {
             return 'INPROGRESS';
         }
 
@@ -985,7 +977,7 @@ class Bitbucket extends Git
      */
     private function splitCheckRunId(string $checkRunId): array
     {
-        $parts = \explode(':', $checkRunId, 2);
+        $parts = explode(':', $checkRunId, 2);
 
         if (\count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
             throw new Exception("Check run {$checkRunId} was not found", 404);
@@ -1002,7 +994,7 @@ class Bitbucket extends Git
     {
         $url = "/repositories/{$owner}/{$repositoryName}/commit/" . rawurlencode($commitHash) . '/statuses/build';
 
-        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], \array_filter($payload, fn ($value) => $value !== ''));
+        $response = $this->call(self::METHOD_POST, $url, ['Authorization' => $this->authorizationHeader()], array_filter($payload, fn($value): bool => $value !== ''));
 
         $statusCode = $response['headers']['status-code'] ?? 0;
         if ($statusCode >= 400) {
@@ -1025,8 +1017,8 @@ class Bitbucket extends Git
         $settled = self::CHECK_RUN_STATE_MAP[$state] ?? ['status' => 'completed', 'conclusion' => null];
         $commitUrl = $this->getCommitUrl($owner, $repositoryName, $commitHash);
 
-        return \array_merge([
-            'id' => $commitHash . ':' . (string) ($status['key'] ?? ''),
+        return array_merge([
+            'id' => $commitHash . ':' . ($status['key'] ?? ''),
             'name' => (string) ($status['name'] ?? ''),
             'status' => $settled['status'],
             'conclusion' => $settled['conclusion'],
@@ -1049,7 +1041,7 @@ class Bitbucket extends Git
             'destination' => ['branch' => ['name' => $base]],
         ];
 
-        if (!empty($body)) {
+        if ($body !== '' && $body !== '0') {
             $payload['description'] = $body;
         }
 
@@ -1062,7 +1054,7 @@ class Bitbucket extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        $responseBody = is_array($responseBody) ? $responseBody : [];
+        $responseBody = \is_array($responseBody) ? $responseBody : [];
 
         // Bitbucket calls it `id`; report it under `number` too, as the other
         // adapters do.
@@ -1085,7 +1077,7 @@ class Bitbucket extends Git
 
         $pullRequest = $response['body'] ?? [];
 
-        return $this->parsePullRequest(is_array($pullRequest) ? $pullRequest : []);
+        return $this->parsePullRequest(\is_array($pullRequest) ? $pullRequest : []);
     }
 
     public function getPullRequestFromBranch(string $owner, string $repositoryName, string $branch): array
@@ -1102,7 +1094,7 @@ class Bitbucket extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
+        $values = \is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
 
         if (empty($values[0])) {
             return [];
@@ -1119,14 +1111,14 @@ class Bitbucket extends Git
      */
     private function parsePullRequest(array $pullRequest): array
     {
-        $source = is_array($pullRequest['source'] ?? null) ? $pullRequest['source'] : [];
-        $destination = is_array($pullRequest['destination'] ?? null) ? $pullRequest['destination'] : [];
+        $source = \is_array($pullRequest['source'] ?? null) ? $pullRequest['source'] : [];
+        $destination = \is_array($pullRequest['destination'] ?? null) ? $pullRequest['destination'] : [];
 
         return [
             'number' => $pullRequest['id'] ?? 0,
             'title' => $pullRequest['title'] ?? '',
             // Bitbucket reports OPEN/MERGED/DECLINED/SUPERSEDED
-            'state' => \strtolower((string) ($pullRequest['state'] ?? '')),
+            'state' => strtolower((string) ($pullRequest['state'] ?? '')),
             'head' => [
                 'ref' => $source['branch']['name'] ?? '',
                 'sha' => $source['commit']['hash'] ?? '',
@@ -1153,18 +1145,18 @@ class Bitbucket extends Git
             }
 
             $responseBody = $response['body'] ?? [];
-            if (!is_array($responseBody)) {
+            if (!\is_array($responseBody)) {
                 break;
             }
 
             $values = $responseBody['values'] ?? [];
-            if (!is_array($values)) {
+            if (!\is_array($values)) {
                 break;
             }
 
             foreach ($values as $diff) {
-                $new = is_array($diff['new'] ?? null) ? $diff['new'] : [];
-                $old = is_array($diff['old'] ?? null) ? $diff['old'] : [];
+                $new = \is_array($diff['new'] ?? null) ? $diff['new'] : [];
+                $old = \is_array($diff['old'] ?? null) ? $diff['old'] : [];
 
                 $files[] = [
                     'filename' => $new['path'] ?? $old['path'] ?? '',
@@ -1192,8 +1184,8 @@ class Bitbucket extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody) || !array_key_exists('id', $responseBody)) {
-            throw new Exception("Comment creation response is missing comment ID.");
+        if (!\is_array($responseBody) || !\array_key_exists('id', $responseBody)) {
+            throw new Exception('Comment creation response is missing comment ID.');
         }
 
         // Comment ids are only addressable through their pull request, so carry both.
@@ -1203,7 +1195,7 @@ class Bitbucket extends Git
     public function getComment(string $owner, string $repositoryName, string $commentId): string
     {
         $parts = explode(':', $commentId, 2);
-        if (count($parts) !== 2) {
+        if (\count($parts) !== 2) {
             return '';
         }
 
@@ -1218,7 +1210,7 @@ class Bitbucket extends Git
     public function updateComment(string $owner, string $repositoryName, string $commentId, string $comment): string
     {
         $parts = explode(':', $commentId, 2);
-        if (count($parts) !== 2) {
+        if (\count($parts) !== 2) {
             throw new Exception("Invalid comment ID format: {$commentId}");
         }
 
@@ -1254,7 +1246,7 @@ class Bitbucket extends Git
             'events' => $this->mapWebhookEvents($events),
         ];
 
-        if (!empty($secret)) {
+        if ($secret !== '' && $secret !== '0') {
             $payload['secret'] = $secret;
         }
 
@@ -1287,19 +1279,19 @@ class Bitbucket extends Git
         $keys = [];
         foreach ($events as $event) {
             // Native Bitbucket keys pass through untouched
-            if (\strpos($event, ':') !== false) {
+            if (str_contains($event, ':')) {
                 $keys[] = $event;
                 continue;
             }
 
             $keys = match ($event) {
-                'push' => \array_merge($keys, ['repo:push']),
-                'pull_request' => \array_merge($keys, \array_keys(self::PULL_REQUEST_ACTION_MAP)),
+                'push' => array_merge($keys, ['repo:push']),
+                'pull_request' => array_merge($keys, array_keys(self::PULL_REQUEST_ACTION_MAP)),
                 default => $keys,
             };
         }
 
-        return \array_values(\array_unique($keys));
+        return array_values(array_unique($keys));
     }
 
     public function getUser(string $username): array
@@ -1317,14 +1309,14 @@ class Bitbucket extends Git
         }
 
         $responseBody = $response['body'] ?? [];
-        if (!is_array($responseBody) || empty($responseBody['uuid'])) {
+        if (!\is_array($responseBody) || empty($responseBody['uuid'])) {
             throw new Exception("User not found: {$username}");
         }
 
         // Bitbucket has no numeric user ids, and reports the handle as
         // `nickname`; surface both under the shared keys.
         $responseBody['id'] = $responseBody['uuid'];
-        $responseBody['username'] = $responseBody['username'] ?? ($responseBody['nickname'] ?? '');
+        $responseBody['username'] ??= $responseBody['nickname'] ?? '';
 
         return $responseBody;
     }
@@ -1346,7 +1338,7 @@ class Bitbucket extends Git
 
         $responseBody = $response['body'] ?? [];
 
-        return is_array($responseBody) ? $responseBody : [];
+        return \is_array($responseBody) ? $responseBody : [];
     }
 
     /**
@@ -1363,7 +1355,7 @@ class Bitbucket extends Git
         $statusCode = $responseHeaders['status-code'] ?? 0;
         if ($statusCode < 400) {
             $responseBody = $response['body'] ?? [];
-            $values = is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
+            $values = \is_array($responseBody) ? ($responseBody['values'] ?? []) : [];
 
             // Each entry is a workspace_access object that carries the
             // workspace under its own key rather than at the top level
@@ -1388,8 +1380,8 @@ class Bitbucket extends Git
      */
     private function authorizationHeader(): string
     {
-        if (\strpos($this->accessToken, ':') !== false) {
-            return 'Basic ' . \base64_encode($this->accessToken);
+        if (str_contains($this->accessToken, ':')) {
+            return 'Basic ' . base64_encode($this->accessToken);
         }
 
         return 'Bearer ' . $this->accessToken;
@@ -1402,13 +1394,13 @@ class Bitbucket extends Git
      */
     private function authenticatedBitbucketUrl(): string
     {
-        if (empty($this->accessToken)) {
+        if (!isset($this->accessToken) || ($this->accessToken === '' || $this->accessToken === '0')) {
             return $this->bitbucketUrl;
         }
 
-        $userinfo = \strpos($this->accessToken, ':') !== false
-            ? \implode(':', \array_map('urlencode', \explode(':', $this->accessToken, 2)))
-            : 'x-token-auth:' . \urlencode($this->accessToken);
+        $userinfo = str_contains($this->accessToken, ':')
+            ? implode(':', array_map(urlencode(...), explode(':', $this->accessToken, 2)))
+            : 'x-token-auth:' . urlencode($this->accessToken);
 
         return str_replace('://', '://' . $userinfo . '@', $this->bitbucketUrl);
     }
@@ -1419,6 +1411,7 @@ class Bitbucket extends Git
      *
      * @return array<string, string>
      */
+    #[\Override]
     public function getRepositoryPresignedUrlHeaders(): array
     {
         return ['Authorization' => $this->authorizationHeader()];
@@ -1440,7 +1433,7 @@ class Bitbucket extends Git
         };
 
         // Bitbucket resolves HEAD to the repository's default branch
-        $ref = empty($ref) ? 'HEAD' : $ref;
+        $ref = $ref === '' || $ref === '0' ? 'HEAD' : $ref;
 
         $encodedRef = rawurlencode($this->resolveRef($owner, $repositoryName, $ref));
 
@@ -1449,7 +1442,7 @@ class Bitbucket extends Git
 
     public function generateCloneCommand(string $owner, string $repositoryName, string $version, string $versionType, string $directory, string $rootDirectory): string
     {
-        if (empty($rootDirectory) || $rootDirectory === '/') {
+        if (\in_array($rootDirectory, ['', '0', '/'], true)) {
             $rootDirectory = '*';
         }
 
@@ -1460,13 +1453,13 @@ class Bitbucket extends Git
         $commands = [
             "mkdir -p {$directory}",
             "cd {$directory}",
-            "git config --global init.defaultBranch main",
-            "git init",
+            'git config --global init.defaultBranch main',
+            'git init',
             "git remote add origin {$cloneUrl}",
-            "git config core.sparseCheckout true",
+            'git config core.sparseCheckout true',
             "echo {$rootDirectory} >> .git/info/sparse-checkout",
             "git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'",
-            "git config remote.origin.tagopt --no-tags",
+            'git config remote.origin.tagopt --no-tags',
         ];
 
         switch ($versionType) {
@@ -1499,12 +1492,12 @@ class Bitbucket extends Git
     public function getEvents(string $event, string $payload): array
     {
         $payloadArray = json_decode($payload, true);
-        if (!is_array($payloadArray)) {
-            throw new Exception("Invalid payload.");
+        if (!\is_array($payloadArray)) {
+            throw new Exception('Invalid payload.');
         }
 
-        $repository = is_array($payloadArray['repository'] ?? null) ? $payloadArray['repository'] : [];
-        $actor = is_array($payloadArray['actor'] ?? null) ? $payloadArray['actor'] : [];
+        $repository = \is_array($payloadArray['repository'] ?? null) ? $payloadArray['repository'] : [];
+        $actor = \is_array($payloadArray['actor'] ?? null) ? $payloadArray['actor'] : [];
 
         switch ($event) {
             case 'repo:push':
@@ -1512,10 +1505,12 @@ class Bitbucket extends Git
 
                 $events = [];
                 foreach ($changes as $change) {
-                    if (!is_array($change) || !$this->isBranchChange($change)) {
+                    if (!\is_array($change)) {
                         continue;
                     }
-
+                    if (!$this->isBranchChange($change)) {
+                        continue;
+                    }
                     $events[] = $this->parsePushChange($change, $repository, $actor);
                 }
 
@@ -1554,23 +1549,23 @@ class Bitbucket extends Git
      */
     private function parsePushChange(array $change, array $repository, array $actor): array
     {
-        $actorLinks = is_array($actor['links'] ?? null) ? $actor['links'] : [];
+        $actorLinks = \is_array($actor['links'] ?? null) ? $actor['links'] : [];
         $owner = $this->workspaceSlugOf($repository);
         $repositoryUrl = (string) ($repository['links']['html']['href'] ?? '');
 
-        $new = is_array($change['new'] ?? null) ? $change['new'] : [];
-        $old = is_array($change['old'] ?? null) ? $change['old'] : [];
+        $new = \is_array($change['new'] ?? null) ? $change['new'] : [];
+        $old = \is_array($change['old'] ?? null) ? $change['old'] : [];
 
         // A deleted branch is reported as a change with no new state
         $branch = $new['name'] ?? ($old['name'] ?? '');
-        $target = is_array($new['target'] ?? null) ? $new['target'] : [];
-        $author = is_array($target['author'] ?? null) ? $target['author'] : [];
+        $target = \is_array($new['target'] ?? null) ? $new['target'] : [];
+        $author = \is_array($target['author'] ?? null) ? $target['author'] : [];
         $raw = (string) ($author['raw'] ?? '');
 
         $authorName = $this->authorNameOf($author);
 
         $authorEmail = '';
-        if (\preg_match('/<([^>]*)>/', $raw, $matches) === 1) {
+        if (preg_match('/<([^>]*)>/', $raw, $matches) === 1) {
             $authorEmail = $matches[1];
         }
 
@@ -1578,7 +1573,7 @@ class Bitbucket extends Git
             'branchCreated' => ($change['created'] ?? false) === true,
             'branchDeleted' => ($change['closed'] ?? false) === true,
             'branch' => $branch,
-            'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
+            'branchUrl' => $repositoryUrl !== '' && $repositoryUrl !== '0' && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
             'repositoryId' => (string) ($repository['full_name'] ?? ''),
             'repositoryName' => $repository['name'] ?? '',
             'repositoryUrl' => $repositoryUrl,
@@ -1607,13 +1602,13 @@ class Bitbucket extends Git
      */
     private function parsePullRequestEvent(string $event, array $payloadArray, array $repository, array $actor): array
     {
-        $actorLinks = is_array($actor['links'] ?? null) ? $actor['links'] : [];
+        $actorLinks = \is_array($actor['links'] ?? null) ? $actor['links'] : [];
         $owner = $this->workspaceSlugOf($repository);
         $repositoryUrl = (string) ($repository['links']['html']['href'] ?? '');
 
-        $pullRequest = is_array($payloadArray['pullrequest'] ?? null) ? $payloadArray['pullrequest'] : [];
-        $source = is_array($pullRequest['source'] ?? null) ? $pullRequest['source'] : [];
-        $destination = is_array($pullRequest['destination'] ?? null) ? $pullRequest['destination'] : [];
+        $pullRequest = \is_array($payloadArray['pullrequest'] ?? null) ? $payloadArray['pullrequest'] : [];
+        $source = \is_array($pullRequest['source'] ?? null) ? $pullRequest['source'] : [];
+        $destination = \is_array($pullRequest['destination'] ?? null) ? $pullRequest['destination'] : [];
 
         $branch = $source['branch']['name'] ?? '';
         $commitHash = $source['commit']['hash'] ?? '';
@@ -1629,7 +1624,7 @@ class Bitbucket extends Git
 
         return [
             'branch' => $branch,
-            'branchUrl' => !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
+            'branchUrl' => $repositoryUrl !== '' && $repositoryUrl !== '0' && !empty($branch) ? $repositoryUrl . '/branch/' . $branch : '',
             'repositoryId' => (string) ($repository['full_name'] ?? ''),
             'repositoryName' => $repository['name'] ?? '',
             'repositoryUrl' => $repositoryUrl,
@@ -1638,7 +1633,7 @@ class Bitbucket extends Git
             'owner' => $owner,
             'authorUrl' => $actorLinks['html']['href'] ?? '',
             'authorAvatarUrl' => $actorLinks['avatar']['href'] ?? '',
-            'headCommitUrl' => !empty($repositoryUrl) && !empty($commitHash) ? $repositoryUrl . '/commits/' . $commitHash : '',
+            'headCommitUrl' => $repositoryUrl !== '' && $repositoryUrl !== '0' && !empty($commitHash) ? $repositoryUrl . '/commits/' . $commitHash : '',
             'external' => $external,
             'pullRequestNumber' => $pullRequest['id'] ?? '',
             'action' => self::PULL_REQUEST_ACTION_MAP[$event],
@@ -1648,6 +1643,7 @@ class Bitbucket extends Git
     /**
      * Bitbucket prefixes the digest with the algorithm it used, as GitHub does.
      */
+    #[\Override]
     public function validateWebhookEvent(string $payload, string $signature, string $signatureKey): bool
     {
         $expected = 'sha256=' . hash_hmac('sha256', $payload, $signatureKey);

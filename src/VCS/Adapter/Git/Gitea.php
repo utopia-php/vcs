@@ -14,6 +14,12 @@ class Gitea extends Git
 
     public const CONTENTS_DIRECTORY = 'dir';
 
+    /**
+     * Gitea says 'synchronized' for a pushed head where consumers expect
+     * 'synchronize'; every other action passes through as sent.
+     */
+    private const PULL_REQUEST_ACTION_MAP = ['synchronized' => 'synchronize'];
+
     protected string $endpoint = 'http://gitea:3000/api/v1';
 
     protected string $accessToken;
@@ -229,21 +235,6 @@ class Gitea extends Git
             'items' => $pagedRepos,
             'total' => $total,
         ];
-    }
-
-    /**
-     * Get installation repository
-     *
-     * Note: Gitea doesn't have GitHub App installations.
-     * This method is not applicable and throws an exception.
-     *
-     * @param string $repositoryName Name of the repository
-     * @return array<mixed>
-     * @throws Exception Always throws as installations don't exist in Gitea
-     */
-    public function getInstallationRepository(string $repositoryName): array
-    {
-        throw new Exception("getInstallationRepository is not applicable for this adapter - use getRepository() with owner and repo name instead");
     }
 
     public function getRepository(string $owner, string $repositoryName): array
@@ -1206,6 +1197,7 @@ class Gitea extends Git
                 $branchUrl = !empty($repositoryUrl) && !empty($branch) ? $repositoryUrl . "/src/branch/" . $branch : '';
                 $pullRequestNumber = $payload['number'] ?? '';
                 $action = $payload['action'] ?? '';
+                $action = self::PULL_REQUEST_ACTION_MAP[$action] ?? $action;
                 $owner = $payloadRepositoryOwner['login'] ?? '';
                 $authorUrl = $payloadSender['html_url'] ?? '';
                 $authorAvatarUrl = $payloadPullRequestUser['avatar_url'] ?? '';

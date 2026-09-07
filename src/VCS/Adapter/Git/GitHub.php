@@ -122,7 +122,7 @@ class GitHub extends Git
      */
     public function createPullRequest(string $owner, string $repositoryName, string $title, string $head, string $base, string $body = ''): array
     {
-        throw new Exception('Not implemented');
+        throw new Exception('createPullRequest() is not supported by ' . $this->getName());
     }
 
     /**
@@ -698,9 +698,15 @@ class GitHub extends Git
      */
     public function getUser(string $username): array
     {
-        $response = $this->call(self::METHOD_GET, '/users/' . $username);
+        $response = $this->call(self::METHOD_GET, '/users/' . rawurlencode($username), ['Authorization' => "Bearer $this->accessToken"]);
 
-        return $response;
+        $responseHeaders = $response['headers'] ?? [];
+        $statusCode = $responseHeaders['status-code'] ?? 0;
+        if ($statusCode >= 400) {
+            throw new Exception("Failed to get user: HTTP {$statusCode}", $statusCode);
+        }
+
+        return $response['body'] ?? [];
     }
 
     /**
@@ -1454,11 +1460,11 @@ class GitHub extends Git
 
     public function createTag(string $owner, string $repositoryName, string $tagName, string $target, string $message = ''): array
     {
-        throw new Exception('createTag() is not implemented for GitHub');
+        throw new Exception('createTag() is not supported by ' . $this->getName());
     }
 
     public function getCommitStatuses(string $owner, string $repositoryName, string $commitHash): array
     {
-        throw new Exception('getCommitStatuses() is not implemented for GitHub');
+        throw new Exception('getCommitStatuses() is not supported by ' . $this->getName());
     }
 }

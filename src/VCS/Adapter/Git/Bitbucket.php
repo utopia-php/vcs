@@ -335,11 +335,6 @@ class Bitbucket extends Git
         return true;
     }
 
-    public function getInstallationRepository(string $repositoryName): array
-    {
-        throw new Exception("getInstallationRepository is not applicable for this adapter");
-    }
-
     public function searchRepositories(string $owner, int $page, int $per_page, string $search = ''): array
     {
         $url = "/repositories/{$owner}?page={$page}&pagelen={$per_page}";

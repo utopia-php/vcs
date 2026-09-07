@@ -127,6 +127,19 @@ abstract class Git extends Adapter
     }
 
     /**
+     * Get a repository the installation reaches, by name.
+     *
+     * Only GitHub models installations, so the default reports it as
+     * unsupported.
+     *
+     * @return array<mixed>
+     */
+    public function getInstallationRepository(string $repositoryName): array
+    {
+        throw new Exception('getInstallationRepository() is not supported by ' . $this->getName());
+    }
+
+    /**
      * Create a check run for a commit.
      *
      * Only some providers model checks separately from commit statuses, so the

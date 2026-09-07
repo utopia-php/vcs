@@ -8,7 +8,7 @@ use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git\Bitbucket;
 
-class BitbucketTest extends Base
+final class BitbucketTest extends Base
 {
     // Bitbucket routes by "workspace/slug" rather than a numeric id
     protected const EVENT_REPOSITORY_ID = self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
@@ -28,9 +28,25 @@ class BitbucketTest extends Base
     protected static string $pushEventName = 'repo:push';
     protected static string $pullRequestEventName = 'pullrequest:created';
 
+    /**
+     * Bitbucket names the action in the event rather than the payload, and
+     * has no reopen event.
+     *
+     * @var array<string, string>
+     */
+    protected static array $pullRequestActions = [
+        'pullrequest:created' => 'opened',
+        'pullrequest:updated' => 'synchronize',
+        'pullrequest:fulfilled' => 'closed',
+        'pullrequest:rejected' => 'closed',
+    ];
+
     protected static bool $supportsInstallationRepository = false;
-    protected static bool $supportsRepositoryLanguages = false;
     protected static bool $reportsAffectedFilesInPushEvent = false;
+
+    // A repository reports the one language it was labelled with, not the
+    // languages of the files it holds
+    protected static bool $detectsRepositoryLanguages = false;
 
     // Bitbucket has no repository to resolve an owner from; getOwnerName()
     // reports the account the token belongs to
@@ -40,7 +56,7 @@ class BitbucketTest extends Base
     protected static bool $supportsNamespaceListing = false;
 
     // Accounts are looked up by uuid, not by handle
-    protected static bool $supportsUserLookup = false;
+    protected static bool $resolvesUsersByHandle = false;
 
     // Bitbucket Cloud can't reach a local test catcher
     protected static bool $supportsWebhookDelivery = false;
@@ -82,6 +98,7 @@ class BitbucketTest extends Base
      *
      * @param array<string, mixed> $repository
      */
+    #[\Override]
     protected function ownerOf(array $repository): string
     {
         $this->assertArrayHasKey('workspace', $repository);
@@ -91,7 +108,13 @@ class BitbucketTest extends Base
         return (string) $repository['workspace']['slug'];
     }
 
-    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
+    #[\Override]
+    protected function pullRequestEventFor(string $action): string
+    {
+        return $action;
+    }
+
+    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false, array $olderCommits = []): string
     {
         $ref = [
             'type' => 'branch',
@@ -104,6 +127,16 @@ class BitbucketTest extends Base
             ],
         ];
 
+        // The adapter reads the head off new.target, so the commit list is
+        // there to prove the first commit listed is not taken for it
+        $commits = \array_map(fn (string $hash) => [
+            'hash' => $hash,
+            'message' => 'Older commit',
+            'author' => ['raw' => 'Older Author <older@example.com>'],
+            'links' => ['html' => ['href' => self::REPOSITORY_URL . '/commits/' . $hash]],
+        ], $olderCommits);
+        $commits[] = $ref['target'];
+
         // A created branch has no old state and a deleted one no new state. The
         // file lists go unused, Bitbucket naming no files in a push.
         return (string) json_encode([
@@ -115,12 +148,16 @@ class BitbucketTest extends Base
                     'closed' => $deleted,
                     'old' => $created ? null : $ref,
                     'new' => $deleted ? null : $ref,
+                    'commits' => $commits,
                 ]],
             ],
         ]);
     }
 
-    protected function pullRequestPayload(bool $external = false): string
+    /**
+     * The event names the action, so the payload is the same for every one.
+     */
+    protected function pullRequestPayload(bool $external = false, string $action = 'pullrequest:created'): string
     {
         return (string) json_encode([
             'actor' => $this->eventActor(),
@@ -223,24 +260,5 @@ class BitbucketTest extends Base
         ]);
 
         $this->assertSame([], $this->vcsAdapter->getEvents(static::$pushEventName, $tagsOnly));
-    }
-
-    public function testGetEventPullRequestActionMapping(): void
-    {
-        $mapping = [
-            'pullrequest:created' => 'opened',
-            'pullrequest:updated' => 'synchronize',
-            'pullrequest:fulfilled' => 'closed',
-            'pullrequest:rejected' => 'closed',
-        ];
-
-        foreach ($mapping as $event => $action) {
-            $events = $this->vcsAdapter->getEvents($event, $this->pullRequestPayload());
-            $this->assertIsArray($events);
-            $this->assertCount(1, $events);
-            $result = $events[0];
-
-            $this->assertSame($action, $result['action'], "event '{$event}' should map to '{$action}'");
-        }
     }
 }

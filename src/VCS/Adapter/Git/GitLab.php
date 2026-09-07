@@ -181,11 +181,12 @@ class GitLab extends Git
         $projectPath = urlencode("{$ownerPath}/{$repositoryName}");
         $url = "/projects/{$projectPath}";
 
-        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
+        // GitLab redirects the old path of a renamed or deleted project, which no longer names it
+        $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken], [], true, false);
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
-        if ($responseHeadersStatusCode >= 400) {
+        if ($responseHeadersStatusCode !== 200) {
             throw new RepositoryNotFound("Repository not found");
         }
 
@@ -234,11 +235,6 @@ class GitLab extends Git
     public function hasAccessToAllRepositories(): bool
     {
         return true;
-    }
-
-    public function getInstallationRepository(string $repositoryName): array
-    {
-        throw new Exception("getInstallationRepository is not applicable for this adapter");
     }
 
     /**
@@ -353,8 +349,12 @@ class GitLab extends Git
 
         $responseHeaders = $response['headers'] ?? [];
         $responseHeadersStatusCode = $responseHeaders['status-code'] ?? 0;
+        if ($responseHeadersStatusCode === 404) {
+            throw new RepositoryNotFound("Repository {$repositoryId} not found");
+        }
+
         if ($responseHeadersStatusCode >= 400) {
-            throw new Exception("Repository {$repositoryId} not found");
+            throw new Exception("Failed to get repository {$repositoryId}: HTTP {$responseHeadersStatusCode}", $responseHeadersStatusCode);
         }
 
         $responseBody = $response['body'] ?? [];
@@ -688,6 +688,9 @@ class GitLab extends Git
             $response = $this->call(self::METHOD_GET, $url, ['Authorization' => 'Bearer ' . $this->accessToken]);
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
+            if ($statusCode === 404) {
+                throw new RepositoryNotFound("Repository {$repositoryId} not found");
+            }
             if ($statusCode >= 400) {
                 throw new Exception("Failed to get owner name for repository {$repositoryId}: HTTP {$statusCode}", $statusCode);
             }

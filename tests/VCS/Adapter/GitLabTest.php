@@ -8,24 +8,34 @@ use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git\GitLab;
 
-class GitLabTest extends Base
+final class GitLabTest extends Base
 {
     protected static string $accessToken = '';
     protected static string $owner = '';
-    protected static string $defaultBranch = 'main';
     protected static string $openPullRequestState = 'opened';
     protected static string $eventHeader = 'x-gitlab-event';
     protected static string $signatureHeader = 'x-gitlab-token';
     protected static string $pushEventName = 'Push Hook';
     protected static string $pullRequestEventName = 'Merge Request Hook';
 
+    /**
+     * GitLab names merge request actions as verbs, and a merged one is closed.
+     *
+     * @var array<string, string>
+     */
+    protected static array $pullRequestActions = [
+        'open' => 'opened',
+        'reopen' => 'reopened',
+        'update' => 'synchronize',
+        'close' => 'closed',
+        'merge' => 'closed',
+    ];
+
     /** @var array<string> */
     protected static array $pullRequestOpenedActions = ['opened', 'synchronize'];
 
     protected static string $presignedTarballFragment = '/repository/archive.tar.gz?access_token=';
     protected static string $presignedZipballFragment = '/repository/archive.zip?access_token=';
-    protected static string $repositoryNotFoundException = \Exception::class;
-    protected static bool $deletesRepositoriesSynchronously = false;
     protected static bool $supportsCheckRuns = false;
     protected static bool $supportsInstallationRepository = false;
     protected static bool $reportsCommitAuthorAvatar = false;
@@ -72,6 +82,7 @@ class GitLabTest extends Base
     /**
      * GitLab owners are carried as "id:path", but it reports the path alone.
      */
+    #[\Override]
     protected function ownerPath(): string
     {
         return \explode(':', static::$owner)[1] ?? static::$owner;
@@ -82,6 +93,7 @@ class GitLabTest extends Base
      *
      * @param array<string, mixed> $repository
      */
+    #[\Override]
     protected function ownerOf(array $repository): string
     {
         $this->assertArrayHasKey('namespace', $repository);
@@ -96,6 +108,7 @@ class GitLabTest extends Base
      *
      * @param array<string, mixed> $repository
      */
+    #[\Override]
     protected function isPrivate(array $repository): bool
     {
         $this->assertArrayHasKey('visibility', $repository);
@@ -109,6 +122,7 @@ class GitLabTest extends Base
      *
      * @param array<string, mixed> $pullRequest
      */
+    #[\Override]
     protected function pullRequestNumberOf(array $pullRequest): int
     {
         $this->assertArrayHasKey('iid', $pullRequest);
@@ -129,73 +143,17 @@ class GitLabTest extends Base
         }
     }
 
-    public function testGetEventPushMatchesCheckoutSha(): void
-    {
-        $payload = json_encode([
-            'object_kind' => 'push',
-            'ref' => 'refs/heads/main',
-            'checkout_sha' => 'def456',
-            'project' => [
-                'name' => 'test-repo',
-                'namespace' => 'test-org',
-            ],
-            'commits' => [
-                [
-                    'id' => 'abc123',
-                    'message' => 'Older commit',
-                    'url' => 'http://example.com/commit/abc123',
-                    'author' => ['name' => 'Old Author'],
-                ],
-                [
-                    'id' => 'def456',
-                    'message' => 'Head commit',
-                    'url' => 'http://example.com/commit/def456',
-                    'author' => ['name' => 'Head Author'],
-                ],
-            ],
-        ]);
-
-        if ($payload === false) {
-            $this->fail('Failed to encode JSON payload');
-        }
-
-        $events = $this->vcsAdapter->getEvents('Push Hook', $payload);
-        $this->assertIsArray($events);
-        $this->assertCount(1, $events);
-        $result = $events[0];
-
-        $this->assertIsArray($result);
-        $this->assertSame('def456', $result['commitHash']);
-        $this->assertSame('Head Author', $result['headCommitAuthorName']);
-        $this->assertSame('Head commit', $result['headCommitMessage']);
-        $this->assertSame('http://example.com/commit/def456', $result['headCommitUrl']);
-    }
-
-    public function testGetEventPullRequestActionMapping(): void
-    {
-        foreach (['open' => 'opened', 'reopen' => 'reopened', 'update' => 'synchronize', 'close' => 'closed', 'merge' => 'closed'] as $native => $mapped) {
-            $payload = json_encode([
-                'object_kind' => 'merge_request',
-                'project' => ['id' => 1, 'name' => 'r', 'namespace' => 'o', 'web_url' => 'http://example.com/o/r'],
-                'object_attributes' => ['iid' => 1, 'action' => $native, 'source_branch' => 'f', 'target_branch' => 'main'],
-            ]);
-
-            if ($payload === false) {
-                $this->fail('Failed to encode JSON payload');
-            }
-
-            $events = $this->vcsAdapter->getEvents('Merge Request Hook', $payload);
-            $this->assertIsArray($events);
-            $this->assertCount(1, $events);
-            $result = $events[0];
-            $this->assertSame($mapped, $result['action'], "native action '{$native}' should map to '{$mapped}'");
-        }
-    }
-
-    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
+    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false, array $olderCommits = []): string
     {
         $blank = str_repeat('0', 40);
         $repositoryUrl = 'http://example.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
+
+        $olderEntries = \array_map(fn (string $hash) => [
+            'id' => $hash,
+            'message' => 'Older commit',
+            'url' => $repositoryUrl . '/-/commit/' . $hash,
+            'author' => ['name' => 'Older Author', 'email' => 'older@example.com'],
+        ], $olderCommits);
 
         return (string) json_encode([
             'object_kind' => 'push',
@@ -211,7 +169,7 @@ class GitLabTest extends Base
                 'namespace' => self::EVENT_OWNER,
                 'web_url' => $repositoryUrl,
             ],
-            'commits' => $deleted ? [] : [[
+            'commits' => $deleted ? [] : [...$olderEntries, [
                 'id' => self::EVENT_COMMIT_HASH,
                 'message' => self::EVENT_COMMIT_MESSAGE,
                 'url' => $repositoryUrl . '/-/commit/' . self::EVENT_COMMIT_HASH,
@@ -223,7 +181,7 @@ class GitLabTest extends Base
         ]);
     }
 
-    protected function pullRequestPayload(bool $external = false): string
+    protected function pullRequestPayload(bool $external = false, string $action = 'open'): string
     {
         return (string) json_encode([
             'object_kind' => 'merge_request',
@@ -236,8 +194,7 @@ class GitLabTest extends Base
             'object_attributes' => [
                 'iid' => self::EVENT_PULL_REQUEST_NUMBER,
                 'title' => 'Test MR',
-                // GitLab calls it 'open' and normalizes to 'opened'
-                'action' => 'open',
+                'action' => $action,
                 'source_branch' => self::EVENT_HEAD_BRANCH,
                 'target_branch' => static::$defaultBranch,
                 'source_project_id' => $external ? 456 : (int) self::EVENT_REPOSITORY_ID,

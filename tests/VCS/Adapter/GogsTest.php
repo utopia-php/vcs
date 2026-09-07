@@ -7,7 +7,7 @@ use Utopia\Cache\Cache;
 use Utopia\System\System;
 use Utopia\VCS\Adapter\Git\Gogs;
 
-class GogsTest extends GiteaTest
+final class GogsTest extends GiteaTest
 {
     protected static string $accessToken = '';
     protected static string $owner = '';
@@ -22,6 +22,7 @@ class GogsTest extends GiteaTest
     protected static string $eventHeader = 'x-gogs-event';
     protected static string $signatureHeader = 'x-gogs-signature';
 
+    #[\Override]
     protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

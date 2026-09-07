@@ -95,7 +95,13 @@ rather than `getEvent()` — the latter reports only the first event of a batch.
 
 ### Testing with Docker 🛠️
 
-The existing test suite is helpful when developing a new VCS adapter. Use official Docker images from trusted sources. Add new tests for your new VCS adapter in `tests/VCS/Adapter/VCSTest.php` test class. The specific `docker-compose` command for testing can be found in the [README](/README.md#tests).
+Every adapter runs the same suite. `tests/VCS/Base.php` holds the tests, and each adapter's class under `tests/VCS/Adapter/` declares how its provider differs. To test a new adapter:
+
+1. Extend `Utopia\Tests\Base` in `tests/VCS/Adapter/NewGitAdapterTest.php` and implement its hooks: `setupAdapter()` builds the adapter against the provider, `signWebhookPayload()` signs a payload the way the provider does, and `pushPayload()` and `pullRequestPayload()` build webhook payloads shaped the way the provider sends them.
+2. Declare the parts of the contract the provider lacks by overriding the capability flags, such as `$supportsTags` or `$supportsCheckRuns`. The first shared test for each capability then asserts that the adapter refuses with `X() is not supported by <name>`; the tests that need the capability to act on skip.
+3. Keep behaviour only this provider has in the adapter's own test class. Anything two providers share belongs in `Base`, behind a declared flag or hook.
+
+Run the provider from an official Docker image, add a Docker Compose profile and a PHPUnit test suite for it, and run the suite as described in [CONTRIBUTING](/CONTRIBUTING.md#running-tests).
 
 ### Tips and Tricks 💡
 

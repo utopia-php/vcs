@@ -8,19 +8,22 @@ use Utopia\System\System;
 use Utopia\Tests\Base;
 use Utopia\VCS\Adapter\Git\GitHub;
 
-class GitHubTest extends Base
+final class GitHubTest extends Base
 {
     protected static string $owner = '';
-    protected static string $defaultBranch = 'main';
+    protected static string $existingUser = '';
+    protected static string $installationId = '';
     /** @var array<string> */
     protected static array $supportedWebhookScopes = [GitHub::WEBHOOK_SCOPE_INSTALLATION, GitHub::WEBHOOK_SCOPE_REPOSITORY];
 
+    protected static string $userHandleField = 'login';
+    protected static string $eventHeader = 'x-github-event';
+    protected static string $signatureHeader = 'x-hub-signature-256';
     protected static string $avatarDomain = 'githubusercontent.com';
     protected static bool $supportsPullRequestCreation = false;
     protected static bool $supportsNamespaceListing = false;
     protected static bool $supportsCommitStatusLookup = false;
     protected static bool $supportsTags = false;
-    protected static bool $supportsUserLookup = false;
     protected static bool $computesLanguagesAsynchronously = true;
     protected static bool $supportsWebhookDelivery = false;
     protected static bool $resolvesOwnerFromRepositoryId = false;
@@ -30,8 +33,6 @@ class GitHubTest extends Base
     {
         return 'sha256=' . hash_hmac('sha256', $payload, $secret);
     }
-    protected static string $eventHeader = 'x-github-event';
-    protected static string $signatureHeader = 'x-hub-signature-256';
 
     protected function setupAdapter(): void
     {
@@ -56,11 +57,23 @@ class GitHubTest extends Base
             static::$owner = $adapter->getOwnerName(static::$installationId);
         }
 
+        // The account the app is installed on is the one user known to exist
+        static::$existingUser = static::$owner;
+
         $this->vcsAdapter = $adapter;
     }
 
-    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false): string
+    protected function pushPayload(string $branch, array $added = [], array $removed = [], array $modified = [], bool $created = false, bool $deleted = false, array $olderCommits = []): string
     {
+        $repositoryUrl = 'https://github.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME;
+
+        $olderEntries = \array_map(fn (string $hash) => [
+            'id' => $hash,
+            'message' => 'Older commit',
+            'url' => $repositoryUrl . '/commit/' . $hash,
+            'author' => ['name' => 'Older Author', 'email' => 'older@example.com'],
+        ], $olderCommits);
+
         return (string) json_encode([
             'created' => $created,
             'deleted' => $deleted,
@@ -72,17 +85,17 @@ class GitHubTest extends Base
                 'name' => self::EVENT_REPOSITORY_NAME,
                 'full_name' => self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
                 'private' => true,
-                'html_url' => 'https://github.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME,
+                'html_url' => $repositoryUrl,
                 'owner' => ['name' => self::EVENT_OWNER, 'login' => self::EVENT_OWNER],
             ],
             'installation' => ['id' => 1234],
             'head_commit' => [
                 'id' => self::EVENT_COMMIT_HASH,
                 'message' => self::EVENT_COMMIT_MESSAGE,
-                'url' => 'https://github.com/' . self::EVENT_OWNER . '/' . self::EVENT_REPOSITORY_NAME . '/commit/' . self::EVENT_COMMIT_HASH,
+                'url' => $repositoryUrl . '/commit/' . self::EVENT_COMMIT_HASH,
                 'author' => ['name' => self::EVENT_AUTHOR_NAME, 'email' => self::EVENT_AUTHOR_EMAIL],
             ],
-            'commits' => [[
+            'commits' => [...$olderEntries, [
                 'id' => self::EVENT_COMMIT_HASH,
                 'added' => $added,
                 'removed' => $removed,
@@ -95,12 +108,12 @@ class GitHubTest extends Base
         ]);
     }
 
-    protected function pullRequestPayload(bool $external = false): string
+    protected function pullRequestPayload(bool $external = false, string $action = 'opened'): string
     {
         $headOwner = $external ? 'someone-else' : self::EVENT_OWNER;
 
         return (string) json_encode([
-            'action' => 'opened',
+            'action' => $action,
             'number' => self::EVENT_PULL_REQUEST_NUMBER,
             'pull_request' => [
                 'id' => 1303283688,
@@ -188,7 +201,7 @@ class GitHubTest extends Base
             $noMatch = $adapter->listBranches(static::$owner, $repositoryName, 100, 1, 'xyz');
             $this->assertEmpty($noMatch);
         } finally {
-            $this->vcsAdapter->deleteRepository(static::$owner, $repositoryName);
+            $this->discardRepositories($repositoryName);
         }
     }
 }

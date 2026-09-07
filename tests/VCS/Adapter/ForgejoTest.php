@@ -7,7 +7,7 @@ use Utopia\Cache\Cache;
 use Utopia\System\System;
 use Utopia\VCS\Adapter\Git\Forgejo;
 
-class ForgejoTest extends GiteaTest
+final class ForgejoTest extends GiteaTest
 {
     protected static string $accessToken = '';
 
@@ -16,6 +16,10 @@ class ForgejoTest extends GiteaTest
     protected static string $eventHeader = 'x-forgejo-event';
     protected static string $signatureHeader = 'x-forgejo-signature';
 
+    // Forgejo's API user carries html_url, which Gitea 1.21's does not
+    protected static bool $reportsCommitAuthorUrl = true;
+
+    #[\Override]
     protected function setupAdapter(): void
     {
         if (empty(static::$accessToken)) {

@@ -256,25 +256,27 @@ class GitHub extends Git
             $responseHeaders = $response['headers'] ?? [];
             $statusCode = $responseHeaders['status-code'] ?? 0;
 
-            // The search API rejects a query naming an owner that does not exist,
-            // which is a missing owner rather than a failure worth reporting.
-            if ($statusCode === 422) {
+            if ($statusCode !== 422) {
+                if ($statusCode >= 400) {
+                    throw new Exception("Failed to search repositories: HTTP {$statusCode}", $statusCode);
+                }
+
+                $responseBody = $response['body'] ?? [];
+
+                return [
+                    'items' => $responseBody['items'] ?? [],
+                    'total' => $responseBody['total_count'] ?? 0,
+                ];
+            }
+
+            // Private profiles cannot be searched, but their installation can
+            // still list repositories. Keep unknown owners returning no results.
+            if (strcasecmp($owner, $this->getOwnerName($this->installationId)) !== 0) {
                 return ['items' => [], 'total' => 0];
             }
-
-            if ($statusCode >= 400) {
-                throw new Exception("Failed to search repositories: HTTP {$statusCode}", $statusCode);
-            }
-
-            $responseBody = $response['body'] ?? [];
-
-            return [
-                'items' => $responseBody['items'] ?? [],
-                'total' => $responseBody['total_count'] ?? 0,
-            ];
         }
 
-        // Installation has access to specific repositories, we need to perform client-side filtering.
+        // Restricted installations and unsearchable owners use the installation API.
         $url = '/installation/repositories';
         $repositories = [];
 

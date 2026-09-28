@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Utopia\Tests\E2E;
+namespace Utopia\VCS\Tests\E2E;
 
 use Utopia\Cache\Adapter\None;
 use Utopia\Cache\Cache;
@@ -39,8 +39,9 @@ final class BitbucketTest extends Base
 
     protected function setupAdapter(): void
     {
+        self::$accessToken = System::getEnv('TESTS_BITBUCKET_ACCESS_TOKEN') ?? '';
+
         if (self::$accessToken === '' || self::$accessToken === '0') {
-            self::$accessToken = System::getEnv('TESTS_BITBUCKET_ACCESS_TOKEN') ?? '';
             $this->markTestSkipped('Bitbucket access token not configured');
         }
 
